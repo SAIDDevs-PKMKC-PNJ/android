@@ -1,0 +1,36 @@
+# IDE
+*.iml
+.idea/
+.DS_Store
+
+# Gradle
+.gradle/
+build/
+*/build/
+local.properties
+
+# Android Studio
+captures/
+.externalNativeBuild/
+.cxx/
+
+# IntelliJ
+.idea/caches
+.idea/libraries
+.idea/modules.xml
+.idea/workspace.xml
+.idea/navEditor.xml
+.idea/assetWizardSettings.xml
+
+# Output
+*.apk
+*.ap_
+*.log
+*.tmp
+
+# Keystore (security)
+*.jks
+*.keystore
+
+# Google Services (API keys, Firebase)
+google-services.json

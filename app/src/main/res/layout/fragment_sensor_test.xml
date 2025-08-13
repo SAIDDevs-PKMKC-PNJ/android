@@ -1,0 +1,38 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="32dp"
+    android:gravity="center">
+    <TextView
+        android:id="@+id/tvInstruction"
+        android:text="Instruksi Tes Sensor"
+        android:textSize="18sp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="32dp"/>
+    <Button
+        android:id="@+id/btnStartSensorTest"
+        android:text="Mulai Tes Sensor"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="24dp"/>
+    <Button
+        android:id="@+id/btnConfirmSensor"
+        android:text="Konfirmasi dan Lanjut"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"/>
+    <Button
+        android:id="@+id/btnRetrySensor"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Ulangi Tes"
+        android:visibility="gone"/>
+    <Button
+        android:id="@+id/btnSkipSensor"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Lanjutkan (Gerakan tidak terbaca)"
+        android:visibility="gone"/>
+</LinearLayout>

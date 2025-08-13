@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/mobile_navigation"
+    app:startDestination="@+id/navigation_home">
+
+    <fragment
+        android:id="@+id/navigation_home"
+        android:name="com.pkm.said.HomeFragment"
+        android:label="@string/home_fragment_label"
+        tools:layout="@layout/fragment_home">
+
+        <!-- Actions untuk navigasi dari Home -->
+        <action
+            android:id="@+id/action_home_to_news"
+            app:destination="@id/navigation_news"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right" />
+
+        <action
+            android:id="@+id/action_home_to_chatbot"
+            app:destination="@id/navigation_chatbot"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/navigation_chatbot"
+        android:name="com.pkm.said.ChatbotFragment"
+        android:label="@string/chat_fragment_label"
+        tools:layout="@layout/fragment_chatbot">
+
+        <!-- Actions untuk navigasi dari Chatbot -->
+        <action
+            android:id="@+id/action_chatbot_to_home"
+            app:destination="@id/navigation_home"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right" />
+
+        <action
+            android:id="@+id/action_chatbot_to_news"
+            app:destination="@id/navigation_news"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/navigation_news"
+        android:name="com.pkm.said.NewsFragment"
+        android:label="@string/news_fragment_label"
+        tools:layout="@layout/fragment_news">
+
+        <!-- Actions untuk navigasi dari News -->
+        <action
+            android:id="@+id/action_news_to_home"
+            app:destination="@id/navigation_home"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right" />
+
+        <action
+            android:id="@+id/action_news_to_chatbot"
+            app:destination="@id/navigation_chatbot"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right" />
+
+        <!-- Action untuk navigasi ke detail artikel -->
+<!--        <action-->
+<!--            android:id="@+id/action_news_to_article_detail"-->
+<!--            app:destination="@id/navigation_article_detail"-->
+<!--            app:enterAnim="@android:anim/slide_in_left"-->
+<!--            app:exitAnim="@android:anim/slide_out_right" />-->
+    </fragment>
+
+    <!-- Fragment tambahan untuk detail artikel -->
+<!--    <fragment-->
+<!--        android:id="@+id/navigation_article_detail"-->
+<!--        android:name="com.pkm.said.ui.news.ArticleDetailFragment"-->
+<!--        android:label="@string/title_article_detail"-->
+<!--        tools:layout="@layout/fragment_article_detail">-->
+
+<!--        &lt;!&ndash; Argument untuk menerima data artikel &ndash;&gt;-->
+<!--        <argument-->
+<!--            android:name="articleId"-->
+<!--            app:argType="string"-->
+<!--            app:nullable="false" />-->
+
+<!--        <argument-->
+<!--            android:name="articleTitle"-->
+<!--            app:argType="string"-->
+<!--            app:nullable="true" />-->
+<!--    </fragment>-->
+
+</navigation>

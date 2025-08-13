@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_screening"
+    app:startDestination="@id/sensorTestFragment">
+
+    <!-- SENSOR TEST -->
+    <fragment
+        android:id="@+id/sensorTestFragment"
+        android:name="com.pkm.said.screening.SensorTestFragment"
+        android:label="Tes Sensor"
+        tools:layout="@layout/fragment_sensor_test">
+        <action
+            android:id="@+id/action_sensor_to_camera"
+            app:destination="@id/cameraTestFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"/>
+    </fragment>
+
+    <!-- CAMERA TEST -->
+    <fragment
+        android:id="@+id/cameraTestFragment"
+        android:name="com.pkm.said.screening.CameraTestFragment"
+        android:label="Tes Kamera"
+        tools:layout="@layout/fragment_camera_test">
+        <action
+            android:id="@+id/action_camera_to_mic"
+            app:destination="@id/micTestFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"/>
+    </fragment>
+
+    <!-- MIC TEST -->
+    <fragment
+        android:id="@+id/micTestFragment"
+        android:name="com.pkm.said.screening.MicTestFragment"
+        android:label="Tes Mic"
+        tools:layout="@layout/fragment_mic_test">
+        <action
+            android:id="@+id/action_mic_to_result"
+            app:destination="@id/screeningResultFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"/>
+    </fragment>
+
+    <!-- SCREENING RESULT -->
+    <fragment
+        android:id="@+id/screeningResultFragment"
+        android:name="com.pkm.said.screening.ScreeningResultFragment"
+        android:label="Hasil Screening"
+        tools:layout="@layout/fragment_screening_result"/>
+</navigation>

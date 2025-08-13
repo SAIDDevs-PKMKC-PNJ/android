@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/introScreen"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/white"
+    tools:context=".IntroActivity">
+
+    <!-- ✅ VIEWPAGER: Main content area -->
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/viewPagerIntro"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@+id/bottom_navigation_container"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- ✅ BOTTOM CONTAINER: Navigation controls -->
+    <LinearLayout
+        android:id="@+id/bottom_navigation_container"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="32dp"
+        android:paddingEnd="32dp"
+        android:paddingTop="24dp"
+        android:paddingBottom="40dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- ✅ PREVIOUS BUTTON: Left side -->
+        <TextView
+            android:id="@+id/btnPrevious"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Sebelum"
+            android:textColor="@color/GrayLight"
+            android:textSize="16sp"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="12dp"
+            android:fontFamily="sans-serif"
+            android:visibility="invisible" />
+
+        <!-- ✅ SPACER: Push tab indicator to center -->
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <!-- ✅ TAB INDICATOR: Center position -->
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/tabLayoutIndicator"
+            android:layout_width="wrap_content"
+            android:layout_height="16dp"
+            app:tabBackground="@drawable/tab_selector"
+            app:tabGravity="center"
+            app:tabIndicatorHeight="0dp"
+            app:tabMaxWidth="32dp"
+            app:tabMinWidth="16dp"
+            app:tabMode="fixed"
+            app:tabPaddingStart="8dp"
+            app:tabPaddingEnd="8dp"
+            app:tabPaddingTop="2dp"
+            app:tabPaddingBottom="2dp" />
+
+        <!-- ✅ SPACER: Push next button to right -->
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <!-- ✅ NEXT BUTTON: Right side -->
+        <TextView
+            android:id="@+id/btnNext"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Lanjut"
+            android:textColor="@color/lightBlue"
+            android:textSize="16sp"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="12dp"
+            android:fontFamily="sans-serif" />
+
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

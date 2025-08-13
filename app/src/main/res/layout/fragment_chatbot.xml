@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/material_dynamic_primary90">
+
+    <!-- CUSTOM HEADER: Top Navigation with Back Button -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/custom_header_card"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:cardElevation="16dp"
+        app:cardCornerRadius="0dp"
+        app:cardBackgroundColor="@color/white">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="20dp"
+            android:gravity="center_vertical">
+
+                <ImageView
+                    android:id="@+id/btn_back"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_gravity="center"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:padding="4dp"
+                    android:src="@drawable/ic_arrow_back"
+                    android:contentDescription="Back to previous screen"
+                    app:tint="@color/material_dynamic_primary40" />
+
+            <!-- ✅ TITLE AND STATUS SECTION -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="16dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tv_header_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Said Bot"
+                    android:textColor="@android:color/black"
+                    android:textSize="20sp"
+                    android:fontFamily="sans-serif-medium" />
+            </LinearLayout>
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- BACKGROUND LAYER: Full Chat Messages Area -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rv_messages"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="80dp"
+        android:clipToPadding="false"
+        android:paddingTop="140dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="180dp"
+        tools:listitem="@layout/item_message_bot" />
+
+    <!-- FLOATING OVERLAY 1: Suggestion Chips - Top -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="80dp"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="12dp"
+        app:cardBackgroundColor="@android:color/white"
+        android:alpha="0.90">
+
+        <LinearLayout
+            android:id="@+id/suggestion_chips_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- First row of suggestion chips -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:orientation="horizontal">
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_stroke"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:layout_weight="1"
+                    android:text="Apa itu stroke?"
+                    android:textColor="@color/material_dynamic_neutral20"
+                    android:textSize="12sp"
+                    app:chipBackgroundColor="@color/material_dynamic_neutral95"
+                    app:chipCornerRadius="16dp"
+                    app:chipStrokeWidth="1dp"
+                    app:chipStrokeColor="@color/material_dynamic_neutral80" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_penyebab"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:layout_weight="1"
+                    android:text="Penyebab stroke?"
+                    android:textColor="@color/material_dynamic_neutral20"
+                    android:textSize="12sp"
+                    app:chipBackgroundColor="@color/material_dynamic_neutral95"
+                    app:chipCornerRadius="16dp"
+                    app:chipStrokeWidth="1dp"
+                    app:chipStrokeColor="@color/material_dynamic_neutral80" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_deteksi"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Metode deteksi?"
+                    android:textColor="@color/material_dynamic_neutral20"
+                    android:textSize="12sp"
+                    app:chipBackgroundColor="@color/material_dynamic_neutral95"
+                    app:chipCornerRadius="16dp"
+                    app:chipStrokeWidth="1dp"
+                    app:chipStrokeColor="@color/material_dynamic_neutral80" />
+
+            </LinearLayout>
+
+            <!-- Second row of suggestion chips -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_gejala1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:layout_weight="1"
+                    android:text="Gejala stroke?"
+                    android:textColor="@color/material_dynamic_neutral20"
+                    android:textSize="12sp"
+                    app:chipBackgroundColor="@color/material_dynamic_neutral95"
+                    app:chipCornerRadius="16dp"
+                    app:chipStrokeWidth="1dp"
+                    app:chipStrokeColor="@color/material_dynamic_neutral80" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_gejala2"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:layout_weight="1"
+                    android:text="Pengobatan?"
+                    android:textColor="@color/material_dynamic_neutral20"
+                    android:textSize="12sp"
+                    app:chipBackgroundColor="@color/material_dynamic_neutral95"
+                    app:chipCornerRadius="16dp"
+                    app:chipStrokeWidth="1dp"
+                    app:chipStrokeColor="@color/material_dynamic_neutral80" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_gejala3"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Pencegahan?"
+                    android:textColor="@color/material_dynamic_neutral20"
+                    android:textSize="12sp"
+                    app:chipBackgroundColor="@color/material_dynamic_neutral95"
+                    app:chipCornerRadius="16dp"
+                    app:chipStrokeWidth="1dp"
+                    app:chipStrokeColor="@color/material_dynamic_neutral80" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- FLOATING OVERLAY 2: Input Container - Bottom -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="120dp"
+        app:cardCornerRadius="24dp"
+        app:cardElevation="16dp"
+        app:cardBackgroundColor="@android:color/white"
+        android:alpha="0.98">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="12dp">
+
+            <EditText
+                android:id="@+id/et_message"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="@null"
+                android:hint="Type your message..."
+                android:textColorHint="@color/material_dynamic_neutral50"
+                android:maxLines="3"
+                android:padding="12dp"
+                android:textColor="@color/black"
+                android:textSize="14sp"
+                android:inputType="textMultiLine|textCapSentences" />
+
+            <ImageView
+                android:id="@+id/btn_voice"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="6dp"
+                android:src="@drawable/ic_mic"
+                android:contentDescription="Voice input" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:cardCornerRadius="20dp"
+                app:cardBackgroundColor="@color/material_dynamic_primary40">
+
+                <ImageView
+                    android:id="@+id/btn_send"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:padding="8dp"
+                    android:src="@drawable/ic_send"
+                    android:contentDescription="Send message"
+                    app:tint="@android:color/white" />
+
+            </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+</FrameLayout>
