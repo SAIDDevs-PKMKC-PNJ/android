@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/root_fragment_layout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/gradient_background">
+
+    <!-- CUSTOM HEADER dengan warna teal -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/custom_header_card"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        app:cardElevation="8dp"
+        app:cardCornerRadius="0dp"
+        app:cardBackgroundColor="@color/BluePrimary">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="20dp"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:id="@+id/btn_back"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_gravity="center"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="4dp"
+                android:src="@drawable/ic_arrow_back"
+                android:contentDescription="Back to previous screen"
+                app:tint="@color/white" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="16dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tv_header_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Said Bot"
+                    android:textColor="@color/white"
+                    android:textSize="20sp"
+                    android:fontFamily="sans-serif-medium" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Asisten AI untuk informasi stroke"
+                    android:textColor="@color/white_alpha_80"
+                    android:textSize="12sp"
+                    android:layout_marginTop="2dp" />
+            </LinearLayout>
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Suggestion Chips dengan warna yang lebih soft -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/suggestion_card"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/custom_header_card"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="8dp"
+        app:strokeColor="@android:color/transparent"
+        app:cardCornerRadius="16dp"
+        app:cardBackgroundColor="@android:color/transparent">
+
+        <LinearLayout
+            android:id="@+id/suggestion_chips_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:paddingLeft="16dp"
+            android:paddingRight="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:orientation="horizontal">
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_stroke"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:layout_weight="1"
+                    android:text="Apa itu stroke?"
+                    android:textColor="@color/black"
+                    android:textSize="12sp"
+                    app:chipBackgroundColor="@color/white"
+                    app:chipCornerRadius="16dp"
+                    app:chipStrokeWidth="1dp"
+                    app:chipStrokeColor="@color/lightBlue_alpha_40" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_penyebab"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:layout_weight="1"
+                    android:text="Penyebab stroke?"
+                    android:textColor="@color/black"
+                    android:textSize="12sp"
+                    app:chipBackgroundColor="@color/white"
+                    app:chipCornerRadius="16dp"
+                    app:chipStrokeWidth="1dp"
+                    app:chipStrokeColor="@color/lightBlue_alpha_40" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_deteksi"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Metode deteksi?"
+                    android:textColor="@color/black"
+                    android:textSize="12sp"
+                    app:chipBackgroundColor="@color/white"
+                    app:chipCornerRadius="16dp"
+                    app:chipStrokeWidth="1dp"
+                    app:chipStrokeColor="@color/lightBlue_alpha_40" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_gejala1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:layout_weight="1"
+                    android:text="Gejala stroke?"
+                    android:textColor="@color/black"
+                    android:textSize="12sp"
+                    app:chipBackgroundColor="@color/white"
+                    app:chipCornerRadius="16dp"
+                    app:chipStrokeWidth="1dp"
+                    app:chipStrokeColor="@color/lightBlue_alpha_40" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_gejala2"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:layout_weight="1"
+                    android:text="Pengobatan?"
+                    android:textColor="@color/black"
+                    android:textSize="12sp"
+                    app:chipBackgroundColor="@color/white"
+                    app:chipCornerRadius="16dp"
+                    app:chipStrokeWidth="1dp"
+                    app:chipStrokeColor="@color/lightBlue_alpha_40" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_gejala3"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Pencegahan?"
+                    android:textColor="@color/black"
+                    android:textSize="12sp"
+                    app:chipBackgroundColor="@color/white"
+                    app:chipCornerRadius="16dp"
+                    app:chipStrokeWidth="1dp"
+                    app:chipStrokeColor="@color/lightBlue_alpha_40" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- RecyclerView untuk chat messages -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rv_messages"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/suggestion_card"
+        android:layout_above="@id/input_container"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp"
+        android:clipToPadding="false"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        tools:listitem="@layout/item_message_bot" />
+
+    <!-- Input Container yang responsive terhadap keyboard -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/input_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="20dp"
+        app:cardCornerRadius="28dp"
+        app:cardElevation="8dp"
+        app:cardBackgroundColor="@color/white">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="8dp">
+
+            <EditText
+                android:id="@+id/et_message"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="@null"
+                android:hint="Ketik pesan Anda..."
+                android:textColorHint="@color/GrayLight"
+                android:maxLines="4"
+                android:minLines="1"
+                android:padding="16dp"
+                android:textColor="@color/black"
+                android:textSize="16sp"
+                android:inputType="textMultiLine|textCapSentences"
+                android:scrollbars="vertical"
+                android:scrollbarStyle="insideInset" />
+
+            <ImageView
+                android:id="@+id/btn_voice"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="4dp"
+                android:src="@drawable/ic_mic"
+                android:contentDescription="Voice input"
+                app:tint="@color/GrayLight" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:cardCornerRadius="24dp"
+                app:strokeColor="@color/GrayLight"
+                app:strokeWidth="2dp"
+                app:cardBackgroundColor="@color/white">
+
+                <ImageView
+                    android:id="@+id/btn_send"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:padding="8dp"
+                    android:src="@drawable/ic_send"
+                    android:contentDescription="Send message"
+                    app:tint="@color/GrayLight" />
+
+            </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+</RelativeLayout>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Background circle -->
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="@color/white_alpha_30" />
+        </shape>
+    </item>
+
+    <!-- Progress ring placeholder -->
+    <item>
+        <shape android:shape="ring"
+            android:innerRadius="35dp"
+            android:thickness="4dp"
+            android:useLevel="false">
+            <solid android:color="@color/white_alpha_50" />
+        </shape>
+    </item>
+
+    <!-- Main content area -->
+    <item
+        android:top="6dp"
+        android:bottom="6dp"
+        android:left="6dp"
+        android:right="6dp">
+        <shape android:shape="oval">
+            <solid android:color="@color/lightBlue_alpha_80" />
+        </shape>
+    </item>
+
+</layer-list>

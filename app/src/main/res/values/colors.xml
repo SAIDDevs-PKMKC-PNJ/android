@@ -1,9 +1,131 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Original Colors -->
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="lightBlue">#6DC3D6</color>
-    <color name="BluePrimary">#675DFF</color>
-    <color name="GrayLight">#DDDDDD</color>
+    <color name="lightBlue">#45B3CB</color>
+    <color name="GrayLight">#8C8C8C</color>
     <color name="background">#C0E5ED</color>
+    <color name="warning_color">#FF5722</color>
+    <color name="success_color">#4CAF50</color>
+    <color name="BluePrimary">#0D1C31</color>
+    <color name="secondPrimary">#1F3044</color>
+
+    <!-- White Alpha Variations -->
+    <color name="white_alpha_90">#E6FFFFFF</color>
+    <color name="white_alpha_80">#CCFFFFFF</color>
+    <color name="white_alpha_70">#B3FFFFFF</color>
+    <color name="white_alpha_60">#99FFFFFF</color>
+    <color name="white_alpha_50">#80FFFFFF</color>
+    <color name="white_alpha_40">#66FFFFFF</color>
+    <color name="white_alpha_30">#4DFFFFFF</color>
+    <color name="white_alpha_20">#33FFFFFF</color>
+    <color name="white_alpha_10">#1AFFFFFF</color>
+
+    <!-- Black Alpha Variations -->
+    <color name="black_alpha_90">#E6000000</color>
+    <color name="black_alpha_80">#CC000000</color>
+    <color name="black_alpha_70">#B3000000</color>
+    <color name="black_alpha_60">#99000000</color>
+    <color name="black_alpha_50">#80000000</color>
+    <color name="black_alpha_40">#66000000</color>
+    <color name="black_alpha_30">#4D000000</color>
+    <color name="black_alpha_20">#33000000</color>
+    <color name="black_alpha_10">#1A000000</color>
+
+    <!-- Light Blue Alpha Variations (#45B3CB) -->
+    <color name="lightBlue_alpha_90">#E645B3CB</color>
+    <color name="lightBlue_alpha_80">#CC45B3CB</color>
+    <color name="lightBlue_alpha_70">#B345B3CB</color>
+    <color name="lightBlue_alpha_60">#9945B3CB</color>
+    <color name="lightBlue_alpha_50">#8045B3CB</color>
+    <color name="lightBlue_alpha_40">#6645B3CB</color>
+    <color name="lightBlue_alpha_30">#4D45B3CB</color>
+    <color name="lightBlue_alpha_20">#3345B3CB</color>
+    <color name="lightBlue_alpha_10">#1A45B3CB</color>
+
+    <!-- Blue Primary Alpha Variations (#0D1C31) -->
+    <color name="BluePrimary_alpha_90">#E60D1C31</color>
+    <color name="BluePrimary_alpha_80">#CC0D1C31</color>
+    <color name="BluePrimary_alpha_70">#B30D1C31</color>
+    <color name="BluePrimary_alpha_60">#990D1C31</color>
+    <color name="BluePrimary_alpha_50">#800D1C31</color>
+    <color name="BluePrimary_alpha_40">#660D1C31</color>
+    <color name="BluePrimary_alpha_30">#4D0D1C31</color>
+    <color name="BluePrimary_alpha_20">#330D1C31</color>
+    <color name="BluePrimary_alpha_10">#1A0D1C31</color>
+
+    <!-- Gray Light Alpha Variations (#DDDDDD) -->
+    <color name="GrayLight_alpha_90">#E6DDDDDD</color>
+    <color name="GrayLight_alpha_80">#CCDDDDDD</color>
+    <color name="GrayLight_alpha_70">#B3DDDDDD</color>
+    <color name="GrayLight_alpha_60">#99DDDDDD</color>
+    <color name="GrayLight_alpha_50">#80DDDDDD</color>
+    <color name="GrayLight_alpha_40">#66DDDDDD</color>
+    <color name="GrayLight_alpha_30">#4DDDDDDD</color>
+    <color name="GrayLight_alpha_20">#33DDDDDD</color>
+    <color name="GrayLight_alpha_10">#1ADDDDDD</color>
+
+    <!-- Background Alpha Variations (#C0E5ED) -->
+    <color name="background_alpha_90">#E6C0E5ED</color>
+    <color name="background_alpha_80">#CCC0E5ED</color>
+    <color name="background_alpha_70">#B3C0E5ED</color>
+    <color name="background_alpha_60">#99C0E5ED</color>
+    <color name="background_alpha_50">#80C0E5ED</color>
+    <color name="background_alpha_40">#66C0E5ED</color>
+    <color name="background_alpha_30">#4DC0E5ED</color>
+    <color name="background_alpha_20">#33C0E5ED</color>
+    <color name="background_alpha_10">#1AC0E5ED</color>
+
+    <!-- Warning Color Alpha Variations (#FF5722) -->
+    <color name="warning_alpha_90">#E6FF5722</color>
+    <color name="warning_alpha_80">#CCFF5722</color>
+    <color name="warning_alpha_70">#B3FF5722</color>
+    <color name="warning_alpha_60">#99FF5722</color>
+    <color name="warning_alpha_50">#80FF5722</color>
+    <color name="warning_alpha_40">#66FF5722</color>
+    <color name="warning_alpha_30">#4DFF5722</color>
+    <color name="warning_alpha_20">#33FF5722</color>
+    <color name="warning_alpha_10">#1AFF5722</color>
+
+    <!-- Success Color Alpha Variations (#4CAF50) -->
+    <color name="success_alpha_90">#E64CAF50</color>
+    <color name="success_alpha_80">#CC4CAF50</color>
+    <color name="success_alpha_70">#B34CAF50</color>
+    <color name="success_alpha_60">#994CAF50</color>
+    <color name="success_alpha_50">#804CAF50</color>
+    <color name="success_alpha_40">#664CAF50</color>
+    <color name="success_alpha_30">#4D4CAF50</color>
+    <color name="success_alpha_20">#334CAF50</color>
+    <color name="success_alpha_10">#1A4CAF50</color>
+
+    <!-- Risk Level Background Colors -->
+    <color name="risk_low_bg">#E8F5E8</color>
+    <color name="risk_medium_bg">#FFF3E0</color>
+    <color name="risk_high_bg">#FFEBEE</color>
+    <color name="risk_critical_bg">#FFCDD2</color>
+    <color name="risk_unknown_bg">#F5F5F5</color>
+
+    <!-- Risk Level Text Colors -->
+    <color name="risk_low_text">#2E7D32</color>
+    <color name="risk_medium_text">#F57C00</color>
+    <color name="risk_high_text">#D32F2F</color>
+    <color name="risk_critical_text">#B71C1C</color>
+    <color name="risk_unknown_text">#757575</color>
+
+    <!-- Status Colors for Test Results -->
+    <color name="success">#4CAF50</color>
+    <color name="success_light">#C8E6C9</color>
+    <color name="error">#F44336</color>
+    <color name="error_light">#FFCDD2</color>
+    <color name="warning">#FF9800</color>
+    <color name="warning_light">#FFE0B2</color>
+    <color name="info">#2196F3</color>
+    <color name="info_light">#BBDEFB</color>
+
+    <!-- Test Result Status Colors -->
+    <color name="test_normal">#4CAF50</color>
+    <color name="test_abnormal">#F44336</color>
+    <color name="test_skipped">#9E9E9E</color>
+    <color name="test_incomplete">#FF9800</color>
 </resources>

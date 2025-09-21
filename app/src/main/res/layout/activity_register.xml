@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp"
+        android:gravity="center_horizontal">
+
+        <!-- Top Spacer for centering -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <!-- Logo - Heart with Medical Cross -->
+        <FrameLayout
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:layout_marginTop="64dp"
+            android:layout_marginBottom="8dp">
+
+            <!-- Heart Background -->
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/icon_foreground"
+                android:contentDescription="@string/app_logo" />
+
+        </FrameLayout>
+
+        <!-- Sign in Title -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
+            android:text="Daftar"
+            android:textColor="@color/black"
+            android:textSize="32sp"
+            android:textStyle="bold" />
+
+        <!-- Full Name Input with Icon -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="32dp"
+            app:boxBackgroundMode="outline"
+            app:boxStrokeColor="@color/BluePrimary"
+            app:boxStrokeWidth="2dp"
+            app:boxCornerRadiusBottomEnd="20dp"
+            app:boxCornerRadiusBottomStart="20dp"
+            app:boxCornerRadiusTopEnd="20dp"
+            app:boxCornerRadiusTopStart="20dp"
+            app:startIconTint="@color/GrayLight"
+            app:hintTextColor="@color/GrayLight"
+            app:startIconDrawable="@drawable/ic_person">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/fullNameEditText"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:hint="Nama Lengkap"
+                android:inputType="textPersonName"
+                android:textSize="16sp"
+                android:textColor="@color/black"
+                android:textColorHint="@color/GrayLight"/>
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Email Input with Icon -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="32dp"
+            app:boxBackgroundMode="outline"
+            app:boxStrokeColor="@color/BluePrimary"
+            app:boxStrokeWidth="2dp"
+            app:boxCornerRadiusBottomEnd="20dp"
+            app:boxCornerRadiusBottomStart="20dp"
+            app:boxCornerRadiusTopEnd="20dp"
+            app:boxCornerRadiusTopStart="20dp"
+            app:startIconTint="@color/GrayLight"
+            app:hintTextColor="@color/GrayLight"
+            app:startIconDrawable="@drawable/ic_email_24">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/emailEditText"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:hint="Email"
+                android:inputType="textEmailAddress"
+                android:textColor="@color/black"
+                android:textColorHint="@color/GrayLight"
+                android:textSize="16sp" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Password Input with Icon -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="32dp"
+            app:boxBackgroundMode="outline"
+            app:boxStrokeColor="@color/BluePrimary"
+            app:boxStrokeWidth="2dp"
+            app:boxCornerRadiusBottomEnd="20dp"
+            app:boxCornerRadiusBottomStart="20dp"
+            app:boxCornerRadiusTopEnd="20dp"
+            app:boxCornerRadiusTopStart="20dp"
+            app:startIconTint="@color/GrayLight"
+            app:hintTextColor="@color/GrayLight"
+            app:startIconDrawable="@drawable/ic_lock_24"
+            app:endIconMode="password_toggle"
+            app:endIconTint="@color/GrayLight">
+
+            <EditText
+                android:id="@+id/passwordEditText"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:hint="Password"
+                android:inputType="textPassword"
+                android:textColor="@color/black"
+                android:textColorHint="@color/GrayLight"
+                android:textSize="16sp" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Confirm Password Input with Icon -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="32dp"
+            app:boxBackgroundMode="outline"
+            app:boxStrokeColor="@color/BluePrimary"
+            app:boxStrokeWidth="2dp"
+            app:boxCornerRadiusBottomEnd="20dp"
+            app:boxCornerRadiusBottomStart="20dp"
+            app:boxCornerRadiusTopEnd="20dp"
+            app:boxCornerRadiusTopStart="20dp"
+            app:startIconTint="@color/GrayLight"
+            app:hintTextColor="@color/GrayLight"
+            app:startIconDrawable="@drawable/ic_lock_24"
+            app:endIconMode="password_toggle"
+            app:endIconTint="@color/GrayLight">
+
+            <EditText
+                android:id="@+id/confirmPasswordEditText"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:hint="Confirm Password"
+                android:inputType="textPassword"
+                android:textSize="16sp"
+                android:textColor="@color/black"
+                android:textColorHint="@color/GrayLight"/>
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Sign in Button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/registerButton"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="Daftar"
+            android:textSize="18sp"
+            android:textColor="@color/white"
+            android:textStyle="bold"
+            android:backgroundTint="@color/BluePrimary"
+            app:cornerRadius="28dp"
+            android:layout_marginBottom="24dp"
+            app:elevation="4dp" />
+
+        <!-- Or sign in With Text -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Atau Daftar Dengan"
+            android:textSize="16sp"
+            android:textColor="@color/black"
+            android:layout_marginBottom="24dp" />
+
+        <!-- Social Login Buttons -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="24dp"
+            android:gravity="center">
+
+            <!-- Google Login -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/googleSignInButton"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:layout_marginEnd="16dp"
+                android:backgroundTint="@color/white"
+                app:strokeColor="@color/GrayLight"
+                app:strokeWidth="1dp"
+                app:cornerRadius="32dp"
+                app:icon="@drawable/ic_google"
+                app:iconSize="32dp"
+                app:iconTint="@null"
+                app:iconGravity="textTop"
+                app:elevation="2dp"
+                style="@style/Widget.Material3.Button.OutlinedButton" />
+
+            <!-- Facebook Login -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/facebookSignInButton"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:layout_marginEnd="16dp"
+                android:backgroundTint="@color/white"
+                app:strokeColor="@color/GrayLight"
+                app:strokeWidth="1dp"
+                app:cornerRadius="32dp"
+                app:icon="@drawable/ic_facebook"
+                app:iconSize="32dp"
+                app:iconTint="@null"
+                app:iconGravity="textTop"
+                app:elevation="2dp"
+                style="@style/Widget.Material3.Button.OutlinedButton" />
+
+            <!-- Twitter/X Login -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/twitterSignInButton"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:layout_marginEnd="16dp"
+                android:backgroundTint="@color/white"
+                app:strokeColor="@color/GrayLight"
+                app:strokeWidth="1dp"
+                app:cornerRadius="32dp"
+                app:icon="@drawable/ic_twitter"
+                app:iconSize="32dp"
+                app:iconTint="@null"
+                app:iconGravity="textTop"
+                app:elevation="2dp"
+                style="@style/Widget.Material3.Button.OutlinedButton" />
+
+            <!-- LinkedIn Login -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/linkedinSignInButton"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:backgroundTint="@color/white"
+                app:strokeColor="@color/GrayLight"
+                app:strokeWidth="1dp"
+                app:cornerRadius="32dp"
+                app:icon="@drawable/ic_linkedin"
+                app:iconSize="32dp"
+                app:iconTint="@null"
+                app:iconGravity="textTop"
+                app:elevation="2dp"
+                style="@style/Widget.Material3.Button.OutlinedButton" />
+
+        </LinearLayout>
+
+        <!-- Bottom Spacer -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <!-- Sign Up Section -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="32dp"
+            android:orientation="horizontal"
+            android:gravity="center">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sudah punya akun? "
+                android:textSize="16sp"
+                android:textColor="@color/black" />
+
+            <TextView
+                android:id="@+id/toLoginButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Masuk sekarang"
+                android:textSize="16sp"
+                android:textColor="@color/BluePrimary"
+                android:textStyle="bold"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground"
+                android:padding="8dp" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</ScrollView>

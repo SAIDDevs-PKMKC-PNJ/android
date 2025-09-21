@@ -6,23 +6,35 @@
 <!--        android:name="android.hardware.telephony"-->
 <!--        android:required="false" />-->
 
-<!--    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />-->
+    <uses-feature
+        android:name="android.hardware.telephony"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
 <!--    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />-->
 <!--    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />-->
-<!--    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />-->
-<!--    <uses-permission android:name="android.permission.WAKE_LOCK" />-->
-<!--    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />-->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 <!--    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />-->
-<!--    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />-->
-<!--    <uses-permission android:name="android.permission.VIBRATE" />-->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 <!--    <uses-permission android:name="android.permission.CALL_PHONE" />-->
-<!--    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />-->
+<!--    <uses-permission android:name="android.permission.BIND_VOICE_INTERACTION"-->
+<!--        tools:ignore="ProtectedPermissions" />-->
 
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.VIBRATE"/>
 
     <application
         android:allowBackup="true"
@@ -35,12 +47,38 @@
         android:theme="@style/Theme.SAID">
         <activity
             android:name=".MainActivity"
+            android:windowSoftInputMode="adjustNothing"
             android:exported="true"
-            android:theme="@style/Theme.SAID" />
+            android:theme="@style/Theme.SAID" >
+            <intent-filter>
+                <action android:name="START_SCREENING" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
         <activity
             android:name=".IntroActivity"
             android:exported="false"
             android:theme="@style/Theme.SAID" />
+        <activity
+            android:name=".LoginActivity"
+            android:exported="false"
+            android:theme="@style/Theme.SAID" />
+        <activity
+            android:name=".RegisterActivity"
+            android:exported="false"
+            android:theme="@style/Theme.SAID"/>
+        <activity
+            android:name=".NewsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.SAID" />
+        <activity
+            android:name=".ChatbotActivity"
+            android:exported="false"
+            android:theme="@style/Theme.SAID"/>
+        <activity
+            android:name=".ArticleContentActivity"
+            android:exported="false"
+            android:theme="@style/Theme.SAID.noActionBar" />
         <activity
             android:name=".OpeningActivity"
             android:exported="true"
@@ -51,6 +89,21 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity android:name=".UserInformationActivity"
+            android:theme="@style/Theme.SAID"
+            android:exported="false"/>
+
+        <service
+            android:name=".service.VoiceAssistantService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="microphone"
+            android:stopWithTask="false" />
+
+        <activity
+            android:name=".HomeActivity"
+            android:exported="false" />
 
         <activity
             android:name=".screening.ScreeningActivity"

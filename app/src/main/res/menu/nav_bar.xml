@@ -1,15 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
+
     <item
-        android:id="@+id/navigation_chatbot"
-        android:icon="@drawable/chatbot_icon_selector"
-        android:title="Chatbot" />
-    <item
-        android:id="@+id/navigation_home"
-        android:icon="@drawable/home_icon_selector"
+        android:id="@+id/navigation_dashboard"
+        android:icon="@drawable/ic_home_selector"
         android:title="Home" />
     <item
-        android:id="@+id/navigation_news"
-        android:icon="@drawable/news_icon_selector"
-        android:title="News" />
+        android:id="@+id/navigation_history"
+        android:icon="@drawable/ic_records_selector"
+        android:title="Records" />
+    <item
+        android:id="@+id/navigation_profile"
+        android:icon="@drawable/ic_user_selector"
+        android:title="Profile" />
 </menu>

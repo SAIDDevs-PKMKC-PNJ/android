@@ -58,7 +58,7 @@ class ScreeningActivity : AppCompatActivity() {
     private fun setupNavigation() {
         navController = findNavController(R.id.nav_host_fragment_screening)
         navController.addOnDestinationChangedListener { _, destination, _ ->
-            updateScreeningProgress(destination.id)
+            Log.d(TAG, "Current fragment: ${destination.label}")
         }
     }
 
@@ -72,17 +72,7 @@ class ScreeningActivity : AppCompatActivity() {
 
     private fun initializeScreeningSession() {
         ScreeningDataManager.startNewSession(this, userId)
-    }
-
-    private fun updateScreeningProgress(destinationId: Int) {
-        val progressSteps = mapOf(
-            R.id.sensorTestFragment to "Sensor Test",
-            R.id.cameraTestFragment to "Camera Test",
-            R.id.micTestFragment to "Mic Test",
-            R.id.screeningResultFragment to "Results"
-        )
-        val currentStep = progressSteps[destinationId] ?: ""
-        binding.tvProgressIndicator?.text = currentStep
+        Log.d(TAG, "Screening session initialized for user: $userId")
     }
 
     private fun showExitConfirmation() {

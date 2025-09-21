@@ -1,0 +1,31 @@
+context:
+  expressions:
+    start_screening:
+      - "start screening"
+      - "begin stroke test"
+      - "check for stroke"
+    
+    check_face:
+      - "check face"
+      - "face test"
+      - "smile test"
+    
+    check_arms:
+      - "check arms"
+      - "arm test"
+      - "raise arms"
+    
+    check_speech:
+      - "check speech"
+      - "speech test"
+      - "say something"
+    
+    check_time:
+      - "check time"
+      - "what time"
+      - "note time"
+    
+    emergency_call:
+      - "call emergency"
+      - "call ambulance"
+      - "help needed"

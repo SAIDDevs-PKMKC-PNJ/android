@@ -3,51 +3,119 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_screening"
-    app:startDestination="@id/sensorTestFragment">
+    app:startDestination="@id/faceTestPreviewFragment">
 
-    <!-- SENSOR TEST -->
+    <!-- FACE TEST - Preview dan Test -->
     <fragment
-        android:id="@+id/sensorTestFragment"
-        android:name="com.pkm.said.screening.SensorTestFragment"
-        android:label="Tes Sensor"
-        tools:layout="@layout/fragment_sensor_test">
+        android:id="@+id/faceTestPreviewFragment"
+        android:name="com.pkm.said.screening.FacePreviewFragment"
+        android:label="Face Test Preview"
+        tools:layout="@layout/fragment_face_preview">
         <action
-            android:id="@+id/action_sensor_to_camera"
-            app:destination="@id/cameraTestFragment"
+            android:id="@+id/action_facePreview_to_faceTest"
+            app:destination="@id/faceTestFragment"
             app:enterAnim="@anim/slide_in_right"
             app:exitAnim="@anim/slide_out_left"/>
     </fragment>
 
-    <!-- CAMERA TEST -->
     <fragment
-        android:id="@+id/cameraTestFragment"
-        android:name="com.pkm.said.screening.CameraTestFragment"
-        android:label="Tes Kamera"
-        tools:layout="@layout/fragment_camera_test">
+        android:id="@+id/faceTestFragment"
+        android:name="com.pkm.said.screening.FaceTestFragment"
+        android:label="Face Test"
+        tools:layout="@layout/fragment_face_test">
         <action
-            android:id="@+id/action_camera_to_mic"
-            app:destination="@id/micTestFragment"
+            android:id="@+id/action_faceTest_to_armsPreview"
+            app:destination="@id/armsTestPreviewFragment"
             app:enterAnim="@anim/slide_in_right"
             app:exitAnim="@anim/slide_out_left"/>
     </fragment>
 
-    <!-- MIC TEST -->
+    <!-- ARMS TEST - Preview dan Test -->
     <fragment
-        android:id="@+id/micTestFragment"
-        android:name="com.pkm.said.screening.MicTestFragment"
-        android:label="Tes Mic"
-        tools:layout="@layout/fragment_mic_test">
+        android:id="@+id/armsTestPreviewFragment"
+        android:name="com.pkm.said.screening.ArmPreviewFragment"
+        android:label="Arms Test Preview"
+        tools:layout="@layout/fragment_arm_preview">
         <action
-            android:id="@+id/action_mic_to_result"
+            android:id="@+id/action_armsPreview_to_armsTest"
+            app:destination="@id/armsTestFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"/>
+    </fragment>
+
+    <fragment
+        android:id="@+id/armsTestFragment"
+        android:name="com.pkm.said.screening.ArmTestFragment"
+        android:label="Arms Test"
+        tools:layout="@layout/fragment_arm_test">
+        <action
+            android:id="@+id/action_armsTest_to_speechPreview"
+            app:destination="@id/speechTestPreviewFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"/>
+    </fragment>
+
+    <!-- SPEECH TEST - Preview dan Test -->
+    <fragment
+        android:id="@+id/speechTestPreviewFragment"
+        android:name="com.pkm.said.screening.SpeechPreviewFragment"
+        android:label="Speech Test Preview"
+        tools:layout="@layout/fragment_speech_preview">
+        <action
+            android:id="@+id/action_speechPreview_to_speechTest"
+            app:destination="@id/speechTestFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"/>
+    </fragment>
+
+    <fragment
+        android:id="@+id/speechTestFragment"
+        android:name="com.pkm.said.screening.SpeechTestFragment"
+        android:label="Speech Test"
+        tools:layout="@layout/fragment_speech_test">
+        <action
+            android:id="@+id/action_speechTest_to_screeningResult"
             app:destination="@id/screeningResultFragment"
             app:enterAnim="@anim/slide_in_right"
             app:exitAnim="@anim/slide_out_left"/>
     </fragment>
 
+<!--    &lt;!&ndash; TIME TEST - Preview dan Test &ndash;&gt;-->
+<!--    <fragment-->
+<!--        android:id="@+id/timeTestPreviewFragment"-->
+<!--        android:name="com.pkm.said.screening.TimeTestPreviewFragment"-->
+<!--        android:label="Time Test Preview"-->
+<!--        tools:layout="@layout/fragment_time_test_preview">-->
+<!--        <action-->
+<!--            android:id="@+id/action_timePreview_to_timeTest"-->
+<!--            app:destination="@id/timeTestFragment"-->
+<!--            app:enterAnim="@anim/slide_in_right"-->
+<!--            app:exitAnim="@anim/slide_out_left"/>-->
+<!--    </fragment>-->
+
+<!--    <fragment-->
+<!--        android:id="@+id/timeTestFragment"-->
+<!--        android:name="com.pkm.said.screening.TimeTestFragment"-->
+<!--        android:label="Time Test"-->
+<!--        tools:layout="@layout/fragment_time_test">-->
+<!--        <action-->
+<!--            android:id="@+id/action_timeTest_to_result"-->
+<!--            app:destination="@id/screeningResultFragment"-->
+<!--            app:enterAnim="@anim/slide_in_right"-->
+<!--            app:exitAnim="@anim/slide_out_left"/>-->
+<!--    </fragment>-->
+
     <!-- SCREENING RESULT -->
     <fragment
         android:id="@+id/screeningResultFragment"
         android:name="com.pkm.said.screening.ScreeningResultFragment"
-        android:label="Hasil Screening"
-        tools:layout="@layout/fragment_screening_result"/>
+        android:label="Hasil Screening FAST"
+        tools:layout="@layout/fragment_screening_result">
+        <action
+            android:id="@+id/action_screeningResult_to_facePreview"
+            app:destination="@id/faceTestPreviewFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"/>
+    </fragment>
+
 </navigation>

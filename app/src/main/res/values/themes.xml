@@ -1,14 +1,19 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
     <style name="Base.Theme.SAID" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:fontFamily">@font/nunito_sans</item>
         <!-- Customize your light theme here. -->
         <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
     </style>
 
     <style name="Theme.SAID" parent="Base.Theme.SAID" />
-    
-    <!-- ✅ FULLSCREEN THEME: For screening activity -->
+    <style name="Theme.SAID.noActionBar" parent="Theme.SAID">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+
     <style name="Theme.SAID.Fullscreen" parent="Theme.SAID">
+        <item name="android:fontFamily">@font/nunito_sans</item>
         <item name="android:windowFullscreen">true</item>
         <item name="android:windowContentOverlay">@null</item>
         <item name="android:windowNoTitle">true</item>

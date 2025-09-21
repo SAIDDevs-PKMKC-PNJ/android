@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Vector default avatar (silhouette) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+    <!-- Outer circle (background) -->
+    <path
+        android:fillColor="#E6F2F5"
+        android:pathData="M60,0A60,60 0,1 1,60 120A60,60 0,1 1,60 0Z"/>
+    <!-- Head -->
+    <path
+        android:fillColor="#90A4AE"
+        android:pathData="M60,64a20,20 0,1 0 0,-40 20,20 0,1 0 0,40z"/>
+    <!-- Shoulders -->
+    <path
+        android:fillColor="#B0BEC5"
+        android:pathData="M20,100c4,-18 20,-28 40,-28 20,0 36,10 40,28l0,8 -80,0z"/>
+</vector>

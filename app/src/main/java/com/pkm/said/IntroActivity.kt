@@ -10,6 +10,7 @@ import androidx.core.content.ContextCompat
 import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
+import com.pkm.said.adapter.IntroSlideAdapter
 
 class IntroActivity : AppCompatActivity() {
 
@@ -187,12 +188,12 @@ class IntroActivity : AppCompatActivity() {
             Log.d(TAG, "User: itsLuxra completed intro at 2025-07-31 11:43:38")
 
             // Create intent for MainActivity
-            Log.d(TAG, "🚀 Creating Intent for MainActivity...")
-            val intent = Intent(this, MainActivity::class.java)
+            Log.d(TAG, "🚀 Creating Intent for LoginActivity...")
+            val intent = Intent(this, LoginActivity::class.java)
             Log.d(TAG, "✅ Intent created successfully")
 
             // Start MainActivity
-            Log.d(TAG, "🚀 Starting MainActivity...")
+            Log.d(TAG, "🚀 Starting LoginActivity...")
             startActivity(intent)
             Log.d(TAG, "✅ MainActivity started successfully")
 

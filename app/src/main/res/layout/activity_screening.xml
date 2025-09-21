@@ -5,61 +5,18 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/material_dynamic_primary95"
-    android:fitsSystemWindows="false"
+    android:background="@color/white"
     tools:context=".screening.ScreeningActivity">
 
-    <!-- ✅ PROGRESS INDICATOR (Optional) -->
-    <LinearLayout
-        android:id="@+id/progress_container"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="16dp"
-        android:gravity="center_vertical"
-        android:background="@color/material_dynamic_primary40"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
-
-        <ImageView
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:contentDescription="health screening icon"
-            android:src="@drawable/health_screening"
-            android:layout_marginEnd="12dp"
-            app:tint="@android:color/white" />
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="BE-FAST Screening"
-            android:textColor="@android:color/white"
-            android:textSize="16sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/tv_progress_indicator"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Starting"
-            android:textColor="@android:color/white"
-            android:textSize="14sp"
-            android:background="@drawable/rounded_background_white_alpha"
-            android:padding="8dp" />
-
-    </LinearLayout>
-
-    <!-- ✅ NAVIGATION HOST: Dedicated for screening -->
+    <!-- Navigation Host Fragment Container -->
     <fragment
         android:id="@+id/nav_host_fragment_screening"
         android:name="androidx.navigation.fragment.NavHostFragment"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        app:defaultNavHost="false"
+        app:defaultNavHost="true"
         app:navGraph="@navigation/nav_screening"
-        app:layout_constraintTop_toBottomOf="@+id/progress_container"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />

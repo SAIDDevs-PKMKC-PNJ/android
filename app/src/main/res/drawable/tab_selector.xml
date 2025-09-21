@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- ✅ ACTIVE TAB: Black dot -->
     <item android:state_selected="true">
         <shape android:shape="oval">
             <solid android:color="@color/BluePrimary" />
@@ -11,7 +10,6 @@
         </shape>
     </item>
 
-    <!-- ✅ INACTIVE TAB: Light gray dot -->
     <item android:state_selected="false">
         <shape android:shape="oval">
             <solid android:color="@color/GrayLight" />
@@ -21,7 +19,6 @@
         </shape>
     </item>
 
-    <!-- ✅ DEFAULT: Light gray dot -->
     <item>
         <shape android:shape="oval">
             <solid android:color="@color/GrayLight" />
