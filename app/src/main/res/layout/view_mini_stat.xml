@@ -22,7 +22,7 @@
             android:layout_height="14dp"
             android:src="@drawable/ic_stat_generic"
             android:contentDescription="@null"
-            app:tint="@color/black" />
+            app:tint="@color/white" />
 
         <TextView
             android:layout_width="wrap_content"
@@ -30,6 +30,6 @@
             android:layout_marginStart="4dp"
             android:text="5%"
             android:textSize="12sp"
-            android:textColor="@color/black"/>
+            android:textColor="@color/white"/>
     </LinearLayout>
 </LinearLayout>

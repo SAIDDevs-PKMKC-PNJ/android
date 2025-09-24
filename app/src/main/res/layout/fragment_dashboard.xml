@@ -31,7 +31,7 @@
                 android:id="@+id/tvWelcome"
                 style="@style/TextAppearance.Material3.TitleLarge"
                 android:text="@string/welcome_text"
-                android:textColor="@color/BluePrimary"
+                android:textColor="@color/black"
                 android:textStyle="bold"
                 android:layout_weight="1"
                 android:layout_width="0dp"
@@ -105,12 +105,15 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="20dp">
+                android:orientation="vertical">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp"
+                    android:layout_marginStart="20dp"
+                    android:layout_marginEnd="20dp"
+                    android:layout_marginBottom="8dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
@@ -120,6 +123,7 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="@string/home_score_title"
+                        android:textSize="20dp"
                         android:textColor="@color/white"
                         android:textStyle="bold"/>
 
@@ -129,6 +133,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/home_restart"
+                        android:textColor="@color/BluePrimary"
                         android:textAppearance="@style/TextAppearance.Material3.LabelSmall"
                         app:chipBackgroundColor="@color/white_alpha_80"/>
                 </LinearLayout>
@@ -138,13 +143,16 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginStart="20dp"
+                    android:layout_marginEnd="20dp"
+                    android:layout_marginBottom="8dp"
                     android:gravity="center_vertical">
 
                     <TextView
                         android:id="@+id/tvScoreValue"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:layout_marginStart="20dp"
                         android:text="30%"
                         android:textColor="@color/warning_color"
                         android:textSize="48sp"
@@ -155,19 +163,20 @@
                         android:id="@+id/tvScoreStatus"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="20dp"
                         android:layout_weight="1"
                         android:text="@string/home_score_status_normal"
                         android:textColor="@color/white"
                         android:textSize="14sp"
-                        android:textAlignment="viewEnd"/>
+                        android:textAlignment="center"/>
                 </LinearLayout>
 
                 <!-- Mini indicators row -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
+                    android:padding="16dp"
+                    android:background="@color/secondPrimary"
                     android:orientation="horizontal"
                     android:gravity="center_vertical">
 
@@ -211,20 +220,21 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
+            android:layout_marginStart="20dp"
+            android:layout_marginEnd="20dp"
             android:orientation="vertical"
-            android:background="@color/secondPrimary"
-            android:paddingTop="0dp"
+            android:background="@drawable/bg_card_container_primary"
+            android:paddingTop="16dp"
             android:paddingBottom="16dp"
-            android:paddingStart="20dp"
-            android:paddingEnd="20dp">
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp">
 
             <!-- News Section -->
             <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginTop="16dp">
+            android:gravity="center_vertical">
 
             <TextView
                 android:id="@+id/tvNewsTitle"
@@ -240,7 +250,7 @@
                 android:id="@+id/btnNewsMore"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
-                android:background="@color/secondPrimary"
+                android:background="@color/BluePrimary"
                 android:contentDescription="@string/content_desc_more"
                 android:padding="8dp"
                 android:src="@drawable/ic_arrow_forward"
@@ -252,6 +262,9 @@
             android:layout_width="match_parent"
             android:layout_height="200dp"
             android:layout_marginTop="16dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:clipToPadding="false"
             android:overScrollMode="never"/>
 
     </LinearLayout>

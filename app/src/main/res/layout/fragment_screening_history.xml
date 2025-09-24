@@ -88,7 +88,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="0 sesi"
-        android:textColor="@color/white"
+        android:textColor="@color/black"
         android:textSize="12sp"
         app:layout_constraintTop_toBottomOf="@id/chipGroupFilters"
         app:layout_constraintStart_toStartOf="parent"

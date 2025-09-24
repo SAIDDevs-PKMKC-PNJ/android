@@ -6,10 +6,10 @@
     <color name="lightBlue">#45B3CB</color>
     <color name="GrayLight">#8C8C8C</color>
     <color name="background">#C0E5ED</color>
-    <color name="warning_color">#FF5722</color>
-    <color name="success_color">#4CAF50</color>
-    <color name="BluePrimary">#0D1C31</color>
-    <color name="secondPrimary">#1F3044</color>
+    <color name="warning_color">#E74C3C</color>
+    <color name="success_color">#00E83A</color>
+    <color name="BluePrimary">#457B9D</color>
+    <color name="secondPrimary">#FFFFFF</color>
 
     <!-- White Alpha Variations -->
     <color name="white_alpha_90">#E6FFFFFF</color>
@@ -114,7 +114,7 @@
     <color name="risk_unknown_text">#757575</color>
 
     <!-- Status Colors for Test Results -->
-    <color name="success">#4CAF50</color>
+    <color name="success">#00E83A</color>
     <color name="success_light">#C8E6C9</color>
     <color name="error">#F44336</color>
     <color name="error_light">#FFCDD2</color>
@@ -125,7 +125,7 @@
 
     <!-- Test Result Status Colors -->
     <color name="test_normal">#4CAF50</color>
-    <color name="test_abnormal">#F44336</color>
+    <color name="test_abnormal">#DE2E2E</color>
     <color name="test_skipped">#9E9E9E</color>
     <color name="test_incomplete">#FF9800</color>
 </resources>

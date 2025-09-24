@@ -17,7 +17,7 @@
         android:layout_width="28dp"
         android:layout_height="28dp"
         android:src="@drawable/ic_person"
-        app:tint="@color/white" />
+        app:tint="@color/BluePrimary" />
 
     <TextView
         android:id="@+id/menu_title"
@@ -25,7 +25,7 @@
         android:layout_height="wrap_content"
         android:layout_weight="1"
         android:text="Menu"
-        android:textColor="#F2F6F8"
+        android:textColor="@color/black"
         android:textSize="16sp"
         android:textStyle="bold"
         android:paddingStart="32dp" />

@@ -4,16 +4,25 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
+import android.widget.Toast
 import android.view.ViewGroup
 import androidx.core.view.isVisible
+import androidx.recyclerview.widget.RecyclerView
+import android.graphics.Rect
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.PagerSnapHelper
 import com.pkm.said.databinding.FragmentDashboardBinding
 import com.pkm.said.adapter.FeatureAdapter
 import com.pkm.said.adapter.NewsAdapter
 import com.pkm.said.NewsActivity
 import com.pkm.said.util.SessionManager
+import com.pkm.said.BuildConfig
+import com.pkm.said.service.NewsRetrofit
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 
 class DashboardFragment : Fragment() {
 
@@ -122,39 +131,82 @@ class DashboardFragment : Fragment() {
     }
 
     private fun setupNewsSection() {
-        val dummyNews = listOf(
-            NewsItem(
-                id = "1",
-                title = "Mahasiswa PNJ membuat Artifi.....",
-                imageUrl = null
-            ),
-            NewsItem(
-                id = "2",
-                title = "Rumah sakit terbantu dengan deteksi.....",
-                imageUrl = null
-            ),
-            NewsItem(
-                id = "3",
-                title = "Teknologi AI bantu skrining dini stroke",
-                imageUrl = null
-            )
+        val apiKey = BuildConfig.NEWS_API_KEY
+        val q = "kesehatan AND (perawatan OR pencegahan OR prevention OR treatment)"
+
+        // Panggil API top-headlines untuk Indonesia
+        NewsRetrofit.api.searchEverything(
+            q = q,
+            language = "id",
+            sortBy = "publishedAt",
+            page = 1,
+            pageSize = 20,
+            apiKey = apiKey
         )
+            .enqueue(object : Callback<NewsResponse> {
+                override fun onResponse(call: Call<NewsResponse>, response: Response<NewsResponse>) {
+                    if (!response.isSuccessful) {
+                        Toast.makeText(requireContext(), "Gagal: ${response.code()}", Toast.LENGTH_SHORT).show()
+                        return
+                    }
 
-        newsAdapter = NewsAdapter(dummyNews) { item ->
-            // TODO: Arahkan ke detail berita
-        }
+                    // Map ke ArticleItem
+                    val articles: List<ArticleItem> =
+                        response.body()?.articles.orEmpty().map { it.toArticleItem() }
 
-        binding.rvNews.apply {
-            adapter = newsAdapter
-            layoutManager =
-                LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
-            setHasFixedSize(true)
-        }
+                    // Adapter pakai ArticleItem
+                    val adapter = NewsAdapter(
+                        data = articles,
+                        onClick = { article -> openDetail(article) }
+                    )
+
+                    // Pasang ke RecyclerView (horizontal slider)
+                    binding.rvNews.apply {
+                        layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
+                        this.adapter = adapter
+
+                        // Snap 1 kartu per-scroll
+                        if (onFlingListener == null) {
+                            PagerSnapHelper().attachToRecyclerView(this)
+                        }
+
+                        // Spasi antar item (pasang sekali)
+                        if (itemDecorationCount == 0) {
+                            addItemDecoration(object : RecyclerView.ItemDecoration() {
+                                override fun getItemOffsets(
+                                    outRect: Rect,
+                                    view: View,
+                                    parent: RecyclerView,
+                                    state: RecyclerView.State
+                                ) {
+                                        val space = resources.getDimensionPixelSize(R.dimen.spacing_12)
+                                    val pos = parent.getChildAdapterPosition(view)
+                                    outRect.right = space
+                                    if (pos == 0) outRect.left = space
+                                }
+                            })
+                        }
+                    }
+                }
+
+                override fun onFailure(call: Call<NewsResponse>, t: Throwable) {
+                    Toast.makeText(requireContext(), "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+                }
+            })
 
         binding.btnNewsMore.setOnClickListener {
-            // TODO: Arahkan ke daftar News lengkap
+            val intent = Intent(requireContext(), NewsActivity::class.java)
+            startActivity(intent)
         }
     }
+
+    private fun openDetail(item: ArticleItem) {
+        val intent = Intent(requireContext(), ArticleContentActivity::class.java).apply {
+            putExtra("article", item) // ArticleItem sudah @Parcelize
+        }
+        startActivity(intent)
+    }
+
 
     override fun onDestroyView() {
         super.onDestroyView()

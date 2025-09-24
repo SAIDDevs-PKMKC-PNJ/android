@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <dimen name="slider_page_margin">12dp</dimen>
-    <dimen name="slider_page_offset">24dp</dimen>
+    <dimen name="slider_page_offset">24dp</dimen>\
+    <dimen name="spacing_12">12dp</dimen>
 </resources>

@@ -99,4 +99,5 @@
     <string name="article_author_default">article author</string>
     <string name="article_lorem_long">News Title Lorem Ipsum Dolor Sit Amet Lorem Ipsum Dolor Sit Amet News Title Lorem Ipsum Dolor Sit Amet Lorem Ipsum Dolor Sit Amet News Title Lorem Ipsum Dolor Sit Amet Lorem Ipsum Dolor Sit Amet News Title Lorem Ipsum Dolor Sit Amet Lorem Ipsum Dolor Sit Amet News Title Lorem Ipsum Dolor Sit Amet Lorem Ipsum Dolor Sit Amet News Title Lorem Ipsum Dolor Sit Amet Lorem Ipsum Dolor Sit Amet News Title Lorem Ipsum Dolor Sit Amet Lorem Ipsum Dolor Sit Amet News Title Lorem Ipsum Dolor Sit Amet Lorem Ipsum Dolor Sit Amet\n\nNews Title Lorem Ipsum Dolor Sit Amet Lorem Ipsum Dolor Sit Amet News Title Lorem Ipsum Dolor Sit Amet Lorem Ipsum Dolor Sit Amet News Title Lorem Ipsum Dolor Sit Amet Lorem Ipsum Dolor Sit AmetNews Title Lorem Ipsum Dolor Sit Amet Lorem Ipsum Dolor Sit Amet News Title Lorem Ipsum Dolor Sit Amet Lorem Ipsum Dolor Sit Amet News Title Lorem Ipsum Dolor Sit Amet Lorem Ipsum Dolor Sit Amet</string>
     <string name="bookmarked_msg">artikel berhasil di tandai</string>
+    <string name="headline_newsHeader">HEADLINE</string>
 </resources>

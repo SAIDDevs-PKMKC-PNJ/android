@@ -92,17 +92,17 @@ class ScreeningHistoryAdapter(
             val (bgHeader, accent, progressTint) = when (risk) {
                 RiskLevel.CRITICAL, RiskLevel.HIGH -> Triple(
                     R.drawable.bg_card_header_high,
-                    ContextCompat.getColor(ctx, R.color.risk_high_text),
-                    ContextCompat.getColor(ctx, R.color.warning_color)
+                    ContextCompat.getColor(ctx, R.color.test_abnormal),
+                    ContextCompat.getColor(ctx, R.color.test_abnormal)
                 )
                 RiskLevel.MEDIUM -> Triple(
                     R.drawable.bg_card_header_medium,
-                    ContextCompat.getColor(ctx, R.color.risk_medium_text),
-                    ContextCompat.getColor(ctx, R.color.warning)
+                    ContextCompat.getColor(ctx, R.color.warning_color),
+                    ContextCompat.getColor(ctx, R.color.warning_color)
                 )
                 RiskLevel.LOW -> Triple(
                     R.drawable.bg_card_header_low,
-                    ContextCompat.getColor(ctx, R.color.risk_low_text),
+                    ContextCompat.getColor(ctx, R.color.success),
                     ContextCompat.getColor(ctx, R.color.success)
                 )
                 RiskLevel.UNKNOWN -> Triple(
@@ -113,7 +113,6 @@ class ScreeningHistoryAdapter(
             }
 
             binding.headerContainer.setBackgroundResource(bgHeader)
-            binding.tvRiskTitle.setTextColor(accent)
             binding.tvPercent.setTextColor(accent)
             binding.tvRiskLabelValue.setTextColor(accent)
 

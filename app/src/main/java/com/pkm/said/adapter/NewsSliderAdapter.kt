@@ -5,6 +5,7 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.pkm.said.ArticleItem
+import com.pkm.said.R
 import com.pkm.said.databinding.ItemNewsSliderBinding
 
 class NewsSliderAdapter(
@@ -21,7 +22,11 @@ class NewsSliderAdapter(
 
     inner class VH(val binding: ItemNewsSliderBinding) : RecyclerView.ViewHolder(binding.root) {
         fun bind(item: ArticleItem) {
-            Glide.with(binding.root).load(item.imageUrl).into(binding.ivCover)
+            Glide.with(binding.root).load(item.imageUrl)
+                .placeholder(R.drawable.placeholder)
+                .error(R.drawable.placeholder)
+                .centerCrop()
+                .into(binding.ivCover)
             binding.tvBadge.text = item.category.uppercase()
             binding.tvTitle.text = item.title
             binding.card.setOnClickListener { onClick(item) }

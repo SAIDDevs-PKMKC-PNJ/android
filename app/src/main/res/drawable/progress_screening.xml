@@ -4,7 +4,7 @@
         <shape android:shape="rectangle">
             <size android:height="10dp"/>
             <corners android:radius="6dp"/>
-            <solid android:color="@color/white"/>
+            <solid android:color="@color/GrayLight_alpha_90"/>
         </shape>
     </item>
     <item android:id="@android:id/progress">

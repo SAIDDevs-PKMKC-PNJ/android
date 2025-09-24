@@ -7,6 +7,7 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.pkm.said.ArticleItem
+import com.pkm.said.R
 import com.pkm.said.databinding.ItemArticleRowBinding
 
 class ArticleListAdapter(
@@ -22,9 +23,15 @@ class ArticleListAdapter(
 
     inner class VH(val binding: ItemArticleRowBinding) : RecyclerView.ViewHolder(binding.root) {
         fun bind(item: ArticleItem) {
-            Glide.with(binding.root).load(item.imageUrl).into(binding.ivThumb)
+            Glide.with(binding.root).load(item.imageUrl)
+                .placeholder(R.drawable.placeholder)
+                .error(R.drawable.placeholder)
+                .centerCrop()
+                .into(binding.ivThumb)
             binding.tvTitle.text = item.title
-            binding.tvMeta.text = "${item.date}   •   ${item.source}"
+            val date = item.date.ifBlank { "—" }
+            val source = item.source.ifBlank { "—" }
+            binding.tvMeta.text = "$date   •   $source"
             binding.root.setOnClickListener { onClick(item) }
         }
     }
@@ -32,6 +39,11 @@ class ArticleListAdapter(
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
         val binding = ItemArticleRowBinding.inflate(LayoutInflater.from(parent.context), parent, false)
         return VH(binding)
+    }
+
+    override fun onViewRecycled(holder: VH) {
+        Glide.with(holder.binding.ivThumb).clear(holder.binding.ivThumb)
+        super.onViewRecycled(holder)
     }
 
     override fun onBindViewHolder(holder: VH, position: Int) = holder.bind(getItem(position))

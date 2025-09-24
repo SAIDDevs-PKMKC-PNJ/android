@@ -1,18 +1,23 @@
 package com.pkm.said
 
+import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.tabs.TabLayoutMediator
-import com.pkm.said.ArticleItem
-import com.pkm.said.R
 import com.pkm.said.adapter.ArticleListAdapter
 import com.pkm.said.adapter.NewsSliderAdapter
 import com.pkm.said.databinding.ActivityNewsBinding
+import com.pkm.said.service.NewsRetrofit
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 
 class NewsActivity : AppCompatActivity() {
 
@@ -22,11 +27,24 @@ class NewsActivity : AppCompatActivity() {
     }
 
     private lateinit var binding: ActivityNewsBinding
+    private var tabMediator: TabLayoutMediator? = null
+    private var firstHeadlinesShown = false
+
 
     private lateinit var sliderAdapter: NewsSliderAdapter
     private lateinit var edukasiAdapter: ArticleListAdapter
     private lateinit var pencegahanAdapter: ArticleListAdapter
 
+    // --- Debounce klik ---
+    private var lastClickAt = 0L
+    private fun safeClick(action: () -> Unit) {
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - lastClickAt < 500) return
+        lastClickAt = now
+        action()
+    }
+
+    // --- Auto-scroll slider ---
     private val autoScrollHandler = Handler(Looper.getMainLooper())
     private val autoScrollRunnable = object : Runnable {
         override fun run() {
@@ -44,148 +62,324 @@ class NewsActivity : AppCompatActivity() {
         binding = ActivityNewsBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        Log.d(TAG, "=== NEWS ACTIVITY DEBUG ===")
-        Log.d(TAG, "onCreate")
+        Log.d(TAG, "=== NEWS ACTIVITY DEBUG === onCreate")
 
         setupToolbar()
         setupSlider()
         setupLists()
-        loadData()
+        loadDataFromApi() // << gunakan API, bukan dummy
     }
 
     private fun setupToolbar() {
         binding.btnBack.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
-        binding.tvTitle.text = getString(R.string.news_title_stroke_world) // "Berita Dunia Stroke"
+        binding.tvTitle.text = getString(R.string.news_title_stroke_world)
     }
 
     private fun setupSlider() {
-        sliderAdapter = NewsSliderAdapter(onClick = { article ->
-            showToast("Buka headline: ${article.title}")
-            // TODO: Navigate to detail article
-        })
+        sliderAdapter = NewsSliderAdapter { article ->
+            safeClick { openDetail(article) }
+        }
         binding.viewPager.adapter = sliderAdapter
 
-        // Page transformer untuk efek scale dan margin
-        val pageMargin = resources.getDimensionPixelSize(R.dimen.slider_page_margin)
         val pageOffset = resources.getDimensionPixelSize(R.dimen.slider_page_offset)
         binding.viewPager.setPageTransformer { page, position ->
             page.translationX = -pageOffset * position
-            val scale = 0.92f + (1 - kotlin.math.abs(position)) * 0.08f
-            page.scaleY = scale
+            page.scaleY = 0.92f + (1 - kotlin.math.abs(position)) * 0.08f
         }
 
-        TabLayoutMediator(binding.tabDots, binding.viewPager) { _, _ -> }.attach()
+        attachMediator()
     }
+
+    private fun attachMediator() {
+        tabMediator?.detach()
+        tabMediator = TabLayoutMediator(binding.tabDots, binding.viewPager) { _, _ -> }
+        tabMediator?.attach()
+    }
+
 
     private fun setupLists() {
         edukasiAdapter = ArticleListAdapter { article ->
-            showToast("Buka Edukasi: ${article.title}")
-            // TODO navigate to detail
+            safeClick { openDetail(article) }
         }
         pencegahanAdapter = ArticleListAdapter { article ->
-            showToast("Buka Pencegahan: ${article.title}")
-            // TODO navigate to detail
+            safeClick { openDetail(article) }
         }
 
         binding.rvEdukasi.apply {
-            layoutManager = LinearLayoutManager(this@NewsActivity, LinearLayoutManager.VERTICAL, false)
+            layoutManager = LinearLayoutManager(this@NewsActivity)
             adapter = edukasiAdapter
             setHasFixedSize(true)
+            isNestedScrollingEnabled = false
+            overScrollMode = RecyclerView.OVER_SCROLL_NEVER
+            visibility = View.VISIBLE
         }
-
         binding.rvPencegahan.apply {
-            layoutManager = LinearLayoutManager(this@NewsActivity, LinearLayoutManager.VERTICAL, false)
+            layoutManager = LinearLayoutManager(this@NewsActivity)
             adapter = pencegahanAdapter
             setHasFixedSize(true)
+            isNestedScrollingEnabled = false
+            overScrollMode = RecyclerView.OVER_SCROLL_NEVER
+            visibility = View.VISIBLE
         }
+
+        binding.rvEdukasi.visibility = View.VISIBLE
+        binding.rvPencegahan.visibility = View.VISIBLE
     }
 
-    private fun loadData() {
-        // Kamu bisa ganti dengan sumber data asli (API/Firestore)
-        val edukasi = createEdukasiArticles()
-        val pencegahan = createPencegahanArticles()
-
-        // Headline slider: gunakan kombinasi atau list khusus headline
-        val headlines = listOf(
-            edukasi.firstOrNull() ?: sampleArticle(1),
-            pencegahan.firstOrNull() ?: sampleArticle(2),
-            sampleArticle(3).copy(title = "Aplikasi Skrining Stroke Gratis di PNJ")
-        )
-
-        sliderAdapter.submitList(headlines)
-        edukasiAdapter.submitList(edukasi)
-        pencegahanAdapter.submitList(pencegahan)
+    private fun showLoading(show: Boolean) {
+        val alpha = if (show) 0.4f else 1f
+        binding.viewPager.alpha = alpha
+        binding.rvEdukasi.alpha = alpha
+        binding.rvPencegahan.alpha = alpha
     }
 
-    // Dummy data (pakai milikmu jika sudah ada)
-    private fun createEdukasiArticles(): List<ArticleItem> {
-        return listOf(
-            ArticleItem(1, "Apa Itu Stroke? Pengenalan Dasar untuk Pemula", "2 jam lalu", "Dr. Sarah Medika, Sp.N",
-                "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?q=80&w=1600&auto=format&fit=crop", "Edukasi",
-                "Pelajari definisi stroke, penyebab utama, dan kenapa ini perlu perhatian.",
-                """
-                    Stroke adalah kondisi darurat medis ketika aliran darah ke bagian otak terhenti, sehingga sel-sel otak kekurangan oksigen dan nutrisi. Tanpa penanganan cepat, sel-sel tersebut dapat mati dan menyebabkan kelumpuhan, gangguan bicara, hingga penurunan fungsi kognitif.
-                    Penyebab utama stroke antara lain hipertensi, kolesterol tinggi, diabetes, merokok, dan gaya hidup sedentari. Mengenali faktor risiko dan melakukan pencegahan sejak dini bisa menurunkan risiko secara signifikan.
-                    Jika menemukan gejala, segera cari pertolongan medis. Waktu adalah otak — semakin cepat ditangani, semakin baik hasilnya.
-                """.trimIndent()),
-            ArticleItem(2, "Jenis-Jenis Stroke: Iskemik vs Hemoragik", "4 jam lalu", "Prof. Dr. Neurologi RSUD",
-                "https://images.unsplash.com/photo-1519491092129-1f51b0b6c3c7?q=80&w=1600&auto=format&fit=crop", "Edukasi",
-                "Perbedaan stroke iskemik dan hemoragik.",
-                """
-                    Stroke iskemik terjadi saat pembuluh darah di otak tersumbat, biasanya oleh bekuan darah. Ini merupakan tipe yang paling umum. Sementara stroke hemoragik terjadi saat pembuluh darah pecah dan menyebabkan perdarahan di otak.
-                    Penanganan keduanya berbeda: stroke iskemik sering memerlukan obat penghancur bekuan (trombolisis) atau tindakan mekanik, sedangkan hemoragik berfokus pada kontrol perdarahan dan tekanan intrakranial. Diagnosis cepat lewat CT scan sangat krusial.
-                """.trimIndent()),
-            ArticleItem(3, "Gejala Stroke: Kenali Tanda FAST", "6 jam lalu", "Tim Medis Emergency",
-                "https://images.unsplash.com/photo-1504439468489-c8920d796a29?q=80&w=1600&auto=format&fit=crop", "Edukasi",
-                "Metode FAST untuk deteksi dini.",
-                """
-                FAST: Face drooping, Arm weakness, Speech difficulty, Time to call. Perhatikan senyum yang tidak simetris, tangan sebelah melemah, dan bicara pelo atau sulit memahami. 
-                Jika salah satu gejala muncul mendadak, segera hubungi layanan darurat. Jangan menunggu gejala menghilang sendiri. Setiap menit berharga untuk menyelamatkan fungsi otak.
-                """.trimIndent()),
-        )
+    // ======================
+    // API
+    // ======================
+    private fun loadDataFromApi() {
+        val apiKey = BuildConfig.NEWS_API_KEY
+        val q = "stroke"
+
+        showLoading(true)
+
+        NewsRetrofit.api.searchEverything(
+            q = q,
+            language = "id",
+            sortBy = "publishedAt",
+            page = 1,
+            pageSize = 40,
+            apiKey = apiKey
+        ).enqueue(object : Callback<NewsResponse> {
+            override fun onResponse(call: Call<NewsResponse>, response: Response<NewsResponse>) {
+                if (!response.isSuccessful) {
+                    fetchFallbackEn(q, apiKey)
+                    return
+                }
+                val idArticles = response.body()?.articles.orEmpty()
+                if (idArticles.isEmpty()) {
+                    fetchFallbackEn(q, apiKey)
+                    return
+                }
+                bindArticlesToUi(idArticles)
+            }
+
+            override fun onFailure(call: Call<NewsResponse>, t: Throwable) {
+                fetchFallbackEn(q, apiKey)
+            }
+        })
     }
 
-    private fun createPencegahanArticles(): List<ArticleItem> {
-        return listOf(
-            ArticleItem(6, "7 Langkah Pencegahan Stroke di Usia Muda", "1 jam lalu", "Dr. Preventif Medicine",
-                "https://images.unsplash.com/photo-1518310383802-640c2de311b2?q=80&w=1600&auto=format&fit=crop", "Pencegahan",
-                "Tips praktis mencegah stroke sejak dini.",
-                """
-                Mencegah stroke di usia muda dimulai dari kebiasaan harian: jaga tekanan darah, batasi garam, berhenti merokok, kelola stres, tidur cukup, rutin olahraga, dan cek kesehatan berkala. 
-                Mulailah dari langkah kecil yang konsisten. Perubahan 1% tiap hari akan terasa besar dalam hitungan bulan.
-                """.trimIndent()),
-            ArticleItem(7, "Diet Mediterranean: Kunci Anti Stroke", "3 jam lalu", "Ahli Gizi Klinik",
-                "https://images.unsplash.com/photo-1526318472351-c75fcf070305?q=80&w=1600&auto=format&fit=crop", "Pencegahan",
-                "Pola makan Mediterranean mengurangi risiko stroke.",
-                """
-                    Pola makan Mediterranean kaya sayur, buah, kacang-kacangan, ikan, minyak zaitun, dan gandum utuh terbukti menurunkan risiko penyakit kardiovaskular dan stroke. 
-                    Fokus pada makanan minim proses, kurangi gula tambahan, serta pilih lemak sehat. Rasa enak, kenyang lebih lama, dan kesehatan yang lebih baik.
-                    """.trimIndent()),
-            ArticleItem(8, "Olahraga 30 Menit: Investasi Anti Stroke", "5 jam lalu", "Fisioterapis",
-                "https://images.unsplash.com/photo-1517649763962-0c623066013b?q=80&w=1600&auto=format&fit=crop", "Pencegahan",
-                "Jenis olahraga yang efektif.",
-                """
-                Olahraga aerobik intensitas sedang 30 menit sehari seperti jalan cepat, bersepeda, atau berenang membantu menurunkan tekanan darah, memperbaiki profil lipid, dan mengurangi peradangan — faktor penting pencegahan stroke. 
-                Kombinasikan dengan latihan kekuatan 2–3 kali seminggu untuk hasil optimal.
-                """.trimIndent()),
-        )
+    private fun fetchFallbackEn(q: String, apiKey: String) {
+        NewsRetrofit.api.searchEverything(
+            q = q,
+            language = "en",
+            sortBy = "publishedAt",
+            page = 1,
+            pageSize = 40,
+            apiKey = apiKey
+        ).enqueue(object : Callback<NewsResponse> {
+            override fun onResponse(call: Call<NewsResponse>, response: Response<NewsResponse>) {
+                if (!response.isSuccessful) {
+                    showLoading(false)
+                    Toast.makeText(
+                        this@NewsActivity,
+                        "Gagal memuat berita (${response.code()})",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    return
+                }
+                val enArticles = response.body()?.articles.orEmpty()
+                if (enArticles.isEmpty()) {
+                    showLoading(false)
+                    Toast.makeText(this@NewsActivity, "Tidak ada hasil berita", Toast.LENGTH_SHORT)
+                        .show()
+                    return
+                }
+                bindArticlesToUi(enArticles)
+            }
+
+            override fun onFailure(call: Call<NewsResponse>, t: Throwable) {
+                showLoading(false)
+                Toast.makeText(this@NewsActivity, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
     }
 
-    private fun sampleArticle(id: Int) = ArticleItem(
-        id = id,
-        title = "Mahasiswa PNJ Menciptakan Aplikasi Skrining Stroke Gratis",
-        date = "1 jam lalu",
-        source = "CNN Indonesia",
-        imageUrl = "https://images.unsplash.com/photo-1586773860418-d37222d8fce3?q=80&w=1600&auto=format&fit=crop",
-        category = "Headline",
-        description = "Inovasi untuk deteksi dini stroke.",
+    // ====== Helper placeholder ======
+    private fun placeholderArticle(id: Int, category: String) = ArticleItem(
+        id = "ph-$category-$id",
+        title = when (category) {
+            "Edukasi" -> "Apa itu Stroke? Kenali Gejala FAST"
+            "Pencegahan" -> "5 Langkah Sederhana Cegah Stroke"
+            else -> "Update Seputar Stroke"
+        },
+        date = "—",
+        source = "SAID",
+        imageUrl = "", // biar pakai placeholder image di Glide
+        category = category,
+        description = "",
+        author = "",
         content = ""
     )
 
-    private fun showToast(msg: String) {
-        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+    private fun ensureSize(targetSize: Int, base: List<ArticleItem>, category: String): List<ArticleItem> {
+        if (base.size >= targetSize) return base.take(targetSize)
+        val result = base.toMutableList()
+        var i = 0
+        // 1) Daur ulang item yang ada
+        while (result.size < targetSize && base.isNotEmpty()) {
+            result += base[i % base.size].copy(id = "${base[i % base.size].id}-dup-${i}", category = category)
+            i++
+        }
+        // 2) Tambal placeholder kalau masih kurang (atau base kosong)
+        var ph = 0
+        while (result.size < targetSize) {
+            result += placeholderArticle(++ph, category)
+        }
+        return result
     }
 
+
+    private fun bindArticlesToUi(raw: List<NewsArticle>) {
+        showLoading(false)
+
+        // Map ke ArticleItem
+        Log.d("NewsActivity", "raw=${raw.size}")
+        val mapped = raw.map { it.toArticleItem() }
+        Log.d("NewsActivity", "mapped=${mapped.size}")
+
+        if (mapped.isEmpty()) {
+            val headlines = (1..3).map { placeholderArticle(it, "Headline") }
+            val edu       = (1..5).map { placeholderArticle(it, "Edukasi") }
+            val prev      = (1..5).map { placeholderArticle(it, "Pencegahan") }
+            sliderAdapter.submitList(headlines)
+            edukasiAdapter.submitList(edu)
+            pencegahanAdapter.submitList(prev)
+            return
+        }
+
+        val headlines = mapped.take(5).map { it.copy(category = "Headline") }
+        Log.d("NewsActivity", "headlines=${headlines.size}")
+        sliderAdapter.submitList(headlines)
+
+        if (!firstHeadlinesShown) {
+            binding.viewPager.post { attachMediator() }
+            firstHeadlinesShown = true
+        }
+
+        // Kategori sederhana via keyword
+        val edukasiKeywords = listOf(
+            // ID
+            "apa itu", "jenis", "gejala", "definisi", "penyebab", "edukasi", "fakta", "panduan",
+            "iskemik", "hemoragik", "stroke iskemik", "stroke hemoragik", "fast",
+            // EN
+            "what is", "types", "symptoms", "definition", "causes", "education", "facts", "guide",
+            "ischemic", "hemorrhagic", "tia", "transient ischemic attack", "signs", "recognize"
+        )
+
+        val pencegahanKeywords = listOf(
+            // ID
+            "pencegahan", "mencegah", "tips", "gaya hidup", "diet", "olahraga", "kebiasaan",
+            "kontrol tekanan darah", "kurangi garam", "berhenti merokok", "turunkan risiko",
+            // EN
+            "prevention", "prevent", "tips", "lifestyle", "diet", "exercise", "habits",
+            "blood pressure control", "low sodium", "quit smoking", "reduce risk", "risk reduction"
+        )
+
+        // 2) Normalizer: lowercase, hapus diakritik & tanda baca, compress whitespace
+        fun normalize(s: String): String {
+            val lower = s.lowercase()
+            // remove diacritics
+            val noDia = java.text.Normalizer.normalize(lower, java.text.Normalizer.Form.NFD)
+                .replace("\\p{InCombiningDiacriticalMarks}+".toRegex(), "")
+            // remove punctuation
+            val noPunct = noDia.replace("[\\p{Punct}]".toRegex(), " ")
+            return noPunct.replace("\\s+".toRegex(), " ").trim()
+        }
+
+        // 3) Pencocokan dengan boundary sederhana (contains biasa bisa false positive)
+        fun containsAny(text: String, keys: List<String>): Boolean {
+            val t = " ${normalize(text)} " // padding spasi untuk pseudo-boundary
+            return keys.any { key ->
+                val k = " ${normalize(key)} "
+                t.contains(k)
+            }
+        }
+
+        // 4) Mapping + klasifikasi
+        val normalizedArticles = mapped.map { art ->
+            val blob = listOfNotNull(art.title, art.description, art.content).joinToString(" ")
+            val isEdu = containsAny(blob, edukasiKeywords)
+            val isPrev = containsAny(blob, pencegahanKeywords)
+            when {
+                isEdu && !isPrev -> art.copy(category = "Edukasi")
+                !isEdu && isPrev -> art.copy(category = "Pencegahan")
+                isEdu && isPrev -> art.copy(category = "Edukasi") // tie-break
+                else -> art // kategori tetap (mis. "Headline" utk slider)
+            }
+        }
+
+        // 5) Split + fallback kalau kosong
+        val rest = normalizedArticles.drop(headlines.size)
+        val edukasiRaw = rest.filter { it.category == "Edukasi" } +
+                mapped.filter { it.category == "Edukasi" } // cadangan dari mapped awal
+        val pencegahanRaw = rest.filter { it.category == "Pencegahan" } +
+                mapped.filter { it.category == "Pencegahan" }
+
+        val edukasiList = ensureSize(targetSize = 5, base = edukasiRaw, category = "Edukasi")
+        val pencegahanList = ensureSize(targetSize = 5, base = pencegahanRaw, category = "Pencegahan")
+
+        Log.d("NewsActivity", "edukasi=${edukasiList.size} pencegahan=${pencegahanList.size}")
+
+        // fallback sederhana agar UI tidak kosong
+        val fallbackEdukasi = edukasiList.ifEmpty { normalizedArticles.drop(5).take(6).map { it.copy(category = "Edukasi") } }
+
+        val fallbackPencegahan =
+            pencegahanList.ifEmpty {
+                normalizedArticles.drop(5 + fallbackEdukasi.size).take(6)
+                    .map { it.copy(category = "Pencegahan") }
+            }
+
+        // submit ke adapter
+        edukasiAdapter.submitList(fallbackEdukasi) {
+            Log.d(TAG, "rvEdukasi itemCount=${edukasiAdapter.itemCount}")
+            binding.rvEdukasi.adapter = edukasiAdapter
+            edukasiAdapter.notifyDataSetChanged()
+        }
+        pencegahanAdapter.submitList(fallbackPencegahan) {
+            Log.d(TAG, "rvPencegahan itemCount=${pencegahanAdapter.itemCount}")
+            binding.rvPencegahan.adapter = pencegahanAdapter
+            pencegahanAdapter.notifyDataSetChanged()
+        }
+    }
+
+    // Mapper API -> UI
+    private fun NewsArticle.toArticleItem(category: String = "Headline"): ArticleItem =
+        ArticleItem(
+            id = this.url ?: this.title ?: System.nanoTime().toString(),
+            title = this.title.orEmpty(),
+            date = this.publishedAt.orEmpty(),
+            source = this.source?.name.orEmpty(),
+            imageUrl = this.urlToImage.orEmpty(),
+            category = category,
+            description = this.description.orEmpty(),
+            author = this.author.orEmpty(),
+            content = this.content.orEmpty()
+        )
+
+    // ======================
+    // Navigation
+    // ======================
+    private fun openDetail(article: ArticleItem) {
+        val intent = Intent(this, ArticleContentActivity::class.java).apply {
+            putExtra("article", article)
+        }
+        startActivity(intent)
+    }
+
+    // ======================
+    // Lifecycle
+    // ======================
     override fun onResume() {
         super.onResume()
         autoScrollHandler.postDelayed(autoScrollRunnable, AUTO_SCROLL_INTERVAL)
@@ -194,5 +388,10 @@ class NewsActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         autoScrollHandler.removeCallbacks(autoScrollRunnable)
+    }
+
+    override fun onDestroy() {
+        autoScrollHandler.removeCallbacks(autoScrollRunnable)
+        super.onDestroy()
     }
 }
