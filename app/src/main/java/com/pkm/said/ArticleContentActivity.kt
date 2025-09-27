@@ -17,7 +17,7 @@ class ArticleContentActivity : AppCompatActivity() {
         binding = ActivityArticleContentBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        val article = intent.getParcelableExtra<ArticleItem>("article")
+        @Suppress("DEPRECATION") val article = intent.getParcelableExtra<ArticleItem>("article")
         if (article != null) {
             bindArticle(article)
             setupClicks(article)

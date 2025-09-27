@@ -1,21 +1,34 @@
 package com.pkm.said
 
-import android.animation.ValueAnimator
+import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
-import android.graphics.Rect
 import android.os.Bundle
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.speech.tts.TextToSpeech
 import android.util.Log
-import android.view.ViewTreeObserver
+import android.view.MotionEvent
+import android.view.View
 import android.view.WindowManager
 import android.widget.RelativeLayout
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.pkm.said.adapter.MessageAdapter
 import com.pkm.said.databinding.ActivityChatbotBinding
+import com.pkm.said.util.InputMode
+import kotlinx.coroutines.Job
+import java.util.Locale
+import kotlin.math.max
 
 class ChatbotActivity : AppCompatActivity() {
 
@@ -31,25 +44,45 @@ class ChatbotActivity : AppCompatActivity() {
     // View Binding
     private lateinit var binding: ActivityChatbotBinding
 
-    // RecyclerView components
+    // State & UI
+    private var inputMode: InputMode = InputMode.KEYBOARD
     private lateinit var messageAdapter: MessageAdapter
     private val messageList = mutableListOf<String>()
 
-    // ✅ ENHANCED KEYBOARD HANDLING VARIABLES
-    private var keyboardLayoutListener: ViewTreeObserver.OnGlobalLayoutListener? = null
-    private var isKeyboardVisible = false
-    private var originalBottomMargin = 0
+    // STT
+    private var speechRecognizer: SpeechRecognizer? = null
+    private var speechIntent: Intent? = null
+    private var isListening = false
+
+    // TTS (opsional; belum dipakai)
+    private var tts: TextToSpeech? = null
+
+    // Overlay wave (jika sebelumnya ada dummy animasi, sekarang dimatikan)
+    private var waveJob: Job? = null
+
+    // Permission launcher
+    private val micPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            // Mulai benar-benar rekam
+            switchInputMode(InputMode.RECORDING)
+            startListening()
+            stopWaveAnimation() // pastikan tidak ada dummy animasi
+        } else {
+            Toast.makeText(this, "Izin mikrofon dibutuhkan untuk input suara", Toast.LENGTH_LONG).show()
+            switchInputMode(InputMode.MIC_IDLE)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         Log.d(TAG, "=== CHATBOT ACTIVITY DEBUG ===")
-        Log.d(TAG, "Current Date: 2025-09-09 06:36:59")
-        Log.d(TAG, "Current User: itsLuxra")
         Log.d(TAG, "onCreate called")
 
         try {
-            // ✅ KEYBOARD RESPONSIVE SETUP
+            // ✅ Keyboard resize + edge-to-edge
             setupWindowForKeyboard()
 
             binding = ActivityChatbotBinding.inflate(layoutInflater)
@@ -64,29 +97,20 @@ class ChatbotActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ ENHANCED WINDOW SETUP FOR KEYBOARD RESPONSIVENESS
-    private fun setupWindowForKeyboard() {
-        try {
-            Log.d(TAG, "Setting up window for keyboard responsiveness...")
-
-            // Method 1: Traditional approach
-            window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-
-            // Method 2: Modern approach with WindowInsets (API 30+)
-            WindowCompat.setDecorFitsSystemWindows(window, false)
-
-            Log.d(TAG, "✅ Window setup for keyboard completed")
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error setting up window for keyboard", e)
-        }
-    }
-
     private fun setupViews() {
         try {
             setupRecyclerView()
-            setupClickListeners()
+            setupSTT()
+            setupPressToTalkGesture()
+
+            setupChipListeners()
             addInitialMessage()
-            setupKeyboardListener() // ✅ Enhanced keyboard listener
+            setupUiListeners()
+            switchInputMode(InputMode.KEYBOARD)
+
+            // ✅ Terapkan system/IME insets sekali (menggantikan keyboard listener lama)
+            applySystemInsetsOnce()
+
             Log.d(TAG, "✅ ChatbotActivity setup completed successfully")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error in setupViews", e)
@@ -94,185 +118,102 @@ class ChatbotActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ ENHANCED KEYBOARD EVENT HANDLING WITH WINDOW INSETS
-    private fun setupKeyboardListener() {
-        Log.d(TAG, "Setting up enhanced keyboard listener...")
-
+    // --- Edge-to-edge + resize oleh sistem saat IME muncul
+    @Suppress("DEPRECATION")
+    private fun setupWindowForKeyboard() {
         try {
-            // Store original margin
-            val params = binding.inputContainer.layoutParams as RelativeLayout.LayoutParams
-            originalBottomMargin = params.bottomMargin
+            window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+            WindowCompat.setDecorFitsSystemWindows(window, true)
+        } catch (_: Exception) { }
+    }
 
-            // Method 1: WindowInsets Listener (Modern - API 30+)
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                binding.root.setOnApplyWindowInsetsListener { _, insets ->
-                    val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
-                    val systemBarsInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+    // --- Terapkan insets (status/nav/IME) ke header & input/overlay
+    private fun applySystemInsetsOnce() {
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
+            val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+            val bottom = max(sys.bottom, ime.bottom)
 
-                    Log.d(TAG, "WindowInsets - IME height: ${imeInsets.bottom}, System bars: ${systemBarsInsets.bottom}")
+            // Header: padding top = tinggi status bar
+            binding.customHeaderCard.updatePadding(top = sys.top)
 
-                    if (imeInsets.bottom > 0) {
-                        // Keyboard visible
-                        if (!isKeyboardVisible) {
-                            Log.d(TAG, "🎹 Keyboard opened (WindowInsets)")
-                            val newBottomMargin = imeInsets.bottom + dpToPx(16)
-                            animateInputContainer(newBottomMargin)
-                            isKeyboardVisible = true
-                        }
-                    } else {
-                        // Keyboard hidden
-                        if (isKeyboardVisible) {
-                            Log.d(TAG, "🎹 Keyboard closed (WindowInsets)")
-                            animateInputContainer(originalBottomMargin)
-                            isKeyboardVisible = false
-                        }
-                    }
-
-                    insets
-                }
+            // Input & overlay: bottom margin = nav/IME + 20dp (sesuai baseline XML)
+            fun setBottomMargin(v: View) {
+                val lp = v.layoutParams as RelativeLayout.LayoutParams
+                lp.bottomMargin = bottom + dpToPx(20)
+                v.layoutParams = lp
             }
+            setBottomMargin(binding.inputContainer)
+            setBottomMargin(binding.recordingOverlay)
 
-            // Method 2: Fallback GlobalLayoutListener (All APIs)
-            keyboardLayoutListener = ViewTreeObserver.OnGlobalLayoutListener {
-                val rect = Rect()
-                binding.root.getWindowVisibleDisplayFrame(rect)
-
-                val screenHeight = binding.root.rootView.height
-                val keypadHeight = screenHeight - rect.bottom
-
-                Log.d(TAG, "GlobalLayout - Screen: $screenHeight, Keypad: $keypadHeight")
-
-                if (keypadHeight > screenHeight * 0.15) {
-                    // Keyboard visible
-                    if (!isKeyboardVisible) {
-                        Log.d(TAG, "🎹 Keyboard opened (GlobalLayout)")
-                        val newBottomMargin = keypadHeight + dpToPx(16)
-                        animateInputContainer(newBottomMargin)
-                        isKeyboardVisible = true
-                    }
-                } else {
-                    // Keyboard hidden
-                    if (isKeyboardVisible) {
-                        Log.d(TAG, "🎹 Keyboard closed (GlobalLayout)")
-                        animateInputContainer(originalBottomMargin)
-                        isKeyboardVisible = false
-                    }
-                }
-            }
-
-            binding.root.viewTreeObserver.addOnGlobalLayoutListener(keyboardLayoutListener)
-            Log.d(TAG, "✅ Enhanced keyboard listener setup completed")
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error setting up keyboard listener", e)
+            insets
         }
     }
 
-    // ✅ ENHANCED SMOOTH ANIMATION FOR INPUT CONTAINER
-    private fun animateInputContainer(newBottomMargin: Int) {
-        try {
-            val params = binding.inputContainer.layoutParams as RelativeLayout.LayoutParams
-            val currentMargin = params.bottomMargin
-
-            Log.d(TAG, "Animating input container from $currentMargin to $newBottomMargin")
-
-            // Enhanced smooth animation with easing
-            val animator = ValueAnimator.ofInt(currentMargin, newBottomMargin)
-            animator.duration = 300 // Slightly longer for smoother feel
-            animator.addUpdateListener { animation ->
-                params.bottomMargin = animation.animatedValue as Int
-                binding.inputContainer.layoutParams = params
-            }
-
-            // Add easing for more natural feel
-            animator.interpolator = android.view.animation.DecelerateInterpolator()
-            animator.start()
-
-            // Scroll RecyclerView to bottom when keyboard opens
-            if (newBottomMargin > originalBottomMargin && messageList.isNotEmpty()) {
-                binding.rvMessages.postDelayed({
-                    binding.rvMessages.smoothScrollToPosition(messageList.size - 1)
-                }, 100)
-            }
-
-            Log.d(TAG, "✅ Enhanced input container animation started")
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error animating input container", e)
-        }
-    }
-
-    // ✅ UTILITY: Convert dp to pixels
-    private fun dpToPx(dp: Int): Int {
-        return (dp * resources.displayMetrics.density).toInt()
-    }
-
-    // ✅ VIEW BINDING - Cleaner RecyclerView setup
+    // ---------------------------
+    // RecyclerView (chat)
+    // ---------------------------
     private fun setupRecyclerView() {
-        Log.d(TAG, "Setting up RecyclerView...")
-
-        try {
-            messageAdapter = MessageAdapter(messageList)
-
-            binding.rvMessages.apply {
-                layoutManager = LinearLayoutManager(this@ChatbotActivity).apply {
-                    stackFromEnd = true // Messages start from bottom
-                }
-                adapter = messageAdapter
-                setHasFixedSize(true)
-                // ✅ Add item decoration for better spacing
-                addItemDecoration(androidx.recyclerview.widget.DividerItemDecoration(
-                    this@ChatbotActivity,
-                    androidx.recyclerview.widget.DividerItemDecoration.VERTICAL
-                ))
-            }
-
-            Log.d(TAG, "✅ RecyclerView setup completed")
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error setting up RecyclerView", e)
-            throw e
+        messageAdapter = MessageAdapter(messageList)
+        binding.rvMessages.apply {
+            layoutManager = LinearLayoutManager(this@ChatbotActivity).apply { stackFromEnd = true }
+            adapter = messageAdapter
+            setHasFixedSize(true)
         }
     }
 
-    // ✅ ENHANCED CLICK LISTENERS
-    private fun setupClickListeners() {
-        Log.d(TAG, "Setting up click listeners...")
+    // ---------------------------
+    // UI Listeners (buttons)
+    // ---------------------------
+    private fun setupUiListeners() {
+        binding.btnBack.setOnClickListener { handleBackNavigation() }
 
-        try {
-            binding.btnBack.setOnClickListener {
-                Log.d(TAG, "Back button clicked")
-                handleBackNavigation()
-            }
+        // Toggle Keyboard <-> Mic Idle
+        binding.btnVoice.setOnClickListener {
+            if (inputMode == InputMode.KEYBOARD) switchInputMode(InputMode.MIC_IDLE)
+            else switchInputMode(InputMode.KEYBOARD)
+        }
 
-            binding.btnSend.setOnClickListener {
-                Log.d(TAG, "Send button clicked")
+        // Kirim text dari keyboard
+        binding.btnSend.setOnClickListener { handleSendMessage() }
+
+        binding.etMessage.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEND) {
                 handleSendMessage()
+                true
+            } else false
+        }
+
+        // Tombol keyboard (di MIC_IDLE row)
+        binding.btnKeyboard.setOnClickListener { switchInputMode(InputMode.KEYBOARD) }
+    }
+
+    private fun switchInputMode(mode: InputMode) {
+        inputMode = mode
+        when (mode) {
+            InputMode.KEYBOARD -> {
+                binding.inputAnimator.displayedChild = 0
+                binding.recordingOverlay.visibility = View.GONE
             }
-
-            binding.btnVoice.setOnClickListener {
-                Log.d(TAG, "Voice button clicked")
-                showToast("Fitur input suara belum diimplementasikan!")
+            InputMode.MIC_IDLE -> {
+                binding.inputAnimator.displayedChild = 1
+                binding.recordingOverlay.visibility = View.GONE
+                binding.tvMicHint.text = getString(R.string.mic_hint)
             }
-
-            // ✅ ENHANCED: Enter key handling for input
-            binding.etMessage.setOnEditorActionListener { _, actionId, _ ->
-                if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEND) {
-                    handleSendMessage()
-                    true
-                } else {
-                    false
-                }
+            InputMode.RECORDING -> {
+                binding.recordingOverlay.visibility = View.VISIBLE
+                binding.tvRecHint.text = getString(R.string.rec_hint)
             }
-
-            // Chip listeners
-            setupChipListeners()
-
-            Log.d(TAG, "✅ Click listeners setup completed")
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error setting up click listeners", e)
-            throw e
+            InputMode.CANCEL_HINT -> {
+                binding.recordingOverlay.visibility = View.VISIBLE
+                binding.tvRecHint.text = getString(R.string.rec_hint_2)
+                val colorStateList = ContextCompat.getColorStateList(this, R.color.warning_color)
+                binding.tvRecHint.setTextColor(colorStateList)
+            }
         }
     }
 
-    // ✅ VIEW BINDING - Setup chip listeners
+    // ✅ Chip listeners
     private fun setupChipListeners() {
         Log.d(TAG, "Setting up chip listeners...")
 
@@ -300,18 +241,18 @@ class ChatbotActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ ENHANCED BACK NAVIGATION HANDLING
+    // ✅ Back navigation
     private fun handleBackNavigation() {
         try {
             Log.d(TAG, "🔄 Handling back navigation...")
-            finish() // Simply finish the activity
+            finish()
             Log.d(TAG, "✅ Back navigation completed")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error in back navigation", e)
         }
     }
 
-    // ✅ ENHANCED MESSAGE HANDLING WITH KEYBOARD MANAGEMENT
+    // ✅ Send message
     private fun handleSendMessage() {
         try {
             val message = binding.etMessage.text.toString().trim()
@@ -320,10 +261,6 @@ class ChatbotActivity : AppCompatActivity() {
                 Log.d(TAG, "Sending message: $message")
                 sendMessage(message, isUser = true)
                 binding.etMessage.text?.clear()
-
-                // ✅ ENHANCED: Hide keyboard after sending (optional)
-                // hideKeyboard()
-
                 simulateBotResponse(message)
             } else {
                 showToast("Pesan tidak boleh kosong!")
@@ -334,7 +271,6 @@ class ChatbotActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ ENHANCED MESSAGE HANDLING
     private fun sendMessage(text: String, isUser: Boolean) {
         try {
             val prefix = if (isUser) "Anda: " else "Bot: "
@@ -343,7 +279,6 @@ class ChatbotActivity : AppCompatActivity() {
             messageList.add(message)
             messageAdapter.notifyItemInserted(messageList.size - 1)
 
-            // Enhanced smooth scroll
             binding.rvMessages.post {
                 binding.rvMessages.smoothScrollToPosition(messageList.size - 1)
             }
@@ -355,7 +290,6 @@ class ChatbotActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ INITIAL MESSAGE
     private fun addInitialMessage() {
         try {
             sendMessage("Hello! Saya Said bot. Ada yang bisa saya bantu tentang stroke?", isUser = false)
@@ -365,7 +299,6 @@ class ChatbotActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ BOT RESPONSE with delay
     private fun simulateBotResponse(userMessage: String) {
         binding.rvMessages.postDelayed({
             try {
@@ -378,7 +311,6 @@ class ChatbotActivity : AppCompatActivity() {
         }, 1000)
     }
 
-    // ✅ ENHANCED BOT RESPONSE
     private fun generateBotResponse(userMessage: String): String {
         return when {
             userMessage.contains("stroke", ignoreCase = true) ||
@@ -406,6 +338,125 @@ class ChatbotActivity : AppCompatActivity() {
         }
     }
 
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setupPressToTalkGesture() {
+        var startY = 0f
+        val cancelThreshold = 80f * resources.displayMetrics.density
+
+        binding.pressToTalkIdle.setOnTouchListener { _, ev ->
+            when (ev.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    startY = ev.rawY
+                    micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    // Biarkan UI masuk ke RECORDING saat izin granted (di launcher)
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dy = startY - ev.rawY
+                    if (dy > cancelThreshold) {
+                        switchInputMode(InputMode.CANCEL_HINT)
+                    } else {
+                        if (inputMode != InputMode.RECORDING) switchInputMode(InputMode.RECORDING)
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    val dy = startY - ev.rawY
+                    val cancelled = dy > cancelThreshold
+                    stopListening(cancelled)
+                    switchInputMode(InputMode.MIC_IDLE)
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+
+    // ---------------------------
+    // STT: SpeechRecognizer
+    // ---------------------------
+    private fun setupSTT() {
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            Toast.makeText(this, "Speech recognition tidak tersedia", Toast.LENGTH_LONG).show()
+            return
+        }
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
+        speechRecognizer?.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) {
+                Log.d(TAG, "STT: Ready for speech")
+            }
+            override fun onBeginningOfSpeech() {
+                Log.d(TAG, "STT: Beginning of speech")
+            }
+            override fun onRmsChanged(rmsdB: Float) {
+                // rentang tipikal 0..10
+                val clamped = rmsdB.coerceIn(0f, 10f)
+                val amp = (clamped / 10f) // 0..1
+
+                // Pastikan di UI thread
+                binding.waveView.post {
+                    try {
+                        val spectrum = List(128) { i -> amp * (i / 128f) }
+                        binding.waveView.setVoiceAmplitudes(spectrum)
+                    } catch (_: Exception) {}
+                }
+            }
+            override fun onBufferReceived(buffer: ByteArray?) {}
+            override fun onEndOfSpeech() {
+                Log.d(TAG, "STT: End of speech")
+            }
+            override fun onError(error: Int) {
+                Log.e(TAG, "STT Error: $error")
+                isListening = false
+            }
+            override fun onResults(results: Bundle?) {
+                isListening = false
+                val texts = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                val text = texts?.firstOrNull().orEmpty()
+                if (text.isNotBlank()) {
+                    sendMessage(text, isUser = true)
+                    val reply = generateBotResponse(text)
+                    sendMessage(reply, isUser = false)
+                } else {
+                    Toast.makeText(this@ChatbotActivity, "Tidak ada hasil suara", Toast.LENGTH_SHORT).show()
+                }
+            }
+            override fun onPartialResults(partialResults: Bundle?) {}
+            override fun onEvent(eventType: Int, params: Bundle?) {}
+        })
+
+        speechIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag())
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        }
+    }
+
+    private fun startListening() {
+        if (isListening) return
+        try {
+            speechRecognizer?.startListening(speechIntent)
+            isListening = true
+        } catch (e: Exception) {
+            Log.e(TAG, "startListening failed", e)
+            isListening = false
+        }
+    }
+
+    private fun stopListening(cancel: Boolean) {
+        try {
+            if (cancel) speechRecognizer?.cancel()
+            else speechRecognizer?.stopListening()
+        } catch (_: Exception) { }
+        isListening = false
+    }
+
+    private fun stopWaveAnimation() {
+        waveJob?.cancel()
+        waveJob = null
+    }
+
     private fun showToast(message: String) {
         try {
             Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
@@ -423,17 +474,15 @@ class ChatbotActivity : AppCompatActivity() {
         }
     }
 
+    private fun dpToPx(dp: Int): Int = (dp * resources.displayMetrics.density).toInt()
+
     override fun onDestroy() {
         super.onDestroy()
         Log.d(TAG, "onDestroy called")
 
         try {
-            // ✅ ENHANCED CLEANUP
-            keyboardLayoutListener?.let { listener ->
-                binding.root.viewTreeObserver.removeOnGlobalLayoutListener(listener)
-                Log.d(TAG, "✅ Keyboard listener removed")
-            }
-
+            stopWaveAnimation()
+            speechRecognizer?.destroy()
             binding.rvMessages.removeCallbacks(null)
             Log.d(TAG, "✅ ChatbotActivity cleaned up")
         } catch (e: Exception) {

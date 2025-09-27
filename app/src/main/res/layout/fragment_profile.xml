@@ -79,7 +79,7 @@
                 />
 
             <include layout="@layout/item_profile_menu"
-                android:id="@+id/menu_geologi"
+                android:id="@+id/menu_history"
                 android:tag="Posisi Geologi"
                 />
 
@@ -89,7 +89,7 @@
                 />
 
             <include layout="@layout/item_profile_menu"
-                android:id="@+id/menu_donasi"
+                android:id="@+id/menu_hapus"
                 android:tag="Donasi"
                 />
         </LinearLayout>

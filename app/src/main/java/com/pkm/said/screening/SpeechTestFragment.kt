@@ -6,8 +6,10 @@ import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.os.Bundle
 import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
@@ -26,15 +28,15 @@ class SpeechTestFragment : Fragment() {
     private var audioFile: File? = null
     private var isRecording = false
 
-    private val waveHandler = Handler()
+    private val waveHandler = Handler(Looper.getMainLooper())
     private var updateWave = true
 
     private val recordDurationMs = 10000L // detik
     private val progressIntervalMs = 50L
     private var recordStartTime = 0L
-    private var recordProgressHandler: Handler? = null
+    private var recordProgressHandler: Handler? = Handler(Looper.getMainLooper())
     private var recordProgressRunnable: Runnable? = null
-    private var progressHandler: Handler? = null
+    private var progressHandler: Handler? = Handler(Looper.getMainLooper())
     private var progressRunnable: Runnable? = null
 
     override fun onCreateView(inflater: android.view.LayoutInflater, container: android.view.ViewGroup?, savedInstanceState: Bundle?): View? {
@@ -57,9 +59,19 @@ class SpeechTestFragment : Fragment() {
         binding.btnRetryMic.visibility = View.GONE
     }
 
+    private val requestMicPermission = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            startRecording()
+        } else {
+            Toast.makeText(requireContext(), "Mic permission ditolak", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private fun startRecording() {
         if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(requireActivity(), arrayOf(Manifest.permission.RECORD_AUDIO), 2001)
+            requestMicPermission.launch(Manifest.permission.RECORD_AUDIO)
             return
         }
         audioFile = File(requireContext().cacheDir, "mic_test_${System.currentTimeMillis()}.3gp")
@@ -209,27 +221,41 @@ class SpeechTestFragment : Fragment() {
 
             binding.bottomWaveView.setVoiceAmplitudes(amps)
 
-            if (isRecording || player?.isPlaying == true) {
-                waveHandler.postDelayed(this, 50) // Bisa lebih smooth dengan 50ms
+            if ((isRecording || player?.isPlaying == true) && updateWave) {
+                waveHandler.postDelayed(this, 50)
             }
         }
     }
     private fun finishWithResult(success: Boolean) {
-        // Simpan hasil ke DataManager jika perlu
-        com.pkm.said.screening.ScreeningDataManager.updateTestResult(
+        binding.btnHeard.isEnabled = false
+        binding.btnNotHeard.isEnabled = false
+
+        val isSuccessful = success
+        val severity = if (success) 0f else 1f
+        val note = if (success) "Rekaman berhasil & terdengar (aman)." else "Rekaman tidak terdengar/bermasalah."
+
+        ScreeningDataManager.updateTestResult(
             requireContext(),
-            com.pkm.said.screening.TestResult(
-                testName = "mic",
+            TestResult(
+                testName = "speech_test",
                 isCompleted = true,
-                isSuccessful = success,
-                score = if (success) 1f else 0f,
-                notes = if (success) "Suara terdengar" else "Suara tidak terdengar",
+                isSuccessful = isSuccessful,
+                score = severity,
+                notes = note,
                 timestamp = getCurrentTimestamp()
             )
         )
-        Toast.makeText(requireContext(), if (success) "Suara terdengar" else "Suara tidak terdengar", Toast.LENGTH_SHORT).show()
+
+        Toast.makeText(
+            requireContext(),
+            if (success) "Tersimpan: Aman (score 0%)" else "Tersimpan: Bahaya (score 100%)",
+            Toast.LENGTH_SHORT
+        ).show()
+
+        // Lanjut ke hasil akhir
         findNavController().navigate(com.pkm.said.R.id.action_speechTest_to_screeningResult)
     }
+
 
     private fun retryRecording() {
         audioFile?.delete()
@@ -250,6 +276,16 @@ class SpeechTestFragment : Fragment() {
     private fun getCurrentTimestamp(): String {
         val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
         return sdf.format(java.util.Date())
+    }
+
+    override fun onPause() {
+        super.onPause()
+        try { recorder?.stop() } catch (_: Exception) {}
+        recorder?.release(); recorder = null
+        player?.release(); player = null
+        waveHandler.removeCallbacksAndMessages(null)
+        recordProgressHandler?.removeCallbacks(recordProgressRunnable ?: Runnable {})
+        progressHandler?.removeCallbacks(progressRunnable ?: Runnable {})
     }
 
     override fun onDestroyView() {

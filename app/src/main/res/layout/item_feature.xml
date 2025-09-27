@@ -33,6 +33,7 @@
         android:layout_marginTop="6dp"
         android:text="Chatbot"
         android:textSize="12sp"
-        android:textColor="@color/BluePrimary"
+        android:textColor="@color/black"
+        android:textStyle="bold"
         android:maxLines="1"/>
 </LinearLayout>

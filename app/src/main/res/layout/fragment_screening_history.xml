@@ -37,51 +37,67 @@
         app:layout_constraintBottom_toBottomOf="@id/btnBack"/>
 
     <!-- Chips Filter -->
-    <com.google.android.material.chip.ChipGroup
-        android:id="@+id/chipGroupFilters"
-        android:layout_width="0dp"
+    <HorizontalScrollView
+        android:id="@+id/chipGroupFiltersContainer"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:singleSelection="true"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        app:layout_constraintTop_toBottomOf="@id/btnBack"
+        android:scrollbars="none"
+        android:overScrollMode="never"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp"
+        app:layout_constraintTop_toBottomOf="@id/tvTitle"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="20dp">
+        app:layout_constraintEnd_toEndOf="parent">
 
-        <com.google.android.material.chip.Chip
-            android:id="@+id/chipAll"
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/chipGroupFilters"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            style="@style/Widget.MaterialComponents.Chip.Filter"
-            android:text="Semua"
-            android:checkable="true"
-            android:checked="true"/>
+            app:singleSelection="true"
+            android:layout_marginTop="20dp"
+            app:layout_constraintTop_toBottomOf="@id/btnBack"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
 
-        <com.google.android.material.chip.Chip
-            android:id="@+id/chipHigh"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            style="@style/Widget.MaterialComponents.Chip.Filter"
-            android:text="Risk Tinggi"
-            android:checkable="true"/>
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chipAll"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                style="@style/Widget.MaterialComponents.Chip.Filter"
+                android:text="Semua"
+                android:checkable="true"
+                android:checked="true"
+                android:textSize="12sp"/>
 
-        <com.google.android.material.chip.Chip
-            android:id="@+id/chipMedium"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            style="@style/Widget.MaterialComponents.Chip.Filter"
-            android:text="Risk Sedang"
-            android:checkable="true"/>
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chipHigh"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                style="@style/Widget.MaterialComponents.Chip.Filter"
+                android:text="Risk Tinggi"
+                android:checkable="true"
+                android:textSize="12sp"/>
 
-        <com.google.android.material.chip.Chip
-            android:id="@+id/chipLow"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            style="@style/Widget.MaterialComponents.Chip.Filter"
-            android:text="Risk Rendah"
-            android:checkable="true"/>
-    </com.google.android.material.chip.ChipGroup>
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chipMedium"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                style="@style/Widget.MaterialComponents.Chip.Filter"
+                android:text="Risk Sedang"
+                android:checkable="true"
+                android:textSize="12sp"/>
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chipLow"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                style="@style/Widget.MaterialComponents.Chip.Filter"
+                android:text="Risk Rendah"
+                android:checkable="true"
+                android:textSize="12sp"/>
+        </com.google.android.material.chip.ChipGroup>
+    </HorizontalScrollView>
+
 
     <TextView
         android:id="@+id/tvCount"
@@ -90,7 +106,7 @@
         android:text="0 sesi"
         android:textColor="@color/black"
         android:textSize="12sp"
-        app:layout_constraintTop_toBottomOf="@id/chipGroupFilters"
+        app:layout_constraintTop_toBottomOf="@id/chipGroupFiltersContainer"
         app:layout_constraintStart_toStartOf="parent"
         android:layout_marginStart="24dp"
         android:layout_marginTop="4dp"/>
@@ -101,6 +117,7 @@
         android:layout_height="0dp"
         android:padding="16dp"
         android:clipToPadding="false"
+        android:layout_marginBottom="100dp"
         app:layout_constraintTop_toBottomOf="@id/tvCount"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"

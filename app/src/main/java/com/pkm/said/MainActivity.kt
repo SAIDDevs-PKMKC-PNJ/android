@@ -125,7 +125,7 @@ class MainActivity : AppCompatActivity() {
 
             navController.addOnDestinationChangedListener { _, destination, _ ->
                 val shouldHide = destination.id in hideBottomNavDestinations
-                binding.bottomNavView.isVisible = !shouldHide
+                binding.navViewContainer.isVisible = !shouldHide
             }
 
             setupNavigation()

@@ -5,104 +5,115 @@
 
     <LinearLayout
         android:id="@+id/contentLayout"
-        android:orientation="vertical"
-        android:gravity="center_horizontal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentTop="true"
         android:layout_marginTop="48dp"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
         android:padding="24dp">
 
         <TextView
             android:id="@+id/tvInstruction"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
+            android:gravity="center"
             android:text="Katakan\nSaya mau pulang untuk minum"
             android:textSize="22sp"
-            android:textStyle="bold"
-            android:gravity="center"
-            android:layout_marginBottom="24dp"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"/>
+            android:textStyle="bold" />
 
         <ProgressBar
             android:id="@+id/progressBarPlay"
+            style="@android:style/Widget.ProgressBar.Horizontal"
             android:layout_width="220dp"
             android:layout_height="wrap_content"
-            android:visibility="gone"
-            style="@android:style/Widget.ProgressBar.Horizontal"
-            android:progressDrawable="@drawable/progress_bar"/>
+            android:progressDrawable="@drawable/progress_bar"
+            android:visibility="gone" />
 
         <ProgressBar
             android:id="@+id/progressBarRecord"
+            style="@android:style/Widget.ProgressBar.Horizontal"
             android:layout_width="220dp"
             android:layout_height="wrap_content"
             android:layout_marginBottom="8dp"
-            android:visibility="gone"
             android:max="10"
             android:progress="0"
-            style="@android:style/Widget.ProgressBar.Horizontal"
-            android:progressDrawable="@drawable/progress_bar"/>
+            android:progressDrawable="@drawable/progress_bar"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/tvCountdown"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
             android:text="Sisa waktu: 10"
-            android:visibility="gone"
             android:textSize="16sp"
-            android:layout_marginBottom="8dp"/>
+            android:visibility="gone" />
 
         <Button
             android:id="@+id/btnRecord"
-            android:text="Rekam"
             android:layout_width="180dp"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"/>
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/bg_history_btn_secondary"
+            android:backgroundTint="@color/white"
+            android:text="Rekam" />
 
         <TextView
             android:id="@+id/tvAfterRecord"
-            android:text="Apakah terdengar suara?"
-            android:textSize="18sp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             android:layout_marginBottom="8dp"
-            android:visibility="gone"/>
+            android:text="Apakah terdengar suara?"
+            android:textSize="18sp"
+            android:visibility="gone" />
 
         <Button
             android:id="@+id/btnPlay"
-            android:text="Putar"
             android:layout_width="120dp"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
-            android:visibility="gone"/>
+            android:background="@drawable/bg_history_btn_secondary"
+            android:backgroundTint="@color/white"
+            android:text="Putar"
+            android:visibility="gone" />
 
         <Button
             android:id="@+id/btnRetryMic"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/bg_history_btn_secondary"
+            android:backgroundTint="@color/white"
             android:text="Ulangi Rekaman"
-            android:visibility="gone"/>
+            android:visibility="gone" />
 
         <LinearLayout
             android:id="@+id/llHearButtons"
-            android:orientation="horizontal"
-            android:gravity="center"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="horizontal"
             android:visibility="gone">
 
             <Button
                 android:id="@+id/btnHeard"
-                android:text="Terdengar"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="16dp"/>
+                android:layout_marginEnd="16dp"
+                android:background="@drawable/bg_history_btn_secondary"
+                android:backgroundTint="@color/white"
+                android:text="Terdengar" />
 
             <Button
                 android:id="@+id/btnNotHeard"
-                android:text="Tidak Terdengar"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"/>
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_history_btn_secondary"
+                android:backgroundTint="@color/white"
+                android:text="Tidak Terdengar" />
         </LinearLayout>
     </LinearLayout>
 
@@ -111,5 +122,5 @@
         android:id="@+id/bottomWaveView"
         android:layout_width="match_parent"
         android:layout_height="120dp"
-        android:layout_alignParentBottom="true"/>
+        android:layout_alignParentBottom="true" />
 </RelativeLayout>

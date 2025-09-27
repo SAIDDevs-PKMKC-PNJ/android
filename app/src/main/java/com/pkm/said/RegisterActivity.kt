@@ -20,11 +20,25 @@ import com.google.firebase.auth.UserProfileChangeRequest
 import kotlinx.coroutines.launch
 import java.security.MessageDigest
 import java.util.UUID
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
+import okhttp3.OkHttpClient
+import okhttp3.MultipartBody
+import okhttp3.Request
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
 
 class RegisterActivity : AppCompatActivity() {
     private lateinit var auth: FirebaseAuth
     private lateinit var credentialManager: CredentialManager
     private val TAG = "RegisterActivity"
+    private val firestore by lazy { FirebaseFirestore.getInstance() }
+    private val http by lazy { OkHttpClient() }
+    private val moshi by lazy { Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build() }
+    private val cldAdapter by lazy { moshi.adapter(CloudinaryUploadResp::class.java) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -117,6 +131,34 @@ class RegisterActivity : AppCompatActivity() {
 
         // ✅ Setup optional social logins
         setupOptionalSocialLogins()
+    }
+
+    private suspend fun uploadUrlToCloudinary(
+        fileUrl: String,
+        cloudName: String,
+        uploadPreset: String,
+        folder: String
+    ): CloudinaryUploadResp? = withContext(Dispatchers.IO) {
+        try {
+            val body = MultipartBody.Builder().setType(MultipartBody.FORM)
+                .addFormDataPart("file", fileUrl)
+                .addFormDataPart("upload_preset", uploadPreset)
+                .addFormDataPart("folder", folder)
+                .build()
+
+            val req = Request.Builder()
+                .url("https://api.cloudinary.com/v1_1/$cloudName/image/upload")
+                .post(body)
+                .build()
+
+            http.newCall(req).execute().use { res ->
+                if (!res.isSuccessful) return@use null
+                val txt = res.body?.string().orEmpty()
+                cldAdapter.fromJson(txt)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "uploadUrlToCloudinary error", e); null
+        }
     }
 
     // ✅ ENHANCED VALIDATION
@@ -257,25 +299,55 @@ class RegisterActivity : AppCompatActivity() {
 
                     if (task.isSuccessful) {
                         val user = auth.currentUser
-                        Log.d(TAG, "✅ Firebase Google authentication successful")
-                        Log.d(TAG, "User ID: ${user?.uid}")
-                        Log.d(TAG, "User Email: ${user?.email}")
-                        Log.d(TAG, "User Name: ${user?.displayName}")
-                        Log.d(TAG, "Photo URL: ${user?.photoUrl}")
-                        Log.d(TAG, "Email Verified: ${user?.isEmailVerified}")
+                        resetGoogleButtonState()
 
-                        // Check if this is a new user registration or existing user login
+                        if (user == null) { redirectToMainActivity(); return@addOnCompleteListener }
+
                         val isNewUser = task.result?.additionalUserInfo?.isNewUser ?: false
+                        Toast.makeText(this, if (isNewUser) "Account created!" else "Welcome back!", Toast.LENGTH_SHORT).show()
 
-                        if (isNewUser) {
-                            Toast.makeText(this, "Account created successfully! Welcome ${user?.displayName}!", Toast.LENGTH_SHORT).show()
-                            Log.d(TAG, "✅ New user registered with Google")
-                        } else {
-                            Toast.makeText(this, "Welcome back ${user?.displayName}!", Toast.LENGTH_SHORT).show()
-                            Log.d(TAG, "✅ Existing user signed in with Google")
+                        lifecycleScope.launch {
+                            val googlePhoto = user.photoUrl?.toString()
+                            var finalUrl: String? = null
+                            var publicId: String? = null
+
+                            // HANYA upload jika ada URL foto Google
+                            if (!googlePhoto.isNullOrBlank()) {
+                                try {
+                                    val resp = uploadUrlToCloudinary(
+                                        fileUrl = googlePhoto,
+                                        cloudName = BuildConfig.CLOUDINARY_CLOUD_NAME,
+                                        uploadPreset = BuildConfig.CLOUDINARY_UNSIGNED_PRESET,
+                                        folder = "profile_photos/${user.uid}"
+                                    )
+                                    finalUrl = resp?.secure_url ?: googlePhoto
+                                    publicId = resp?.public_id
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Cloudinary upload failed", e)
+                                    finalUrl = googlePhoto // fallback, atau biarkan kosong
+                                }
+                            }
+
+                            // Upsert dokumen user di Firestore
+                            val data = hashMapOf(
+                                "uid" to user.uid,
+                                "email" to (user.email ?: ""),
+                                "name" to (user.displayName ?: ""),
+                                "photoUrl" to (finalUrl ?: ""),           // jika null → simpan ""
+                                "cloudinaryPublicId" to (publicId ?: ""),
+                                "loginMethod" to "google",
+                                "emailVerified" to user.isEmailVerified,
+                                "updatedAt" to System.currentTimeMillis(),
+                                "createdAt" to System.currentTimeMillis()
+                            )
+
+                            firestore.collection("users").document(user.uid)
+                                .set(data, SetOptions.merge())
+                                .addOnCompleteListener {
+                                    // teruskan ke form melengkapi profil
+                                    redirectToMainActivity()
+                                }
                         }
-
-                        redirectToMainActivity()
                     } else {
                         Log.e(TAG, "❌ Firebase Google authentication failed", task.exception)
                         Toast.makeText(this, "Authentication failed: ${task.exception?.message}", Toast.LENGTH_LONG).show()

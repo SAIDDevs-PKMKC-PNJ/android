@@ -11,8 +11,6 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.pkm.said.MainActivity
-import com.pkm.said.R
 import com.pkm.said.adapter.ScreeningDetailAdapter
 import com.pkm.said.databinding.FragmentScreeningHistoryDetailBinding
 import com.pkm.said.screening.RiskLevel
@@ -67,8 +65,9 @@ class ScreeningDetailFragment : Fragment() {
     }
 
     private fun loadData() {
-        val allHistory = ScreeningDataManager.getScreeningHistory(requireContext())
-        screeningResult = allHistory.firstOrNull { it.sessionId == sessionId }
+        val id = sessionId
+        screeningResult = if (id.isNullOrEmpty()) null
+        else ScreeningDataManager.getScreeningById(requireContext(), id)
 
         if (screeningResult == null) {
             binding.groupContent.isVisible = false
@@ -81,37 +80,41 @@ class ScreeningDetailFragment : Fragment() {
 
         val result = screeningResult!!
 
-        val percent = computeOverallPercent(result)
+        // FAST overall % (0..80)
+        val fastPercent = ScreeningDataManager.calculateFASTOverallPercent(result)
 
         // Header
         binding.tvRiskTitle.text = result.overallRisk.displayName
-        binding.tvBeFastCount.text = "BE-FAST: ${completedTestCount(result)}/5"
+        binding.tvBeFastCount.text = "FAST: ${completedTestCount(result)}/3"
         applyRiskHeader(result.overallRisk)
 
         // Body
-        binding.tvDateTime.text = formatDateTime(result.timestamp)
-        binding.tvLocation.text = "Jakarta" // TODO: ganti jika punya data lokasi
+        val (dateStr, timeStr) = splitDateTime(result.timestamp)
+        binding.tvDate.text = dateStr
+        binding.tvDateTime.text = timeStr
+        binding.tvLocation.text = "Jakarta"
 
-        binding.tvPercent.text = "$percent%"
-        binding.progressBar.progress = percent
+        binding.progressBar.max = 80
+        binding.tvPercent.text = "$fastPercent%"
+        binding.progressBar.progress = fastPercent
         binding.tvRiskDescription.text = result.overallRisk.description
 
         // Footer
         binding.tvStatusValue.text = if (result.isCompleted) "Completed" else "In Progress"
-        binding.tvRiskProbability.text = "$percent% kemungkinan"
+        binding.tvRiskProbability.text = "$fastPercent% dari maks 80%"
         binding.tvStatusValue.setTextColor(
             ContextCompat.getColor(
                 requireContext(),
-                if (result.isCompleted) R.color.risk_low_text else R.color.GrayLight
+                if (result.isCompleted) R.color.success else R.color.GrayLight
             )
         )
 
         // Detail list test
-        val testList = mutableListOf<TestResult>()
-        result.faceResult?.let { testList.add(it) }
-        result.armsResult?.let { testList.add(it) }
-        result.speechResult?.let { testList.add(it) }
-        // Placeholder untuk 2 test lain (Balance, Eyes/Time) jika di masa depan mau ditambah
+        val testList = buildList {
+            result.faceResult?.let { add(it) }
+            result.armsResult?.let { add(it) }
+            result.speechResult?.let { add(it) }
+        }
         testAdapter.submitList(testList)
     }
 
@@ -125,12 +128,11 @@ class ScreeningDetailFragment : Fragment() {
         }
         binding.headerContainer.setBackgroundResource(bgRes)
         val accentColor = when (risk) {
-            RiskLevel.CRITICAL, RiskLevel.HIGH -> ContextCompat.getColor(ctx, R.color.risk_high_text)
+            RiskLevel.CRITICAL, RiskLevel.HIGH -> ContextCompat.getColor(ctx, R.color.warning_color)
             RiskLevel.MEDIUM -> ContextCompat.getColor(ctx, R.color.risk_medium_text)
             RiskLevel.LOW -> ContextCompat.getColor(ctx, R.color.risk_low_text)
             RiskLevel.UNKNOWN -> ContextCompat.getColor(ctx, R.color.risk_unknown_text)
         }
-        binding.tvRiskTitle.setTextColor(accentColor)
         binding.tvPercent.setTextColor(accentColor)
         binding.tvRiskProbability.setTextColor(accentColor)
         binding.progressBar.progressDrawable.setTint(accentColor)
@@ -147,12 +149,12 @@ class ScreeningDetailFragment : Fragment() {
     }
 
     private fun shareResult(result: ScreeningResult) {
-        val percent = computeOverallPercent(result)
+        val fastPercent = ScreeningDataManager.calculateFASTOverallPercent(result)
         val shareText = """
             Hasil FAST Screening:
             • Tanggal: ${result.timestamp}
             • Risiko: ${result.overallRisk.displayName}
-            • Perkiraan: $percent%
+            • FAST overall: $fastPercent% (maks 80%)
             
             ${result.overallRisk.description}
             #FAST #StrokeAwareness
@@ -169,29 +171,21 @@ class ScreeningDetailFragment : Fragment() {
         android.widget.Toast.makeText(requireContext(), msg, android.widget.Toast.LENGTH_SHORT).show()
     }
 
-    private fun computeOverallPercent(result: ScreeningResult): Int {
-        val tests = listOfNotNull(result.faceResult, result.armsResult, result.speechResult)
-        if (tests.isEmpty()) return 0
-        val avg = tests.map { it.score }.average()
-        return (avg * 100).roundToInt().coerceIn(0, 100)
-    }
-
     private fun completedTestCount(result: ScreeningResult): Int {
         val tests = listOfNotNull(result.faceResult, result.armsResult, result.speechResult)
         return tests.count { it.isCompleted }
     }
 
-    private fun formatDateTime(ts: String): String {
-        // ts format "yyyy-MM-dd HH:mm:ss"
-        // Output contoh: "08 September 2025 • 14.00"
+    private fun splitDateTime(ts: String): Pair<String, String> {
+        // input: "yyyy-MM-dd HH:mm:ss"
         return try {
             val inFmt = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
             val date = inFmt.parse(ts)
             val dayFmt = java.text.SimpleDateFormat("dd MMMM yyyy", java.util.Locale("id"))
             val timeFmt = java.text.SimpleDateFormat("HH.mm", java.util.Locale.getDefault())
-            "${dayFmt.format(date!!) } • ${timeFmt.format(date)}"
+            dayFmt.format(date!!) to timeFmt.format(date)
         } catch (e: Exception) {
-            ts
+            ts to ""
         }
     }
 

@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
+import com.bumptech.glide.Glide
 import com.pkm.said.R
 import com.pkm.said.databinding.FragmentFacePreviewBinding
 
@@ -25,17 +26,21 @@ class FacePreviewFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-//        setupViews()
+        setupGifPreview()
         setupClickListeners()
     }
 
-//    private fun setupViews() {
-//        // Setup lottie animation
-//        binding.lottiePreview.apply {
-//            setAnimation("face_test_preview.json")
-//            playAnimation()
-//        }
-//    }
+    private fun setupGifPreview() {
+        // Load GIF pakai Glide
+        try {
+            Glide.with(this)
+                .asGif()
+                .load(R.raw.face_test_preview) // ganti dengan nama file gif di drawable/raw
+                .into(binding.gifPreview)
+        } catch (e: Exception) {
+            binding.gifPreview.visibility = View.GONE
+        }
+    }
 
     private fun setupClickListeners() {
         binding.btnStartTest.setOnClickListener {

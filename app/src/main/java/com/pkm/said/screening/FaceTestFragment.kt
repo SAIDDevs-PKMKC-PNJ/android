@@ -141,7 +141,7 @@ class FaceTestFragment : Fragment() {
                 testName = "face_test",
                 isCompleted = true,
                 isSuccessful = isSuccessful,
-                score = if (isSuccessful) 1f else 0f,
+                score = if (isSuccessful) 0f else 1f,
                 notes = notes,
                 timestamp = getCurrentTimestamp()
             )

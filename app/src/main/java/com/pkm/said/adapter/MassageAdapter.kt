@@ -13,27 +13,29 @@ class MessageAdapter(private val messages: MutableList<String>) :
     companion object {
         private const val VIEW_TYPE_BOT = 1
         private const val VIEW_TYPE_USER = 2
+        private const val VIEW_TYPE_USER_SPEECH = 3
     }
 
     // ✅ FIXED - Pass viewType to constructor
     inner class MessageViewHolder(itemView: View, private val viewType: Int) : RecyclerView.ViewHolder(itemView) {
-        // ✅ FIXED - Use when expression based on viewType
         val messageTextView: TextView = when (viewType) {
             VIEW_TYPE_BOT -> itemView.findViewById(R.id.tv_bot_message)
             VIEW_TYPE_USER -> itemView.findViewById(R.id.tv_user_message)
+            VIEW_TYPE_USER_SPEECH -> itemView.findViewById(R.id.tv_user_speech_message)
             else -> throw IllegalArgumentException("Invalid view type: $viewType")
         }
     }
+
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MessageViewHolder {
         val layoutRes = when (viewType) {
             VIEW_TYPE_BOT -> R.layout.item_message_bot
             VIEW_TYPE_USER -> R.layout.item_message_user
+            VIEW_TYPE_USER_SPEECH -> R.layout.item_massage_user_speech
             else -> throw IllegalArgumentException("Invalid view type: $viewType")
         }
-
         val view = LayoutInflater.from(parent.context).inflate(layoutRes, parent, false)
-        return MessageViewHolder(view, viewType) // ✅ FIXED - Pass viewType!
+        return MessageViewHolder(view, viewType)
     }
 
     override fun onBindViewHolder(holder: MessageViewHolder, position: Int) {
@@ -48,12 +50,13 @@ class MessageAdapter(private val messages: MutableList<String>) :
     override fun getItemCount(): Int = messages.size
 
     override fun getItemViewType(position: Int): Int {
-        return if (messages[position].startsWith("Anda:")) {
-            VIEW_TYPE_USER
-        } else {
-            VIEW_TYPE_BOT
+        return when {
+            messages[position].startsWith("Anda (via suara):") -> VIEW_TYPE_USER_SPEECH
+            messages[position].startsWith("Anda:") -> VIEW_TYPE_USER
+            else -> VIEW_TYPE_BOT
         }
     }
+
 
     // ✅ BONUS - Helper function untuk add message
     fun addMessage(message: String) {

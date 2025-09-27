@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -11,25 +10,24 @@
         android:id="@+id/btn_back"
         android:layout_width="48dp"
         android:layout_height="48dp"
-        android:layout_marginTop="24dp"
         android:layout_marginStart="24dp"
-        android:background="@android:color/transparent"
+        android:layout_marginTop="20dp"
+        android:background="@drawable/bg_circle_light"
+        android:contentDescription="Back"
         android:src="@drawable/ic_arrow_back"
-        app:tint="@android:color/white"
-        android:contentDescription="Back" />
+        app:tint="@android:color/black" />
 
     <LinearLayout
         android:id="@+id/container_card"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_centerInParent="true"
-        android:layout_marginTop="150dp"
         android:layout_marginStart="24dp"
+        android:layout_marginTop="80dp"
         android:layout_marginEnd="24dp"
-        android:orientation="vertical"
         android:background="@drawable/bg_card_container_primary"
-        android:padding="24dp"
-        android:elevation="6dp">
+        android:elevation="6dp"
+        android:orientation="vertical"
+        android:padding="24dp">
 
         <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
             android:id="@+id/avatar_container"
@@ -44,9 +42,9 @@
                 android:id="@+id/iv_profile"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
+                android:contentDescription="@string/profile_photo"
                 android:scaleType="centerCrop"
-                android:src="@drawable/ic_avatar_default"
-                android:contentDescription="@string/profile_photo" />
+                android:src="@drawable/ic_avatar_default" />
 
             <!-- Overlay bawah: gradient + teks "Edit foto" -->
             <LinearLayout
@@ -54,11 +52,11 @@
                 android:layout_width="match_parent"
                 android:layout_height="36dp"
                 android:layout_gravity="bottom"
-                android:gravity="center"
                 android:background="@drawable/bg_round_12"
+                android:gravity="center"
+                android:orientation="horizontal"
                 android:paddingStart="10dp"
-                android:paddingEnd="10dp"
-                android:orientation="horizontal">
+                android:paddingEnd="10dp">
 
                 <TextView
                     android:id="@+id/tv_edit_photo"
@@ -66,8 +64,8 @@
                     android:layout_height="wrap_content"
                     android:text="@string/change_photo"
                     android:textColor="@android:color/white"
-                    android:textStyle="bold"
-                    android:textSize="16sp"/>
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
             </LinearLayout>
 
             <FrameLayout
@@ -85,8 +83,8 @@
             android:id="@+id/tv_profile_name"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
             android:layout_gravity="center_horizontal"
+            android:layout_marginTop="16dp"
             android:text="@string/username"
             android:textColor="@android:color/white"
             android:textSize="22sp"
@@ -96,15 +94,15 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:layout_marginTop="24dp">
+            android:layout_marginTop="24dp"
+            android:orientation="vertical">
 
             <!-- Nama -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
                 <ImageView
                     android:layout_width="24dp"
@@ -115,11 +113,11 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="10dp"
                     android:text="Nama"
                     android:textColor="@color/white"
                     android:textSize="16sp"
-                    android:paddingStart="12dp"
-                    android:paddingEnd="10dp"
                     android:textStyle="bold" />
             </LinearLayout>
 
@@ -127,18 +125,18 @@
                 android:id="@+id/et_name"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/username"
                 android:layout_marginTop="12dp"
-                android:textColor="@color/white"
-                android:textSize="16sp"
+                android:layout_marginBottom="2dp"
                 android:background="@android:color/transparent"
+                android:drawablePadding="8dp"
+                android:fontFamily="sans-serif"
+                android:hint="Nama Lengkap"
                 android:inputType="textPersonName"
                 android:paddingBottom="4dp"
-                android:layout_marginBottom="2dp"
                 android:singleLine="true"
-                android:drawablePadding="8dp"
-                android:hint="Nama Lengkap"
-                android:fontFamily="sans-serif" />
+                android:text="@string/username"
+                android:textColor="@color/white"
+                android:textSize="16sp" />
 
             <View
                 android:layout_width="match_parent"
@@ -149,9 +147,9 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
+                android:layout_marginTop="16dp"
                 android:gravity="center_vertical"
-                android:layout_marginTop="16dp">
+                android:orientation="horizontal">
 
                 <ImageView
                     android:layout_width="24dp"
@@ -162,41 +160,41 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Umur"
-                    android:textColor="#fff"
+                    android:text="Tanggal Lahir"
+                    android:textColor="@color/white"
                     android:textSize="16sp"
                     android:paddingStart="12dp"
                     android:paddingEnd="10dp"
                     android:textStyle="bold" />
             </LinearLayout>
+
             <EditText
-                android:id="@+id/et_age"
+                android:id="@+id/et_birthdate"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/Age"
                 android:layout_marginTop="12dp"
                 android:textColor="@color/white"
                 android:textSize="16sp"
                 android:background="@android:color/transparent"
-                android:inputType="text"
+                android:inputType="none"
+                android:focusable="false"
+                android:hint="Pilih tanggal lahir"
                 android:paddingBottom="4dp"
                 android:layout_marginBottom="2dp"
-                android:singleLine="true"
-                android:hint="Umur"
                 android:fontFamily="sans-serif" />
 
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:background="#6B7A8A" />
+                android:background="@color/white" />
 
             <!-- Tempat Tinggal -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
+                android:layout_marginTop="16dp"
                 android:gravity="center_vertical"
-                android:layout_marginTop="16dp">
+                android:orientation="horizontal">
 
                 <ImageView
                     android:layout_width="24dp"
@@ -208,27 +206,28 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="10dp"
                     android:text="Tempat Tinggal"
                     android:textColor="@color/white"
                     android:textSize="16sp"
-                    android:paddingStart="12dp"
-                    android:paddingEnd="10dp"
                     android:textStyle="bold" />
             </LinearLayout>
+
             <EditText
                 android:id="@+id/et_address"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Jl. Manggis Jakarta Utara, Tanjung Priuk"
                 android:layout_marginTop="12dp"
-                android:textColor="#fff"
-                android:textSize="16sp"
+                android:layout_marginBottom="2dp"
                 android:background="@android:color/transparent"
+                android:fontFamily="sans-serif"
+                android:hint="Alamat"
                 android:inputType="textPostalAddress"
                 android:paddingBottom="4dp"
-                android:layout_marginBottom="2dp"
-                android:hint="Alamat"
-                android:fontFamily="sans-serif" />
+                android:text="Jl. Manggis Jakarta Utara, Tanjung Priuk"
+                android:textColor="#fff"
+                android:textSize="16sp" />
 
             <View
                 android:layout_width="match_parent"
@@ -239,9 +238,9 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
+                android:layout_marginTop="16dp"
                 android:gravity="center_vertical"
-                android:layout_marginTop="16dp">
+                android:orientation="horizontal">
 
                 <ImageView
                     android:layout_width="24dp"
@@ -252,11 +251,11 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="10dp"
                     android:text="No.Telefon"
                     android:textColor="@color/white"
                     android:textSize="16sp"
-                    android:paddingStart="12dp"
-                    android:paddingEnd="10dp"
                     android:textStyle="bold" />
             </LinearLayout>
 
@@ -264,14 +263,14 @@
                 android:id="@+id/et_phone"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="081976897730"
-                android:textColor="@color/white"
-                android:textSize="16sp"
+                android:layout_marginBottom="2dp"
                 android:background="@android:color/transparent"
+                android:hint="Nomor Telepon"
                 android:inputType="phone"
                 android:paddingBottom="4dp"
-                android:layout_marginBottom="2dp"
-                android:hint="Nomor Telepon" />
+                android:text="081976897730"
+                android:textColor="@color/white"
+                android:textSize="16sp" />
 
             <View
                 android:layout_width="match_parent"
@@ -284,33 +283,21 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
+            android:layout_marginStart="56dp"
+            android:layout_marginTop="24dp"
+            android:layout_marginEnd="56dp"
             android:gravity="center"
-            android:layout_marginTop="24dp">
+            android:orientation="horizontal">
 
             <Button
-                android:id="@+id/btn_save"
-                android:layout_width="0dp"
-                android:layout_weight="1"
-                android:layout_height="44dp"
-                android:layout_marginEnd="10dp"
-                android:text="Simpan"
-                android:textColor="@android:color/white"
-                android:backgroundTint="@color/success"
-                android:background="@drawable/bg_history_btn_primary"
+                android:id="@+id/btn_edit_save"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_history_btn_secondary"
+                android:backgroundTint="@color/lightBlue"
                 android:fontFamily="sans-serif-medium"
-                android:textStyle="bold" />
-
-            <Button
-                android:id="@+id/btn_edit"
-                android:layout_width="0dp"
-                android:layout_weight="1"
-                android:layout_height="44dp"
                 android:text="Edit"
                 android:textColor="@android:color/white"
-                android:backgroundTint="@color/lightBlue"
-                android:background="@drawable/bg_history_btn_secondary"
-                android:fontFamily="sans-serif-medium"
                 android:textStyle="bold" />
         </LinearLayout>
 

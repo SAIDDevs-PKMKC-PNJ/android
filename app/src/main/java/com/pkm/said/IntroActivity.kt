@@ -182,6 +182,7 @@ class IntroActivity : AppCompatActivity() {
         }
     }
 
+    @Suppress("DEPRECATION")
     private fun finishIntro() {
         try {
             Log.d(TAG, "🎯 Finishing intro sequence...")

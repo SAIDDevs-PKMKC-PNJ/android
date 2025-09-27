@@ -34,6 +34,7 @@
 
     <!-- Bottom Navigation dengan ukuran tetap -->
     <com.google.android.material.card.MaterialCardView
+        android:id="@+id/nav_view_container"
         android:layout_width="match_parent"
         android:layout_height="80dp"
         android:layout_gravity="bottom"
@@ -42,7 +43,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:cardCornerRadius="24dp"
-        app:cardElevation="12dp"
         app:cardBackgroundColor="@android:color/transparent"
         app:cardPreventCornerOverlap="false"
         app:cardUseCompatPadding="false">
@@ -50,7 +50,7 @@
         <com.google.android.material.bottomnavigation.BottomNavigationView
             android:id="@+id/bottom_nav_view"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
             android:background="@drawable/rounded_bottom_nav"
             app:menu="@menu/nav_bar"
             app:labelVisibilityMode="unlabeled"/>

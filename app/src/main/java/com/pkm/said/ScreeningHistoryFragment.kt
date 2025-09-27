@@ -108,10 +108,10 @@ class ScreeningHistoryFragment : Fragment() {
     }
 
     private fun applyFilter() {
-        val list = if (currentFilter == null) {
-            fullHistory
-        } else {
-            fullHistory.filter { it.overallRisk == currentFilter }
+        val list = when (currentFilter) {
+            null -> fullHistory
+            RiskLevel.HIGH -> fullHistory.filter { it.overallRisk == RiskLevel.HIGH || it.overallRisk == RiskLevel.CRITICAL }
+            else -> fullHistory.filter { it.overallRisk == currentFilter }
         }
         adapter.submitList(list)
         binding.tvCount.text = getString(R.string.session, list.size)
@@ -136,10 +136,12 @@ class ScreeningHistoryFragment : Fragment() {
     }
 
     private fun computeOverallPercent(result: ScreeningResult): Int {
-        val tests = listOfNotNull(result.faceResult, result.armsResult, result.speechResult)
-        if (tests.isEmpty()) return 0
-        val avg = tests.map { it.score }.average()
-        return (avg * 100).toInt()
+        return ScreeningDataManager.calculateFASTOverallPercent(result)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        loadData()
     }
 
     override fun onDestroyView() {

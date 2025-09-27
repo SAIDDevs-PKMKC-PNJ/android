@@ -56,8 +56,7 @@
             <LinearLayout
                 android:orientation="vertical"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingBottom="0dp">
+                android:layout_height="wrap_content">
 
                 <!-- HEADER -->
                 <LinearLayout
@@ -69,19 +68,21 @@
                     android:orientation="vertical">
 
                     <TextView
+                        style="@style/TextAppearance.Material3.TitleLarge"
                         android:id="@+id/tvRiskTitle"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Risk Tinggi"
+                        android:text="Risiko Tinggi"
                         android:textColor="@color/white"
                         android:textSize="20sp"
                         android:textStyle="bold"/>
 
                     <TextView
+                        style="@style/TextAppearance.Material3.BodyLarge"
                         android:id="@+id/tvBeFastCount"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="BE-FAST: 5/5"
+                        android:text="FAST: 3/3"
                         android:textColor="@color/white"
                         android:textSize="12sp"
                         android:layout_marginTop="6dp"/>
@@ -100,62 +101,99 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:layout_marginBottom="4dp">
+                        android:layout_marginBottom="8dp"
+                        android:gravity="center_vertical">
 
-                        <TextView
-                            android:id="@+id/tvDateTime"
+                        <LinearLayout
                             android:layout_width="0dp"
                             android:layout_weight="1"
                             android:layout_height="wrap_content"
-                            android:text="08 September 2025 • 14.00"
-                            android:textSize="12sp"
-                            android:textColor="@color/GrayLight"/>
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <TextView
+                                android:id="@+id/tvDate"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginEnd="8dp"
+                                android:drawableStart="@drawable/ic_calendar_12"
+                                android:drawablePadding="8dp"
+                                android:drawableTint="@color/BluePrimary"
+                                android:text="08 September 2025"
+                                android:textColor="@color/black"
+                                android:textSize="12sp" />
+
+                            <TextView
+                                android:id="@+id/tvDateTime"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="14.00"
+                                android:drawableStart="@drawable/ic_times_12"
+                                android:drawablePadding="8dp"
+                                android:drawableTint="@color/BluePrimary"
+                                android:textSize="12sp"
+                                android:textColor="@color/black"/>
+                        </LinearLayout>
 
                         <TextView
                             android:id="@+id/tvLocation"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:drawableStart="@drawable/ic_location"
+                            android:drawableTint="@color/BluePrimary"
                             android:text="Jakarta"
-                            android:textSize="12sp"
-                            android:textColor="@color/GrayLight"/>
+                            android:drawablePadding="8dp"
+                            android:textColor="@color/black"
+                            android:textSize="12sp" />
                     </LinearLayout>
 
-                    <TextView
-                        android:id="@+id/labelHasil"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Hasil Screening:"
-                        android:textColor="@color/white"
-                        android:textStyle="bold"
-                        android:layout_marginTop="4dp"
-                        android:layout_marginBottom="8dp"/>
-
-                    <!-- Percent & Progress -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical">
+                        android:layout_marginTop="16dp"
+                        android:layout_marginBottom="4dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/tvResultLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Hasil Screening:"
+                            android:textColor="@color/black"
+                            android:textStyle="bold"
+                            android:layout_marginTop="4dp"
+                            android:layout_marginBottom="4dp"/>
 
                         <TextView
                             android:id="@+id/tvPercent"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="85%"
-                            android:textColor="@color/risk_high_text"
-                            android:textSize="26sp"
+                            android:textSize="12sp"
                             android:textStyle="bold"
-                            android:layout_marginEnd="16dp"/>
+                            android:textColor="@color/warning_color"
+                            android:layout_marginEnd="12dp"/>
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:orientation="horizontal"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="4dp"
+                        android:gravity="center_vertical">
 
                         <ProgressBar
                             android:id="@+id/progressBar"
                             style="@android:style/Widget.ProgressBar.Horizontal"
                             android:layout_width="0dp"
-                            android:layout_height="12dp"
+                            android:layout_height="10dp"
                             android:layout_weight="1"
                             android:max="100"
                             android:progress="85"
-                            android:progressDrawable="@drawable/progress_screening"/>
+                            android:progressDrawable="@drawable/progress_screening" />
+
                     </LinearLayout>
 
                     <TextView
@@ -163,7 +201,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="Risiko Tinggi - Segera konsultasi dokter"
-                        android:textColor="@color/GrayLight_alpha_90"
+                        android:textColor="@color/black"
                         android:textSize="12sp"
                         android:layout_marginTop="8dp"/>
 
@@ -173,7 +211,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Detail:"
-                        android:textColor="@color/white"
+                        android:textColor="@color/black"
                         android:textStyle="bold"
                         android:layout_marginTop="18dp"
                         android:layout_marginBottom="6dp"/>
@@ -189,7 +227,7 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:background="@color/BluePrimary"
+                    android:background="@drawable/bg_card_bottom_corner"
                     android:orientation="vertical"
                     android:padding="20dp">
 
@@ -209,10 +247,11 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Status Tes"
-                                android:textColor="@color/GrayLight"
+                                android:textColor="@color/white"
                                 android:textSize="11sp"/>
 
                             <TextView
+                                style="@style/TextAppearance.Material3.TitleLarge"
                                 android:id="@+id/tvStatusValue"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
@@ -226,20 +265,22 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
+                            android:gravity="end"
                             android:orientation="vertical">
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Tingkat Risiko"
-                                android:textColor="@color/GrayLight"
+                                android:textColor="@color/white"
                                 android:textSize="11sp"/>
 
                             <TextView
+                                style="@style/TextAppearance.Material3.TitleLarge"
                                 android:id="@+id/tvRiskProbability"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="85% kemungkinan"
+                                android:text="80% dari maks 80%"
                                 android:textColor="@color/risk_high_text"
                                 android:textStyle="bold"
                                 android:textSize="14sp"/>
@@ -251,31 +292,43 @@
                         android:layout_height="wrap_content"
                         android:orientation="horizontal">
 
-                        <Button
+                        <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnDownload"
                             android:layout_width="0dp"
-                            android:layout_height="48dp"
+                            android:layout_height="46dp"
                             android:layout_weight="1"
+                            android:background="@drawable/bg_history_btn_primary"
                             android:text="Unduh"
                             android:textAllCaps="false"
-                            android:background="@drawable/bg_history_btn_primary"
                             android:textColor="@color/white"
-                            android:textStyle="bold"/>
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            app:icon="@drawable/ic_download"
+                            app:iconPadding="8dp"
+                            app:iconGravity="textStart"
+                            app:iconTint="@color/white"
+                            app:backgroundTint="@color/white"/>
 
                         <Space
                             android:layout_width="12dp"
                             android:layout_height="0dp"/>
 
-                        <Button
+                        <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnShare"
                             android:layout_width="0dp"
-                            android:layout_height="48dp"
+                            android:layout_height="46dp"
                             android:layout_weight="1"
                             android:text="Bagikan"
                             android:textAllCaps="false"
                             android:background="@drawable/bg_history_btn_secondary"
                             android:textColor="@color/black"
-                            android:textStyle="bold"/>
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            app:backgroundTint="@color/white"/>
                     </LinearLayout>
                 </LinearLayout>
             </LinearLayout>

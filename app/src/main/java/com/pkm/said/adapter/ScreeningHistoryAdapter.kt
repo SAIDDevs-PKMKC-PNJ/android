@@ -34,10 +34,11 @@ class ScreeningHistoryAdapter(
             val ctx = binding.root.context
 
             binding.tvRiskTitle.text = item.overallRisk.displayName
-            binding.tvBeFastCount.text = "BE-FAST: ${completedCount(item)}/5"
+            binding.tvBeFastCount.text = "BE-FAST: ${completedCount(item)}/3"
 
             // Dummy location (bisa diambil dari testData jika ada)
-            binding.tvDate.text = formatDateTime(item.timestamp)
+            binding.tvDate.text = formatDate(item.timestamp)
+            binding.tvDateTime.text = formatTime(item.timestamp)
             binding.tvLocation.text = "Jakarta"
 
             val percent = computePercent(item)
@@ -49,6 +50,15 @@ class ScreeningHistoryAdapter(
             // Status test
             binding.tvStatusValue.text = if (item.isCompleted) "Completed" else "In Progress"
             binding.tvRiskLabelValue.text = "$percent% kemungkinan"
+
+            val risk = item.overallRisk
+            val colorRes = when (risk) {
+                RiskLevel.CRITICAL, RiskLevel.HIGH -> R.color.risk_high_text
+                RiskLevel.MEDIUM -> R.color.risk_medium_text
+                RiskLevel.LOW -> R.color.risk_low_text
+                else -> R.color.risk_unknown_text
+            }
+            binding.tvRiskLabelValue.setTextColor(ContextCompat.getColor(binding.root.context, colorRes))
 
             // Buttons
             binding.btnDetail.setOnClickListener { onDetail(item) }
@@ -73,15 +83,23 @@ class ScreeningHistoryAdapter(
             return (avg * 100).roundToInt().coerceIn(0, 100)
         }
 
-        private fun formatDateTime(ts: String): String {
-            // ts format "yyyy-MM-dd HH:mm:ss"
-            // Output contoh: "08 September 2025 • 14.00"
+        private fun formatDate(ts: String): String {
             return try {
                 val inFmt = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
                 val date = inFmt.parse(ts)
                 val dayFmt = java.text.SimpleDateFormat("dd MMMM yyyy", java.util.Locale("id"))
+                dayFmt.format(date!!)
+            } catch (e: Exception) {
+                ts
+            }
+        }
+
+        private fun formatTime(ts: String): String {
+            return try {
+                val inFmt = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
+                val date = inFmt.parse(ts)
                 val timeFmt = java.text.SimpleDateFormat("HH.mm", java.util.Locale.getDefault())
-                "${dayFmt.format(date!!) } • ${timeFmt.format(date)}"
+                timeFmt.format(date!!)
             } catch (e: Exception) {
                 ts
             }

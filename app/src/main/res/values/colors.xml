@@ -107,9 +107,9 @@
     <color name="risk_unknown_bg">#F5F5F5</color>
 
     <!-- Risk Level Text Colors -->
-    <color name="risk_low_text">#2E7D32</color>
-    <color name="risk_medium_text">#F57C00</color>
-    <color name="risk_high_text">#D32F2F</color>
+    <color name="risk_low_text">#00E83A</color>
+    <color name="risk_medium_text">#FF9800</color>
+    <color name="risk_high_text">#E74C3C</color>
     <color name="risk_critical_text">#B71C1C</color>
     <color name="risk_unknown_text">#757575</color>
 

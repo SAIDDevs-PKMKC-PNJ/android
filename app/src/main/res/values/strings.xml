@@ -65,7 +65,7 @@
     <string name="conten_desc_search_bar">Search bar</string>
     <string name="home_score_title">Screening Score Anda</string>
     <string name="home_restart">Restart</string>
-    <string name="home_score_status_normal">Tidak ada tanda serius</string>
+    <string name="home_score_status_normal">jenis risiko</string>
     <string name="home_feature_title">Fitur Kami</string>
     <string name="home_news_title">News</string>
     <string name="content_desc_more">Lebih lanjut</string>
@@ -80,7 +80,7 @@
     <string name="google_btn_helper">Google</string>
     <string name="session">%1$d sesi</string>
     <string name="news_title_stroke_world">Berita Dunia Stroke\n</string>
-    <string name="news_section_edukasi">Edukasi Stroke\n</string>
+    <string name="news_section_edukasi">Edukasi Stroke</string>
     <string name="news_section_pencegahan">Pencegahan Stroke</string>
     <string name="username">Username</string>
     <string name="Age">29</string>
@@ -100,4 +100,18 @@
     <string name="article_lorem_long">News Title Lorem Ipsum Dolor Sit Amet Lorem Ipsum Dolor Sit Amet News Title Lorem Ipsum Dolor Sit Amet Lorem Ipsum Dolor Sit Amet News Title Lorem Ipsum Dolor Sit Amet Lorem Ipsum Dolor Sit Amet News Title Lorem Ipsum Dolor Sit Amet Lorem Ipsum Dolor Sit Amet News Title Lorem Ipsum Dolor Sit Amet Lorem Ipsum Dolor Sit Amet News Title Lorem Ipsum Dolor Sit Amet Lorem Ipsum Dolor Sit Amet News Title Lorem Ipsum Dolor Sit Amet Lorem Ipsum Dolor Sit Amet News Title Lorem Ipsum Dolor Sit Amet Lorem Ipsum Dolor Sit Amet\n\nNews Title Lorem Ipsum Dolor Sit Amet Lorem Ipsum Dolor Sit Amet News Title Lorem Ipsum Dolor Sit Amet Lorem Ipsum Dolor Sit Amet News Title Lorem Ipsum Dolor Sit Amet Lorem Ipsum Dolor Sit AmetNews Title Lorem Ipsum Dolor Sit Amet Lorem Ipsum Dolor Sit Amet News Title Lorem Ipsum Dolor Sit Amet Lorem Ipsum Dolor Sit Amet News Title Lorem Ipsum Dolor Sit Amet Lorem Ipsum Dolor Sit Amet</string>
     <string name="bookmarked_msg">artikel berhasil di tandai</string>
     <string name="headline_newsHeader">HEADLINE</string>
+    <string name="retry">Ulangi</string>
+    <string name="mic_hint">Tahan untuk berbicara</string>
+    <string name="rec_hint">Lepas untuk mengirim • Geser ke atas untuk batal</string>
+    <string name="rec_hint_2">Lepas untuk BATALKAN</string>
+    <string name="pre_test_reminder">Bersiap… tes akan dimulai dalam 3 detik</string>
+    <string name="test_hint">Tahan posisi sampai hitungan selesai…</string>
+    <string name="fail_detected">kemiringan/jatuh terdeteksi.</string>
+    <string name="finish_correctly">stabil (10 detik).</string>
+    <string name="hint_result">Konfirmasi hasil atau ulangi tes.</string>
+    <string name="history_navigation_link">Lihat Riwayat Screening</string>
+    <string name="logging_out">Logging out...</string>
+    <string name="logout_success">Logout Berhasil</string>
+    <string name="logout">Logout</string>
+    <string name="logout_failed_try_again">Logout bermasalah silahkan ulangi lain kali</string>
 </resources>

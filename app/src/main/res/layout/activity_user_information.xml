@@ -41,9 +41,11 @@
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etName"
                 android:layout_width="match_parent"
-                android:layout_height="56dp"
+                android:layout_height="wrap_content"
                 android:hint="Full Name"
                 android:inputType="textPersonName"
+                android:paddingStart="48dp"
+                android:paddingLeft="48dp"
                 android:textColor="@color/black"
                 android:textColorHint="@color/GrayLight"
                 android:textSize="16sp" />
@@ -66,11 +68,13 @@
             app:startIconTint="@color/GrayLight">
 
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etAge"
+                android:id="@+id/etBirthdate"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
-                android:hint="Umur"
+                android:hint="Tanggal Lahir"
                 android:inputType="number"
+                android:paddingStart="48dp"
+                android:paddingLeft="48dp"
                 android:textColor="@color/black"
                 android:textColorHint="@color/GrayLight"
                 android:textSize="16sp" />
@@ -98,9 +102,11 @@
                 android:layout_height="wrap_content"
                 android:hint="Nomor Telepon"
                 android:inputType="phone"
+                android:paddingStart="48dp"
+                android:paddingLeft="48dp"
                 android:textColor="@color/black"
                 android:textColorHint="@color/GrayLight"
-                android:textSize="16sp"/>
+                android:textSize="16sp" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <!-- Alamat Lengkap -->
@@ -125,9 +131,11 @@
                 android:layout_height="wrap_content"
                 android:hint="Alamat Lengkap"
                 android:inputType="textPostalAddress"
+                android:paddingStart="48dp"
+                android:paddingLeft="48dp"
                 android:textColor="@color/black"
                 android:textColorHint="@color/GrayLight"
-                android:textSize="16sp"/>
+                android:textSize="16sp" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <!-- Nomor Darurat -->
@@ -152,9 +160,11 @@
                 android:layout_height="wrap_content"
                 android:hint="Nomor Darurat"
                 android:inputType="phone"
+                android:paddingStart="48dp"
+                android:paddingLeft="48dp"
                 android:textColor="@color/black"
                 android:textColorHint="@color/GrayLight"
-                android:textSize="16sp"/>
+                android:textSize="16sp" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <!-- Tombol Simpan -->

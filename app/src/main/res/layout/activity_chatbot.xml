@@ -219,67 +219,167 @@
         app:cardElevation="8dp"
         app:cardBackgroundColor="@color/white">
 
-        <LinearLayout
+        <ViewAnimator
+            android:id="@+id/inputAnimator"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:padding="8dp">
+            android:inAnimation="@android:anim/fade_in"
+            android:outAnimation="@android:anim/fade_out">
 
-            <EditText
-                android:id="@+id/et_message"
-                android:layout_width="0dp"
+            <!-- ====== MODE KETIK (asli punyamu) ====== -->
+            <LinearLayout
+                android:id="@+id/rowText"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:background="@null"
-                android:hint="Ketik pesan Anda..."
-                android:textColorHint="@color/GrayLight"
-                android:maxLines="4"
-                android:minLines="1"
-                android:padding="16dp"
-                android:textColor="@color/black"
-                android:textSize="16sp"
-                android:inputType="textMultiLine|textCapSentences"
-                android:scrollbars="vertical"
-                android:scrollbarStyle="insideInset" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="8dp">
 
-            <ImageView
-                android:id="@+id/btn_voice"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:layout_marginStart="8dp"
-                android:layout_marginEnd="8dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:clickable="true"
-                android:focusable="true"
-                android:padding="4dp"
-                android:src="@drawable/ic_mic"
-                android:contentDescription="Voice input"
-                app:tint="@color/GrayLight" />
-
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                app:cardCornerRadius="24dp"
-                app:strokeColor="@color/GrayLight"
-                app:strokeWidth="2dp"
-                app:cardBackgroundColor="@color/white">
+                <EditText
+                    android:id="@+id/et_message"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:background="@null"
+                    android:hint="Ketik pesan Anda..."
+                    android:textColorHint="@color/GrayLight"
+                    android:maxLines="4"
+                    android:minLines="1"
+                    android:padding="16dp"
+                    android:textColor="@color/black"
+                    android:textSize="16sp"
+                    android:inputType="textMultiLine|textCapSentences"
+                    android:scrollbars="vertical"
+                    android:scrollbarStyle="insideInset" />
 
                 <ImageView
-                    android:id="@+id/btn_send"
+                    android:id="@+id/btn_voice"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
+                    android:layout_marginStart="8dp"
+                    android:layout_marginEnd="8dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
                     android:clickable="true"
                     android:focusable="true"
-                    android:padding="8dp"
-                    android:src="@drawable/ic_send"
-                    android:contentDescription="Send message"
+                    android:padding="4dp"
+                    android:src="@drawable/ic_mic"
+                    android:contentDescription="Voice input"
                     app:tint="@color/GrayLight" />
 
-            </com.google.android.material.card.MaterialCardView>
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:cardCornerRadius="24dp"
+                    app:strokeColor="@color/GrayLight"
+                    app:strokeWidth="2dp"
+                    app:cardBackgroundColor="@color/white">
 
-        </LinearLayout>
+                    <ImageView
+                        android:id="@+id/btn_send"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:padding="8dp"
+                        android:src="@drawable/ic_send"
+                        android:contentDescription="Send message"
+                        app:tint="@color/GrayLight" />
+                </com.google.android.material.card.MaterialCardView>
+            </LinearLayout>
+
+            <!-- ====== MODE VOICE ====== -->
+            <LinearLayout
+                android:id="@+id/rowVoiceIdle"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="12dp">
+
+                <LinearLayout
+                    android:id="@+id/pressToTalkIdle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+
+                    <TextView
+                        android:id="@+id/tvMicHint"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Tahan untuk berbicara"
+                        android:textColor="@color/GrayLight"
+                        android:textStyle="bold"/>
+                </LinearLayout>
+                <ImageView
+                    android:id="@+id/btn_keyboard"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:layout_marginEnd="8dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:padding="4dp"
+                    android:src="@drawable/ic_keyboard"
+                    android:contentDescription="Keyboard"
+                    app:tint="@color/GrayLight" />
+            </LinearLayout>
+        </ViewAnimator>
 
     </com.google.android.material.card.MaterialCardView>
 
+    <FrameLayout
+        android:id="@+id/recordingOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="170dp"
+        android:layout_alignParentBottom="true"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="20dp"
+        android:visibility="visible"
+        android:elevation="12dp"
+        android:clickable="true"
+        android:focusable="true">
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="8dp"
+            app:cardBackgroundColor="@color/white">
+
+            <LinearLayout
+                android:id="@+id/overlayTouchArea"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:gravity="center">
+
+                <TextView
+                    android:id="@+id/tvRecHint"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Lepas untuk mengirim • Geser ke atas untuk batal"
+                    android:textStyle="bold"
+                    android:textColor="@color/GrayLight"/>
+
+                <com.pkm.said.screening.FftWaveView
+                    android:id="@+id/waveView"
+                    android:layout_width="match_parent"
+                    android:layout_height="64dp"
+                    android:layout_marginTop="14dp"/>
+
+                <!-- garis tipis dekoratif -->
+                <View
+                    android:layout_width="36dp"
+                    android:layout_height="4dp"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_round_12"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+    </FrameLayout>
 </RelativeLayout>

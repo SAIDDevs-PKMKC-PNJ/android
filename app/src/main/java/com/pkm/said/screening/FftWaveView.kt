@@ -4,145 +4,140 @@ import android.content.Context
 import android.graphics.*
 import android.util.AttributeSet
 import android.view.View
-import kotlin.math.*
+import kotlin.math.PI
+import kotlin.math.sin
 
 class FftWaveView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null
 ) : View(context, attrs) {
 
-    private var amplitudes: List<Float> = List(128) { 0f }
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#42A5F5")
+    // ---- KONFIGURASI ----
+    private var capacity = 128                     // jumlah “kolom” wave
+    private val strokeWidthPx = 6f
+    private val topPaddingPx = 32f                 // headroom
+    private var ampRange = 32767f                  // max amplitude MediaRecorder
+
+    // ---- DATA ----
+    private val amps = FloatArray(capacity)        // ring buffer amplitudo [0..1]
+    private val points = Array(capacity) { GravityPoint() }
+
+    // ---- GRAFIK ----
+    private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 6f
+        strokeWidth = strokeWidthPx
     }
-    private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.FILL
-    }
-    private val path = Path()
-    private var waveColorGradient: LinearGradient? = null
+    private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val fillPath = Path()
+    private val strokePath = Path()
+    private var waveGradient: LinearGradient? = null
     private var fillGradient: LinearGradient? = null
 
-    // FFT Parameters
-    private var num = 128
-    private var ampR = 1f
-    private var points = Array(0) { GravityPoint() }
-
+    // API lama: set batch amplitudes (opsional)
     fun setVoiceAmplitudes(list: List<Float>) {
-        // Convert to FFT-like data dan smooth dengan gravity
-        amplitudes = list.map { amp ->
-            val norm = amp / 10000f
-            norm.coerceIn(0f, 1f)
+        val n = minOf(list.size, capacity)
+        // copy ke ujung kanan, sisanya nol di depan
+        val start = capacity - n
+        java.util.Arrays.fill(amps, 0f)
+        for (i in 0 until n) {
+            amps[start + i] = list[i].coerceIn(0f, 1f)
         }
-
-        // Update gravity points untuk smooth animation
-        if (points.size != amplitudes.size) {
-            points = Array(amplitudes.size) { GravityPoint() }
-        }
-        points.forEachIndexed { index, point ->
-            point.update(amplitudes[index] * ampR)
-        }
-
+        smoothPoints()
         invalidate()
+    }
+
+    // NEW: dipanggil setiap ~50–100ms dengan nilai maxAmplitude dari MediaRecorder
+    fun pushAmplitude(rawMaxAmplitude: Int) {
+        val v = (rawMaxAmplitude / ampRange).coerceIn(0f, 1f)
+        // geser kiri 1 langkah (ring buffer sederhana)
+        System.arraycopy(amps, 1, amps, 0, capacity - 1)
+        amps[capacity - 1] = v
+        smoothPoints()
+        invalidate()
+    }
+
+    private fun smoothPoints() {
+        // update gravity smoothing terhadap amps
+        for (i in 0 until capacity) points[i].update(amps[i])
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        if (w <= 0 || h <= 0) return
+
+        waveGradient = LinearGradient(
+            0f, 0f, w.toFloat(), 0f,
+            intArrayOf(Color.parseColor("#42A5F5"), Color.parseColor("#AB47BC"), Color.parseColor("#26C6DA")),
+            null, Shader.TileMode.CLAMP
+        )
+        // ARGB: AA RR GG BB
+        fillGradient = LinearGradient(
+            0f, 0f, 0f, h.toFloat(),
+            intArrayOf(Color.parseColor("#1042A5F5"), Color.parseColor("#3042A5F5"), Color.parseColor("#0042A5F5")),
+            null, Shader.TileMode.CLAMP
+        )
+        strokePaint.shader = waveGradient
+        fillPaint.shader = fillGradient
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        if (amplitudes.isEmpty()) return
+        if (width == 0 || height == 0) return
 
-        setupGradients(canvas)
-        drawWave(canvas)
-    }
-
-    private fun setupGradients(canvas: Canvas) {
-        if (waveColorGradient == null && width > 0) {
-            waveColorGradient = LinearGradient(
-                0f, 0f, width.toFloat(), 0f,
-                intArrayOf(
-                    Color.parseColor("#42A5F5"),
-                    Color.parseColor("#AB47BC"),
-                    Color.parseColor("#26C6DA")
-                ),
-                null, Shader.TileMode.CLAMP
-            )
-
-            fillGradient = LinearGradient(
-                0f, 0f, 0f, height.toFloat(),
-                intArrayOf(
-                    Color.parseColor("#1042A5F5"),
-                    Color.parseColor("#3042A5F5"),
-                    Color.parseColor("#0042A5F5")
-                ),
-                null, Shader.TileMode.CLAMP
-            )
-        }
-        paint.shader = waveColorGradient
-        fillPaint.shader = fillGradient
-    }
-
-    private fun drawWave(canvas: Canvas) {
         val w = width.toFloat()
         val h = height.toFloat()
-        val centerY = h / 2f
-        val sliceWidth = w / (num - 1)
+        val mid = h / 2f
+        val dx = w / (capacity - 1)
 
-        path.reset()
+        fillPath.reset()
+        strokePath.reset()
 
-        // Stroke path (outline wave)
-        val strokePath = Path()
-        strokePath.moveTo(0f, centerY - getWaveHeight(0, h))
-
-        for (i in 1 until num) {
-            val x = sliceWidth * i
-            val y = centerY - getWaveHeight(i, h)
+        // Outline atas
+        strokePath.moveTo(0f, mid - waveY(0, h))
+        for (i in 1 until capacity) {
+            val x = dx * i
+            val y = mid - waveY(i, h)
             strokePath.lineTo(x, y)
         }
 
-        // Fill path (area under wave)
-        path.moveTo(0f, h)
-        path.lineTo(0f, centerY - getWaveHeight(0, h))
-
-        for (i in 1 until num) {
-            val x = sliceWidth * i
-            val y = centerY - getWaveHeight(i, h)
-            path.lineTo(x, y)
+        // Area fill: dari bawah → garis atas → turun lagi
+        fillPath.moveTo(0f, mid + waveY(0, h))             // mulai dari sisi bawah (mirror)
+        for (i in 1 until capacity) {
+            val x = dx * i
+            val y = mid + waveY(i, h)
+            fillPath.lineTo(x, y)
         }
+        for (i in capacity - 1 downTo 0) {
+            val x = dx * i
+            val y = mid - waveY(i, h)
+            fillPath.lineTo(x, y)
+        }
+        fillPath.close()
 
-        path.lineTo(w, h)
-        path.close()
-
-        // Draw fill first, then stroke
-        canvas.drawPath(path, fillPaint)
-        canvas.drawPath(strokePath, paint)
+        canvas.drawPath(fillPath, fillPaint)
+        canvas.drawPath(strokePath, strokePaint)
     }
 
-    private fun getWaveHeight(i: Int, canvasHeight: Float): Float {
-        if (i >= points.size) return 0f
-
-        // Smooth interpolated wave dengan sinus untuk natural curve
-        val baseHeight = points[i].value * (canvasHeight / 2 - 32f)
-        val phase = i * PI / (num / 4)
-        val smoothFactor = sin(phase).toFloat() * 0.3f + 1f
-
-        return baseHeight * smoothFactor
+    private fun waveY(i: Int, canvasH: Float): Float {
+        // tinggi maksimal setiap sisi
+        val maxH = (canvasH / 2f) - topPaddingPx
+        // “curve” sinus biar halus di kiri/kanan
+        val phase = i * PI / (capacity / 4.0)
+        val curve = (sin(phase).toFloat() * 0.3f + 0.7f)   // 0.4..1.0 (sedikit lebih rata)
+        return points[i].value * maxH * curve
     }
 
-    // Gravity model untuk smooth animation seperti di NextGenVisualizer
-    inner class GravityPoint(
+    // --- smoothing model (spring-like) ---
+    private class GravityPoint(
         private var gravity: Float = 0.85f,
         private var friction: Float = 0.92f
     ) {
-        var value: Float = 0f
-            private set
-        private var velocity: Float = 0f
-
+        var value = 0f; private set
+        private var vel = 0f
         fun update(target: Float) {
             val force = target - value
-            velocity += force * gravity
-            velocity *= friction
-            value += velocity
-
-            // Prevent negative values
+            vel += force * gravity
+            vel *= friction
+            value += vel
             if (value < 0f) value = 0f
         }
     }

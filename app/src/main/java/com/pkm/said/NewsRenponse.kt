@@ -1,5 +1,7 @@
 package com.pkm.said
 
+import org.intellij.lang.annotations.Language
+
 
 data class NewsResponse(
     val status: String?,
@@ -12,6 +14,9 @@ data class NewsArticle(
     val author: String?,
     val title: String?,
     val description: String?,
+    val domains: String?,
+    val searchIn: String?,
+    val language: String?,
     val url: String?,
     val urlToImage: String?,
     val publishedAt: String?,

@@ -26,6 +26,7 @@
             android:background="@drawable/bg_card_header_high">
 
             <TextView
+                style="@style/TextAppearance.Material3.BodyLarge"
                 android:id="@+id/tvRiskTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -40,10 +41,12 @@
                 android:layout_weight="1"/>
 
             <TextView
+                style="@style/TextAppearance.Material3.BodyLarge"
+
                 android:id="@+id/tvBeFastCount"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="BE-FAST: 3/5"
+                android:text="FAST: 3/3"
                 android:textColor="@color/white"
                 android:textSize="12sp"/>
         </LinearLayout>
@@ -73,21 +76,20 @@
                         android:id="@+id/tvDate"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="08 September 2025"
-                        android:drawableStart="@drawable/ic_calendar"
-                        android:drawableTint="@color/BluePrimary"
+                        android:layout_marginEnd="4dp"
+                        android:drawableStart="@drawable/ic_calendar_12"
                         android:drawablePadding="8dp"
-                        android:textSize="12sp"
+                        android:drawableTint="@color/BluePrimary"
+                        android:text="08 September 2025"
                         android:textColor="@color/black"
-                        android:layout_marginEnd="4dp"/>
+                        android:textSize="12sp" />
 
                     <TextView
                         android:id="@+id/tvDateTime"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="14.00"
-                        android:drawableStart="@drawable/ic_times"
-
+                        android:drawableStart="@drawable/ic_times_12"
                         android:textSize="12sp"
                         android:textColor="@color/black"/>
                 </LinearLayout>
@@ -192,6 +194,7 @@
                         android:textSize="11sp" />
 
                     <TextView
+                        style="@style/TextAppearance.Material3.TitleLarge"
                         android:id="@+id/tvStatusValue"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -216,11 +219,12 @@
                         android:textColor="@color/white"/>
 
                     <TextView
+                        style="@style/TextAppearance.Material3.TitleLarge"
                         android:id="@+id/tvRiskLabelValue"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="85% kemungkinan"
-                        android:textColor="@color/error"
+                        android:textColor="@color/risk_high_text"
                         android:textStyle="bold"
                         android:textSize="13sp"/>
                 </LinearLayout>

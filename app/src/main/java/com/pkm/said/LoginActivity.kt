@@ -18,14 +18,26 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
 import com.pkm.said.util.SessionManager
+import com.pkm.said.CloudinaryUploadResp
 import kotlinx.coroutines.launch
 import java.security.MessageDigest
 import java.util.UUID
+import okhttp3.OkHttpClient
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
+import okhttp3.Request
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class LoginActivity : AppCompatActivity() {
     private lateinit var auth: FirebaseAuth
     private lateinit var credentialManager: CredentialManager
     private val firestore by lazy { FirebaseFirestore.getInstance() }
+    private val http by lazy { OkHttpClient() }
+    private val moshi by lazy { Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build() }
+    private val cldAdapter by lazy { moshi.adapter(CloudinaryUploadResp::class.java) }
 
     private val tag = "LoginActivity"
 
@@ -121,6 +133,38 @@ class LoginActivity : AppCompatActivity() {
             Log.d(tag, "✅ UI elements setup completed")
         } catch (e: Exception) {
             Log.e(tag, "❌ Error setting up UI elements", e)
+        }
+    }
+
+    private suspend fun uploadUrlToCloudinary(
+        fileUrl: String,
+        cloudName: String,
+        uploadPreset: String,
+        folder: String
+    ): CloudinaryUploadResp? = withContext(kotlinx.coroutines.Dispatchers.IO) {
+        try {
+            val body = okhttp3.MultipartBody.Builder().setType(okhttp3.MultipartBody.FORM)
+                .addFormDataPart("file", fileUrl)
+                .addFormDataPart("upload_preset", uploadPreset)
+                .addFormDataPart("folder", folder)
+                .build()
+
+            val req = okhttp3.Request.Builder()
+                .url("https://api.cloudinary.com/v1_1/$cloudName/image/upload")
+                .post(body)
+                .build()
+
+            http.newCall(req).execute().use { res ->
+                if (!res.isSuccessful) {
+                    Log.e(tag, "Cloudinary upload failed code=${res.code} body=${res.body?.string()}")
+                    return@use null
+                }
+                val txt = res.body?.string().orEmpty()
+                cldAdapter.fromJson(txt)
+            }
+        } catch (e: Exception) {
+            Log.e(tag, "uploadUrlToCloudinary() error", e)
+            null
         }
     }
 
@@ -305,57 +349,158 @@ class LoginActivity : AppCompatActivity() {
 
         Log.d(tag, "🔎 Mengecek dokumen Firestore user: ${user.uid}")
 
-        firestore.collection("users").document(user.uid).get()
+        val usersCol = firestore.collection("users")
+        val docRef = usersCol.document(user.uid)
+        val cloudName = BuildConfig.CLOUDINARY_CLOUD_NAME
+        val uploadPreset = BuildConfig.CLOUDINARY_UNSIGNED_PRESET
+
+        docRef.get()
             .addOnSuccessListener { doc ->
+                val isGoogle = user.providerData.any { it.providerId == "google.com" }
+                val loginMethod = if (isGoogle) "google" else "email"
+                val googlePhotoUrl = user.photoUrl?.toString()
+
                 if (doc.exists()) {
-                    // Dokumen ada → anggap profil sudah dibuat (atau minimal pernah diisi)
+                    // ---- Dokumen SUDAH ada ----
                     val name = doc.getString("name") ?: user.displayName ?: ""
-                    val age = doc.getString("age")
+                    val birthdate = doc.getString("birthdate")
                     val phone = doc.getString("phone")
                     val address = doc.getString("address")
                     val emergency = doc.getString("emergency")
-                    val loginMethod = doc.getString("loginMethod")
-                        ?: if (user.providerData.any { it.providerId == "google.com" }) "google" else "email"
+                    val savedPhoto = doc.getString("photoUrl")
+                    val hasPhoto = !savedPhoto.isNullOrBlank()
 
+                    // Jika belum ada photoUrl di doc, coba backfill dari Google -> Cloudinary
+                    if (!hasPhoto && !googlePhotoUrl.isNullOrBlank()) {
+                        lifecycleScope.launch {
+                            try {
+                                val resp = uploadUrlToCloudinary(
+                                    fileUrl = googlePhotoUrl ?: "",
+                                    cloudName = cloudName,
+                                    uploadPreset = uploadPreset,
+                                    folder = "profile_photos/${user.uid}"
+                                )
+
+                                val finalUrl = resp?.secure_url ?: googlePhotoUrl
+                                val publicId = resp?.public_id ?: ""
+
+                                docRef.set(
+                                    mapOf(
+                                        "photoUrl" to finalUrl,
+                                        "cloudinaryPublicId" to publicId,
+                                        "updatedAt" to System.currentTimeMillis()
+                                    ),
+                                    com.google.firebase.firestore.SetOptions.merge()
+                                )
+
+                                SessionManager.saveFullProfile(
+                                    context = this@LoginActivity,
+                                    name = name,
+                                    email = user.email,
+                                    photoUrl = finalUrl,
+                                    birthdate = birthdate,
+                                    phone = phone,
+                                    address = address,
+                                    emergency = emergency,
+                                    loginMethod = doc.getString("loginMethod") ?: loginMethod,
+                                    emailVerified = user.isEmailVerified
+                                )
+                                redirectToMainActivity()
+                            } catch (e: Exception) {
+                                Log.e(tag, "Backfill Cloudinary failed", e)
+                                // Fallback pakai data lama + google url bila ada
+                                SessionManager.saveFullProfile(
+                                    context = this@LoginActivity,
+                                    name = name,
+                                    email = user.email,
+                                    photoUrl = googlePhotoUrl,
+                                    birthdate = birthdate, phone = phone, address = address, emergency = emergency,
+                                    loginMethod = doc.getString("loginMethod") ?: loginMethod,
+                                    emailVerified = user.isEmailVerified
+                                )
+                                redirectToMainActivity()
+                            }
+                        }
+                        return@addOnSuccessListener
+                    }
+
+                    // Sudah ada doc & (mungkin) sudah ada photo → lanjut seperti biasa
                     SessionManager.saveFullProfile(
                         context = this,
                         name = name,
                         email = user.email,
-                        photoUrl = doc.getString("photoUrl") ?: user.photoUrl?.toString(),
-                        age = age,
+                        photoUrl = savedPhoto ?: googlePhotoUrl,
+                        birthdate = birthdate,
                         phone = phone,
                         address = address,
                         emergency = emergency,
-                        loginMethod = loginMethod,
+                        loginMethod = doc.getString("loginMethod") ?: loginMethod,
                         emailVerified = user.isEmailVerified
                     )
-
                     Log.d(tag, "✅ Profil ditemukan & disimpan ke SessionManager → ke MainActivity")
                     redirectToMainActivity()
 
                 } else {
-                    // Dokumen belum ada → arahkan ke form info tambahan
-                    Log.d(tag, "ℹ️ Dokumen belum ada. Arahkan ke UserInformationActivity untuk melengkapi profil.")
+                    // ---- Dokumen BELUM ada ----
+                    Log.d(tag, "ℹ️ Doc belum ada. Inisialisasi data + arahkan ke UserInformationActivity.")
 
-                    // Simpan basic dulu supaya Dashboard nanti minimal punya nama/email
-                    SessionManager.saveBasicFromFirebase(
-                        context = this,
-                        user = user,
-                        loginMethod = if (user.providerData.any { it.providerId == "google.com" }) "google" else "email"
-                    )
+                    lifecycleScope.launch {
+                        var finalPhotoUrl: String? = null
+                        var publicId: String? = null
 
-                    // Bawa extras
-                    val intent = Intent(this, UserInformationActivity::class.java).apply {
-                        putExtra("user_email", user.email)
-                        putExtra("user_name", user.displayName)
-                        putExtra("user_photo_url", user.photoUrl?.toString())
-                        putExtra("login_method", if (user.providerData.any { it.providerId == "google.com" }) "google" else "email")
-                        putExtra("email_verified", user.isEmailVerified)
-                        putExtra("from_registration", isFromRegistration)
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                        // Jika ada foto Google, salin ke Cloudinary
+                        if (!googlePhotoUrl.isNullOrBlank()) {
+                            try {
+                                val resp = uploadUrlToCloudinary(
+                                    fileUrl = googlePhotoUrl ?: "",
+                                    cloudName = cloudName,
+                                    uploadPreset = uploadPreset,
+                                    folder = "profile_photos/${user.uid}"
+                                )
+
+                                finalPhotoUrl = resp?.secure_url ?: googlePhotoUrl
+                                publicId = resp?.public_id
+                            } catch (e: Exception) {
+                                Log.e(tag, "Init Cloudinary upload failed", e)
+                                finalPhotoUrl = googlePhotoUrl // fallback
+                            }
+                        }
+
+                        // Upsert minimal doc (biar kedepan sudah ada skeleton)
+                        val initData = hashMapOf(
+                            "uid" to user.uid,
+                            "email" to (user.email ?: ""),
+                            "name" to (user.displayName ?: ""),
+                            "photoUrl" to (finalPhotoUrl ?: ""),
+                            "cloudinaryPublicId" to (publicId ?: ""),
+                            "loginMethod" to loginMethod,
+                            "emailVerified" to user.isEmailVerified,
+                            "createdAt" to System.currentTimeMillis(),
+                            "updatedAt" to System.currentTimeMillis()
+                        )
+                        docRef.set(initData, com.google.firebase.firestore.SetOptions.merge())
+                            .addOnCompleteListener {
+                                // Simpan basic untuk sesi awal
+                                SessionManager.saveBasicFromFirebase(
+                                    context = this@LoginActivity,
+                                    user = user,
+                                    loginMethod = loginMethod
+                                )
+
+                                // Lanjut ke form melengkapi profil (bawa photo url yg sudah disalin)
+                                val intent = Intent(this@LoginActivity, UserInformationActivity::class.java).apply {
+                                    putExtra("user_email", user.email)
+                                    putExtra("user_name", user.displayName)
+                                    putExtra("user_photo_url", finalPhotoUrl ?: googlePhotoUrl)
+                                    putExtra("login_method", loginMethod)
+                                    putExtra("email_verified", user.isEmailVerified)
+                                    putExtra("from_registration", isFromRegistration)
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                }
+                                startActivity(intent)
+                                finish()
+                            }
                     }
-                    startActivity(intent)
-                    finish()
                 }
             }
             .addOnFailureListener { e ->
@@ -368,6 +513,7 @@ class LoginActivity : AppCompatActivity() {
                 redirectToMainActivity()
             }
     }
+
 
     // ✅ Firebase Auth with Google ID Token
     private fun firebaseAuthWithGoogle(idToken: String) {

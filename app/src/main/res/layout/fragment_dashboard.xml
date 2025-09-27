@@ -1,16 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.core.widget.NestedScrollView
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/scrollRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/gradient_background"
-    android:fitsSystemWindows="true"
     android:clipToPadding="false"
-    android:paddingBottom="16dp"
-    android:overScrollMode="ifContentScrolls">
+    android:fitsSystemWindows="true"
+    android:overScrollMode="ifContentScrolls"
+    android:paddingBottom="16dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -23,36 +22,36 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginStart="20dp"
-            android:layout_marginEnd = "20dp"
+            android:layout_marginEnd="20dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
             <TextView
                 android:id="@+id/tvWelcome"
                 style="@style/TextAppearance.Material3.TitleLarge"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:text="@string/welcome_text"
                 android:textColor="@color/black"
-                android:textStyle="bold"
-                android:layout_weight="1"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"/>
+                android:textStyle="bold" />
 
             <ImageView
                 android:id="@+id/ivAvatar"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
-                android:src="@drawable/placeholder_oval"
                 android:background="@drawable/bg_circle_light"
+                android:contentDescription="@string/user_icon"
                 android:scaleType="centerCrop"
-                android:contentDescription="@string/user_icon"/>
+                android:src="@drawable/placeholder_oval" />
         </LinearLayout>
 
         <!-- Search Bar -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="52dp"
-            android:layout_marginTop="16dp"
             android:layout_marginStart="20dp"
+            android:layout_marginTop="12dp"
             android:layout_marginEnd="20dp"
             app:cardCornerRadius="28dp"
             app:cardElevation="4dp"
@@ -62,31 +61,31 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
+                android:gravity="center_vertical"
                 android:orientation="horizontal"
                 android:paddingStart="20dp"
-                android:paddingEnd="16dp"
-                android:gravity="center_vertical">
+                android:paddingEnd="16dp">
 
                 <EditText
                     android:id="@+id/etSearch"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:hint="@string/dashboard_search_bar_hint"
                     android:background="@android:color/transparent"
+                    android:hint="@string/dashboard_search_bar_hint"
                     android:imeOptions="actionSearch"
                     android:inputType="text"
-                    android:singleLine="true"
                     android:padding="0dp"
+                    android:singleLine="true"
                     android:textColor="@color/GrayLight"
-                    android:textColorHint="@color/GrayLight"/>
+                    android:textColorHint="@color/GrayLight" />
 
                 <ImageView
                     android:id="@+id/ivSearch"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
-                    android:src="@drawable/ic_search"
-                    android:contentDescription="@string/conten_desc_search_bar"/>
+                    android:contentDescription="@string/conten_desc_search_bar"
+                    android:src="@drawable/ic_search" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -96,8 +95,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginStart="20dp"
-            android:layout_marginEnd="20dp"
             android:layout_marginTop="20dp"
+            android:layout_marginEnd="20dp"
             android:backgroundTint="@color/BluePrimary"
             app:cardCornerRadius="24dp"
             app:cardElevation="8dp">
@@ -110,8 +109,8 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
                     android:layout_marginStart="20dp"
+                    android:layout_marginTop="20dp"
                     android:layout_marginEnd="20dp"
                     android:layout_marginBottom="8dp"
                     android:gravity="center_vertical"
@@ -123,9 +122,9 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="@string/home_score_title"
-                        android:textSize="20dp"
                         android:textColor="@color/white"
-                        android:textStyle="bold"/>
+                        android:textSize="20dp"
+                        android:textStyle="bold" />
 
                     <com.google.android.material.chip.Chip
                         android:id="@+id/chipRestart"
@@ -133,59 +132,182 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/home_restart"
-                        android:textColor="@color/BluePrimary"
                         android:textAppearance="@style/TextAppearance.Material3.LabelSmall"
-                        app:chipBackgroundColor="@color/white_alpha_80"/>
+                        android:textColor="@color/BluePrimary"
+                        app:chipBackgroundColor="@color/white_alpha_80" />
                 </LinearLayout>
 
                 <LinearLayout
                     android:id="@+id/groupScoreContent"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
                     android:layout_marginStart="20dp"
                     android:layout_marginEnd="20dp"
                     android:layout_marginBottom="8dp"
-                    android:gravity="center_vertical">
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:visibility="visible">
 
                     <TextView
                         android:id="@+id/tvScoreValue"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="20dp"
+                        android:letterSpacing="0"
                         android:text="30%"
                         android:textColor="@color/warning_color"
                         android:textSize="48sp"
-                        android:textStyle="bold"
-                        android:letterSpacing="0"/>
+                        android:textStyle="bold" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvScoreStatus"
+                            style="@style/TextAppearance.Material3.TitleLarge"
+                            android:layout_width="match_parent"
+                            android:layout_height="0dp"
+                            android:layout_weight="1"
+                            android:text="@string/home_score_status_normal"
+                            android:textAlignment="center"
+                            android:textColor="@color/white"
+                            android:textSize="24sp" />
+
+                        <TextView
+                            android:id="@+id/tvScoreTimestamp"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="12dp"
+                            android:layout_marginEnd="12dp"
+                            android:layout_marginBottom="6dp"
+                            android:textAlignment="center"
+                            android:textColor="@color/white"
+                            android:textSize="12sp"
+                            android:visibility="visible"
+                            tools:text="Terakhir: 2025-09-28 14:21:08" />
+                    </LinearLayout>
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/groupEmptyState"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="20dp"
+                    android:layout_marginEnd="20dp"
+                    android:layout_marginBottom="12dp"
+                    android:orientation="vertical"
+                    android:visibility="gone">
 
                     <TextView
-                        android:id="@+id/tvScoreStatus"
+                        android:id="@+id/tvEmptyTitle"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginEnd="20dp"
-                        android:layout_weight="1"
-                        android:text="@string/home_score_status_normal"
+                        android:text="Belum ada data screening"
+                        android:textColor="@color/white"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvEmptySubtitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Mulai screening FAST untuk melihat skor dan risiko."
+                        android:textColor="@color/white"
+                        android:textSize="14sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnStartScreening"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="Mulai Screening" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/groupPendingState"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="20dp"
+                    android:layout_marginEnd="20dp"
+                    android:layout_marginBottom="12dp"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/tvPendingTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Screening belum selesai"
+                        android:textColor="@color/white"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvPendingSubtitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Tes belum selesai: Face, Speech"
                         android:textColor="@color/white"
                         android:textSize="14sp"
-                        android:textAlignment="center"/>
+                        tools:text="Tes belum selesai: Face, Arms" />
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnContinueScreening"
+                            style="@style/Widget.Material3.Button.UnelevatedButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Lanjutkan" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnCancelScreening"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text="Batalkan" />
+                    </LinearLayout>
                 </LinearLayout>
 
                 <!-- Mini indicators row -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:padding="16dp"
                     android:background="@color/secondPrimary"
+                    android:gravity="center"
                     android:orientation="horizontal"
-                    android:gravity="center_vertical">
+                    android:padding="16dp">
 
                     <!-- Contoh icon+text kecil -->
-                    <include layout="@layout/view_mini_stat" />
-                    <include layout="@layout/view_mini_stat" />
-                    <include layout="@layout/view_mini_stat" />
-                    <include layout="@layout/view_mini_stat" />
-                    <include layout="@layout/view_mini_stat" />
+                    <TextView
+                        android:id="@+id/tvHistoryLink"
+                        style="@style/TextAppearance.Material3.TitleLarge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:autoLink="none"
+                        android:clickable="true"
+                        android:drawableStart="@drawable/ic_arrow_forward"
+                        android:drawablePadding="8dp"
+                        android:drawableTint="@color/BluePrimary"
+                        android:ellipsize="end"
+                        android:focusable="true"
+                        android:padding="8dp"
+                        android:singleLine="true"
+                        android:text="@string/history_navigation_link"
+                        android:textColor="@color/BluePrimary"
+                        android:textSize="16dp"
+                        android:textStyle="bold" />
                 </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
@@ -195,79 +317,80 @@
             android:id="@+id/tvFeatureTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="20dp"
+            android:layout_marginStart="36dp"
+            android:layout_marginTop="18dp"
             android:layout_marginEnd="20dp"
-            android:layout_marginTop="28dp"
             android:text="@string/home_feature_title"
             android:textColor="@color/BluePrimary"
-            android:textStyle="bold"
-            android:textSize="18sp"/>
+            android:textSize="18sp"
+            android:textStyle="bold" />
 
         <!-- Feature Grid -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvFeatures"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginStart="42dp"
             android:layout_marginTop="12dp"
-            android:layout_marginStart="20dp"
-            android:layout_marginEnd="20dp"
+            android:layout_marginEnd="42dp"
             android:minHeight="96dp"
             android:overScrollMode="never"
-            tools:listitem="@layout/item_feature"
-            tools:itemCount="4"/>
+            tools:itemCount="4"
+            tools:listitem="@layout/item_feature" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
             android:layout_marginStart="20dp"
+            android:layout_marginTop="16dp"
             android:layout_marginEnd="20dp"
-            android:orientation="vertical"
+            android:layout_marginBottom="100dp"
             android:background="@drawable/bg_card_container_primary"
-            android:paddingTop="16dp"
-            android:paddingBottom="16dp"
+            android:orientation="vertical"
             android:paddingStart="16dp"
-            android:paddingEnd="16dp">
+            android:paddingTop="16dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="16dp">
 
             <!-- News Section -->
             <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <TextView
-                android:id="@+id/tvNewsTitle"
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/home_news_title"
-                android:textColor="@color/white"
-                android:textStyle="bold"
-                android:textSize="18sp"/>
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
-            <ImageButton
-                android:id="@+id/btnNewsMore"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="@color/BluePrimary"
-                android:contentDescription="@string/content_desc_more"
-                android:padding="8dp"
-                android:src="@drawable/ic_arrow_forward"
-                app:tint="@color/white"/>
+                <TextView
+                    android:id="@+id/tvNewsTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/home_news_title"
+                    android:textColor="@color/white"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <ImageButton
+                    android:id="@+id/btnNewsMore"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="@color/BluePrimary"
+                    android:contentDescription="@string/content_desc_more"
+                    android:padding="8dp"
+                    android:src="@drawable/ic_arrow_forward"
+                    app:tint="@color/white" />
+            </LinearLayout>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvNews"
+                android:layout_width="match_parent"
+                android:layout_height="200dp"
+                android:layout_marginTop="16dp"
+                android:clipToPadding="false"
+                android:overScrollMode="never"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp" />
+
         </LinearLayout>
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/rvNews"
-            android:layout_width="match_parent"
-            android:layout_height="200dp"
-            android:layout_marginTop="16dp"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:clipToPadding="false"
-            android:overScrollMode="never"/>
-
-    </LinearLayout>
 
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

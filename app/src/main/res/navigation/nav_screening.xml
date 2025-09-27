@@ -116,6 +116,16 @@
             app:destination="@id/faceTestPreviewFragment"
             app:enterAnim="@anim/slide_in_right"
             app:exitAnim="@anim/slide_out_left"/>
+        <action
+            android:id="@+id/action_screeningResult_to_armPreview"
+            app:destination="@id/armsTestPreviewFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"/>
+        <action
+            android:id="@+id/action_screeningResult_to_speechPreview"
+            app:destination="@+id/speechTestPreviewFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"/>
     </fragment>
 
 </navigation>

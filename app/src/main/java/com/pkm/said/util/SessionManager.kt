@@ -14,7 +14,7 @@ object SessionManager {
     private const val KEY_PHONE = "phone"
     private const val KEY_ADDRESS = "address"
     private const val KEY_EMERGENCY = "emergency"
-    private const val KEY_AGE = "age"
+    private const val KEY_BIRTHDATE = "birthdate"
 
     fun saveBasicFromFirebase(context: Context, user: FirebaseUser, loginMethod: String? = null) {
         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
@@ -32,7 +32,7 @@ object SessionManager {
         name: String,
         email: String?,
         photoUrl: String?,
-        age: String?,
+        birthdate: String?,
         phone: String?,
         address: String?,
         emergency: String?,
@@ -44,7 +44,7 @@ object SessionManager {
             .putString(KEY_USERNAME, name)
             .putString(KEY_EMAIL, email)
             .putString(KEY_PHOTO, photoUrl)
-            .putString(KEY_AGE, age)
+            .putString(KEY_BIRTHDATE, birthdate)
             .putString(KEY_PHONE, phone)
             .putString(KEY_ADDRESS, address)
             .putString(KEY_EMERGENCY, emergency)

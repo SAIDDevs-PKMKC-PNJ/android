@@ -1,5 +1,6 @@
 package com.pkm.said
 
+import android.app.DatePickerDialog
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -12,6 +13,7 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.pkm.said.databinding.ActivityUserInformationBinding
 import com.pkm.said.util.SessionManager
+import java.util.Calendar
 
 class UserInformationActivity : AppCompatActivity() {
 
@@ -68,7 +70,7 @@ class UserInformationActivity : AppCompatActivity() {
             .addOnSuccessListener { doc ->
                 if (doc.exists()) {
                     Log.d(TAG, "Dokumen user sudah ada, prefill tambahan")
-                    binding.etAge.setText(doc.getString("age") ?: "")
+                    binding.etBirthdate.setText(doc.getString("birthdate") ?: "")
                     binding.etPhone.setText(doc.getString("phone") ?: "")
                     binding.etAddress.setText(doc.getString("address") ?: "")
                     binding.etEmergency.setText(doc.getString("emergency") ?: "")
@@ -85,6 +87,21 @@ class UserInformationActivity : AppCompatActivity() {
         binding.btnSave.setOnClickListener {
             saveData()
         }
+        binding.etBirthdate.setOnClickListener {
+            showDatePicker()
+        }
+    }
+
+    private fun showDatePicker() {
+        val calendar = Calendar.getInstance()
+        val year = calendar.get(Calendar.YEAR)
+        val month = calendar.get(Calendar.MONTH)
+        val day = calendar.get(Calendar.DAY_OF_MONTH)
+
+        DatePickerDialog(this, { _, y, m, d ->
+            val dateString = "%02d/%02d/%04d".format(d, m + 1, y)
+            binding.etBirthdate.setText(dateString)
+        }, year, month, day).show()
     }
 
     private fun saveData() {
@@ -95,12 +112,12 @@ class UserInformationActivity : AppCompatActivity() {
         }
 
         val name = binding.etName.textValue()
-        val age = binding.etAge.textValue()
+        val birthdate = binding.etBirthdate.textValue()
         val phone = binding.etPhone.textValue()
         val address = binding.etAddress.textValue()
         val emergency = binding.etEmergency.textValue()
 
-        if (name.isBlank() || age.isBlank() || phone.isBlank() || address.isBlank() || emergency.isBlank()) {
+        if (name.isBlank() || birthdate.isBlank() || phone.isBlank() || address.isBlank() || emergency.isBlank()) {
             Toast.makeText(this, "Lengkapi semua field", Toast.LENGTH_SHORT).show()
             return
         }
@@ -126,7 +143,7 @@ class UserInformationActivity : AppCompatActivity() {
                 "photoUrl" to (intentPhotoUrl ?: user.photoUrl?.toString()),
                 "loginMethod" to intentLoginMethod,
                 "emailVerified" to intentEmailVerified,
-                "age" to age,
+                "birthdate" to birthdate,
                 "phone" to phone,
                 "address" to address,
                 "emergency" to emergency,
@@ -149,7 +166,7 @@ class UserInformationActivity : AppCompatActivity() {
                                 name,
                                 intentEmail ?: user.email,
                                 intentPhotoUrl ?: user.photoUrl?.toString(),
-                                age,
+                                birthdate,
                                 phone,
                                 address,
                                 emergency,

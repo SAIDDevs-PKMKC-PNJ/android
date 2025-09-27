@@ -9,16 +9,20 @@ import android.view.ViewGroup
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
 import android.graphics.Rect
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.PagerSnapHelper
+import com.bumptech.glide.Glide
 import com.pkm.said.databinding.FragmentDashboardBinding
 import com.pkm.said.adapter.FeatureAdapter
 import com.pkm.said.adapter.NewsAdapter
-import com.pkm.said.NewsActivity
+import com.pkm.said.screening.RiskLevel
+import com.pkm.said.screening.ScreeningActivity
+import com.pkm.said.screening.ScreeningDataManager
 import com.pkm.said.util.SessionManager
-import com.pkm.said.BuildConfig
 import com.pkm.said.service.NewsRetrofit
 import retrofit2.Call
 import retrofit2.Callback
@@ -28,8 +32,6 @@ class DashboardFragment : Fragment() {
 
     private var _binding: FragmentDashboardBinding? = null
     private val binding get() = _binding!!
-
-    private lateinit var newsAdapter: NewsAdapter
     private lateinit var featureAdapter: FeatureAdapter
 
     override fun onCreateView(
@@ -56,31 +58,148 @@ class DashboardFragment : Fragment() {
         val authUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
         val finalName = prefsName ?: authUser?.displayName ?: "Pengguna"
 
+        authUser?.let { user ->
+            val docRef = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                .collection("users")
+                .document(user.uid)
+
+            docRef.get()
+                .addOnSuccessListener { doc ->
+                    val dbPhotoUrl = doc.getString("photoUrl")
+                    val finalUrl = if (!dbPhotoUrl.isNullOrBlank()) dbPhotoUrl else user.photoUrl?.toString()
+
+                    if (!finalUrl.isNullOrBlank()) {
+                        Glide.with(this)
+                            .load(finalUrl)
+                            .placeholder(R.drawable.ic_avatar_default)
+                            .error(R.drawable.ic_avatar_default)
+                            .circleCrop()
+                            .into(binding.ivAvatar)
+                    } else {
+                        binding.ivAvatar.setImageResource(R.drawable.ic_avatar_default)
+                    }
+                }
+                .addOnFailureListener {
+                    // fallback ke Auth photoUrl
+                    val authUrl = user.photoUrl?.toString()
+                    if (!authUrl.isNullOrBlank()) {
+                        Glide.with(this)
+                            .load(authUrl)
+                            .circleCrop()
+                            .into(binding.ivAvatar)
+                    } else {
+                        binding.ivAvatar.setImageResource(R.drawable.ic_avatar_default)
+                    }
+                }
+        } ?: run {
+            // Tidak ada user login
+            binding.ivAvatar.setImageResource(R.drawable.ic_avatar_default)
+        }
+
+        binding.ivAvatar.setOnClickListener {
+            findNavController().navigate(R.id.action_dashboard_to_profile)
+        }
         binding.tvWelcome.text = getString(R.string.welcome_text, finalName)
     }
 
     private fun setupSearch() {
         binding.ivSearch.setOnClickListener {
-            val query = binding.etSearch.text?.toString().orEmpty()
-            if (query.isNotBlank()) {
-                // TODO arahkan ke fitur edukasi / pencarian artikel
-            }
+            startActivity(Intent(requireContext(), ChatbotActivity::class.java))
         }
     }
 
     private fun setupScreeningCard() {
-        // Dummy data score
-        val score = 30
-        binding.tvScoreValue.text = "$score%"
-        binding.tvScoreStatus.text = getString(R.string.home_score_status_normal)
+        // Matikan shimmer dsb. lalu atur visibilitas
+        binding.groupScoreContent.isVisible = false
+        binding.groupEmptyState.isVisible = false
+        binding.groupPendingState.isVisible = false
 
-        binding.chipRestart.setOnClickListener {
-            val intent = Intent(requireContext(), HomeActivity::class.java)
-            startActivity(intent)
+        val active = ScreeningDataManager.getCurrentSession(requireContext())
+        val last   = ScreeningDataManager.getLastCompletedSession(requireContext())
+
+        when {
+            // C. Ada sesi aktif yang belum selesai
+            active != null && !active.isCompleted -> {
+                val pending = ScreeningDataManager.getPendingTests(requireContext())
+                binding.groupPendingState.isVisible = true
+                binding.tvPendingSubtitle.text =
+                    if (pending.isEmpty()) "Menunggu finalisasi."
+                    else "Tes belum selesai: ${pending.joinToString { humanizeTestKey(it) }}"
+
+                binding.btnContinueScreening.setOnClickListener {
+                    // Arahkan ke tes pertama yang pending (fallback ke Face)
+                    val first = pending.firstOrNull() ?: "face_test"
+                    navigateToPending(first)
+                }
+                binding.btnCancelScreening.setOnClickListener {
+                    ScreeningDataManager.cancelSession(requireContext())
+                    setupScreeningCard() // refresh UI
+                }
+            }
+
+            // A. Ada hasil final terakhir
+            last != null -> {
+                binding.groupScoreContent.isVisible = true
+                val percent = ScreeningDataManager.calculateFASTOverallPercent(last)
+                binding.tvScoreValue.text = "$percent%"
+                binding.tvScoreStatus.text = ScreeningDataManager.getRiskLabel(last)
+                applyRiskColor(last.overallRisk)
+
+                binding.tvScoreTimestamp.text = last.completedAt ?: last.timestamp
+                binding.tvScoreTimestamp.isVisible = true
+            }
+
+            // B. Tidak ada riwayat sama sekali
+            else -> {
+                binding.groupEmptyState.isVisible = true
+                binding.btnStartScreening.setOnClickListener {
+                    // Mulai flow screening
+                    ScreeningActivity.start(requireContext(), userId = null)
+                }
+            }
         }
 
-        // Contoh show/hide placeholder saat loading
-        binding.groupScoreContent.isVisible = true
+        // Aksi tambahan (opsional)
+        binding.chipRestart.setOnClickListener {
+            ScreeningActivity.start(requireContext(), userId = null)
+        }
+        binding.tvHistoryLink.setOnClickListener {
+            findNavController().navigate(R.id.action_dashboard_to_history)
+        }
+    }
+
+    // Helper: sama seperti di fragment result-mu
+    private fun humanizeTestKey(key: String): String = when (key.lowercase()) {
+        "face_test","face" -> "Face"
+        "arms_test","arms","arm_test","arm","befast_arm" -> "Arms"
+        "speech_test","speech","befast_speech" -> "Speech"
+        else -> key
+    }
+
+    // Arahkan ke fragment pending yang benar
+    private fun navigateToPending(first: String) {
+        val intent = Intent(requireContext(), ScreeningActivity::class.java).apply {
+            // kirim tujuan fragment
+            putExtra("dest", when (first) {
+                "face_test","face" -> "face"
+                "arms_test","arms" -> "arms"
+                "speech_test","speech" -> "speech"
+                else -> "face"
+            })
+        }
+        startActivity(intent)
+    }
+
+    private fun applyRiskColor(risk: RiskLevel) {
+        val colorRes = when (risk) {
+            RiskLevel.LOW -> R.color.success_color
+            RiskLevel.MEDIUM -> R.color.risk_medium_text
+            RiskLevel.HIGH -> R.color.risk_high_text
+            RiskLevel.CRITICAL -> R.color.risk_high_text
+            RiskLevel.UNKNOWN -> R.color.risk_unknown_text
+            else -> R.color.risk_unknown_text
+        }
+        binding.tvScoreStatus.setTextColor(ContextCompat.getColor(requireContext(), colorRes))
     }
 
     private fun setupFeatureGrid() {

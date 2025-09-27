@@ -1,8 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="oval">
-    <solid android:color="@android:color/black" />
-    <size
-        android:width="18dp"
-        android:height="18dp" />
-</shape>
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:insetLeft="1dp"
+    android:insetTop="1dp"
+    android:insetRight="1dp"
+    android:insetBottom="1dp">
+
+    <shape android:shape="oval">
+        <solid android:color="@color/BluePrimary" />
+        <size
+            android:width="12dp"
+            android:height="12dp" />
+    </shape>
+</inset>

@@ -17,6 +17,8 @@ android {
         versionName = "1.0"
 
         buildConfigField("String", "NEWS_API_KEY", "\"${project.properties["NEWS_API_KEY"]}\"")
+        buildConfigField("String", "CLOUDINARY_CLOUD_NAME", "\"${project.properties["cloudName"]}\"")
+        buildConfigField("String", "CLOUDINARY_UNSIGNED_PRESET", "\"${project.properties["uploadPreset"]}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -70,7 +72,9 @@ dependencies {
     implementation(libs.gson)
     implementation(libs.retrofit2)
     implementation(libs.converter.gson)
-    implementation("com.google.guava:guava:31.0.1-android")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.moshi:moshi-kotlin:1.15.1")
+    implementation("com.google.guava:guava:33.5.0-android")
     implementation("com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava")
     implementation("com.github.bumptech.glide:glide:5.0.5")
     implementation("com.airbnb.android:lottie:6.1.0")

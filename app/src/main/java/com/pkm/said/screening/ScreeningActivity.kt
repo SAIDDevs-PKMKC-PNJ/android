@@ -19,13 +19,19 @@ import com.pkm.said.databinding.ActivityScreeningBinding
 class ScreeningActivity : AppCompatActivity() {
 
     companion object {
-        private const val TAG: String = "ScreeningActivity"
+        private const val TAG = "ScreeningActivity"
+        private const val KEY_USER_ID = "user_id"
+        private const val EXTRA_DEST = "dest"
+        private const val EXTRA_START_NEW = "startNew"
 
-        fun start(context: Context, userId: String? = null) {
-            val intent = Intent(context, ScreeningActivity::class.java).apply {
-                putExtra("user_id", userId ?: "itsLuxra")
+        fun start(context: Context, userId: String? = null, dest: String? = null,
+                  startNew: Boolean = false) {
+            val i = Intent(context, ScreeningActivity::class.java).apply {
+                putExtra(KEY_USER_ID, userId ?: "itsLuxra")
+                dest?.let { putExtra(EXTRA_DEST, it) }
+                putExtra(EXTRA_START_NEW, startNew)
             }
-            context.startActivity(intent)
+            context.startActivity(i)
         }
     }
 
@@ -39,18 +45,66 @@ class ScreeningActivity : AppCompatActivity() {
         binding = ActivityScreeningBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        userId = intent.getStringExtra("user_id") ?: "itsLuxra"
+        // restore userId aman dari intent / saved state
+        userId = savedInstanceState?.getString(KEY_USER_ID)
+            ?: intent.getStringExtra(KEY_USER_ID)
+                    ?: "itsLuxra"
+
         setupFullscreenMode()
         setupNavigation()
         setupBackPressHandler()
-        initializeScreeningSession()
+
+        // Mulai sesi HANYA sekali (hindari start ulang saat rotasi/recreate)
+        if (savedInstanceState == null) {
+            val startNew = intent.getBooleanExtra(EXTRA_START_NEW, false)
+            val existing = ScreeningDataManager.getCurrentSession(this)
+
+            // Mulai sesi baru hanya jika diminta, atau belum ada sesi, atau sesi sebelumnya sudah completed
+            if (startNew || existing == null || existing.isCompleted) {
+                ScreeningDataManager.startNewSession(this, userId)
+                Log.d(TAG, "Start NEW session for user: $userId (startNew=$startNew, existing=${existing != null})")
+            } else {
+                Log.d(TAG, "Resume existing session: ${existing.sessionId}")
+            }
+
+            val explicitDest = intent.getStringExtra(EXTRA_DEST)
+            val target = explicitDest ?: firstPendingKeyOrNull()
+
+            when (target) {
+                "face"   -> navController.navigate(R.id.faceTestPreviewFragment)
+                "arms"   -> navController.navigate(R.id.armsTestPreviewFragment)
+                "speech" -> navController.navigate(R.id.speechTestPreviewFragment)
+                "result" -> navController.navigate(R.id.screeningResultFragment)
+                null     -> { /* stay at startDestination */ }
+                else     -> { /* unknown dest, ignore */ }
+            }
+        }
+    }
+
+    private fun firstPendingKeyOrNull(): String? {
+        val active = ScreeningDataManager.getCurrentSession(this) ?: return null
+        if (active.isCompleted) return null
+        val pending = ScreeningDataManager.getPendingTests(this)
+        if (pending.isEmpty()) return null
+        return when (pending.first().lowercase()) {
+            "face_test","face" -> "face"
+            "arms_test","arms","arm_test","arm","befast_arm" -> "arms"
+            "speech_test","speech","befast_speech" -> "speech"
+            else -> "face"
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString(KEY_USER_ID, userId)
     }
 
     private fun setupFullscreenMode() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, binding.root).let { controller ->
             controller.hide(WindowInsetsCompat.Type.systemBars())
-            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
@@ -65,12 +119,22 @@ class ScreeningActivity : AppCompatActivity() {
     private fun setupBackPressHandler() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                showExitConfirmation()
+                when (navController.currentDestination?.id) {
+                    R.id.screeningResultFragment -> {
+                        // Sudah selesai → keluar tanpa dialog
+                        exitScreening()
+                    }
+                    else -> showExitConfirmation()
+                }
             }
         })
     }
 
     private fun initializeScreeningSession() {
+        val existing = ScreeningDataManager.getCurrentSession(this)
+        if (existing?.isCompleted == true) {
+            ScreeningDataManager.cancelSession(this)
+        }
         ScreeningDataManager.startNewSession(this, userId)
         Log.d(TAG, "Screening session initialized for user: $userId")
     }
@@ -79,12 +143,8 @@ class ScreeningActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle("Keluar dari Screening?")
             .setMessage("Apakah Anda yakin ingin keluar dari proses screening?\nProgress akan hilang.")
-            .setPositiveButton("Ya, Keluar") { _, _ ->
-                exitScreening()
-            }
-            .setNegativeButton("Lanjutkan") { dialog, _ ->
-                dialog.dismiss()
-            }
+            .setPositiveButton("Ya, Keluar") { _, _ -> exitScreening() }
+            .setNegativeButton("Lanjutkan") { dialog, _ -> dialog.dismiss() }
             .setCancelable(false)
             .show()
     }
