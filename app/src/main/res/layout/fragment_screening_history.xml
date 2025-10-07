@@ -6,7 +6,6 @@
     android:layout_height="match_parent"
     android:background="@drawable/gradient_background">
 
-
     <!-- Toolbar -->
     <ImageButton
         android:id="@+id/btnBack"
@@ -22,13 +21,14 @@
         android:layout_marginStart="20dp"/>
 
     <TextView
+        style="@style/TextAppearance.Material3.TitleLarge"
         android:id="@+id/tvTitle"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:text="Riwayat Screening"
         android:textSize="24sp"
         android:textStyle="bold"
-        android:textColor="@color/black"
+        android:textColor="@color/white"
         app:layout_constraintStart_toEndOf="@id/btnBack"
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginStart="12dp"
@@ -130,6 +130,7 @@
         android:gravity="center"
         android:layout_width="0dp"
         android:layout_height="0dp"
+        android:visibility="visible"
         app:layout_constraintTop_toBottomOf="@id/tvCount"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -140,7 +141,7 @@
             android:layout_height="120dp"
             android:src="@drawable/ic_news"
             android:contentDescription="@string/app_name"
-            app:tint="@color/GrayLight_alpha_90"/>
+            app:tint="@color/white"/>
 
         <TextView
             android:layout_width="wrap_content"
@@ -152,4 +153,86 @@
             android:layout_marginTop="12dp"/>
     </LinearLayout>
 
+    <!-- Error State -->
+    <LinearLayout
+        android:id="@+id/layoutError"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="32dp"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/tvCount"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <ImageView
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:src="@drawable/ic_alert"
+            app:tint="@color/error" />
+
+        <TextView
+            android:id="@+id/tvErrorText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Gagal memuat data"
+            android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+        <Button
+            android:id="@+id/btnRetry"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Coba Lagi" />
+
+    </LinearLayout>
+
+    <!-- Warning State -->
+    <LinearLayout
+        android:id="@+id/layoutWarning"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="32dp"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/tvCount"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <ImageView
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:src="@drawable/ic_info"
+            app:tint="@color/warning" />
+
+        <TextView
+            android:id="@+id/tvWarningText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Menggunakan data lokal"
+            android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+    </LinearLayout>
+
+    <FrameLayout
+        android:id="@+id/loadingOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#80000000"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true"
+        android:elevation="10dp">
+
+        <ProgressBar
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_gravity="center"/>
+    </FrameLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

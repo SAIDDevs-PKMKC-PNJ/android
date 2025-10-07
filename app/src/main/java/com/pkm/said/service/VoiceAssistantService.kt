@@ -137,7 +137,7 @@ class VoiceAssistantService : Service() {
             // Catatan: Anda perlu membuat context file untuk stroke screening
             rhino = Rhino.Builder()
                 .setAccessKey(ACCESS_KEY)
-                .setContextPath("stroke_screening_android.rhn") // File context di assets
+                .setContextPath("android_asset://stroke_screening_android.rhn") // File context di assets
                 .build(applicationContext)
 
             Log.d(TAG, "✅ Rhino initialized")

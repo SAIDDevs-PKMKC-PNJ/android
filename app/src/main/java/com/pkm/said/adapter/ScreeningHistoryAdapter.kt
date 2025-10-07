@@ -10,8 +10,10 @@ import androidx.recyclerview.widget.RecyclerView
 import com.pkm.said.R
 import com.pkm.said.databinding.ItemScreeningResultBinding
 import com.pkm.said.screening.RiskLevel
+import com.pkm.said.screening.ScreeningDataManager
 import com.pkm.said.screening.ScreeningResult
 import com.pkm.said.screening.TestResult
+import com.pkm.said.screening.completedAtFormatted
 import kotlin.math.roundToInt
 
 class ScreeningHistoryAdapter(
@@ -33,24 +35,30 @@ class ScreeningHistoryAdapter(
         fun bind(item: ScreeningResult) {
             val ctx = binding.root.context
 
+            // Risk header
             binding.tvRiskTitle.text = item.overallRisk.displayName
-            binding.tvBeFastCount.text = "BE-FAST: ${completedCount(item)}/3"
+            binding.tvRiskDesc.text  = item.overallRisk.description
 
-            // Dummy location (bisa diambil dari testData jika ada)
-            binding.tvDate.text = formatDate(item.timestamp)
-            binding.tvDateTime.text = formatTime(item.timestamp)
+            // Count BE-FAST /3
+            binding.tvBeFastCount.text = "BE-FAST: ${completedCount(item)}/4"
+
+            // Waktu: utamakan completedAt (server) → fallback ke timestamp (awal sesi)
+            val whenStr = item.completedAtFormatted().let { if (it == "-") item.timestamp else it }
+            binding.tvDate.text    = formatDate(whenStr)
+            binding.tvDateTime.text = formatTime(whenStr)
+
+            // Lokasi dummy (kalau nanti ada, ambil dari testData)
             binding.tvLocation.text = "Jakarta"
 
-            val percent = computePercent(item)
-            binding.tvPercent.text = "$percent%"
-            binding.progressBar.progress = percent
+            // FAST overall 0..80%
+            val fastOverall = ScreeningDataManager.calculateBEFASTOverallPercent(item) // 0..80
+            binding.tvPercent.text = "$fastOverall%"
+            binding.progressBar.max = 80
+            binding.progressBar.progress = fastOverall
 
-            binding.tvRiskDesc.text = item.overallRisk.description
-
-            // Status test
+            // Status
             binding.tvStatusValue.text = if (item.isCompleted) "Completed" else "In Progress"
-            binding.tvRiskLabelValue.text = "$percent% kemungkinan"
-
+            binding.tvRiskLabelValue.text = "$fastOverall% kemungkinan"
             val risk = item.overallRisk
             val colorRes = when (risk) {
                 RiskLevel.CRITICAL, RiskLevel.HIGH -> R.color.risk_high_text
@@ -58,26 +66,28 @@ class ScreeningHistoryAdapter(
                 RiskLevel.LOW -> R.color.risk_low_text
                 else -> R.color.risk_unknown_text
             }
-            binding.tvRiskLabelValue.setTextColor(ContextCompat.getColor(binding.root.context, colorRes))
+            binding.tvRiskLabelValue.setTextColor(ContextCompat.getColor(ctx, colorRes))
 
             // Buttons
             binding.btnDetail.setOnClickListener { onDetail(item) }
             binding.btnShare.setOnClickListener { onShare(item) }
 
-            // Set warna sesuai risk
-            applyRiskStyle(item.overallRisk)
+            // Style kartu berdasarkan risk
+            applyRiskStyle(risk)
 
-            // Completed styling
+            // Bold kalau completed
             binding.tvStatusValue.setTypeface(null, if (item.isCompleted) Typeface.BOLD else Typeface.NORMAL)
         }
 
         private fun completedCount(item: ScreeningResult): Int {
-            val tests = listOfNotNull(item.faceResult, item.armsResult, item.speechResult)
-            return tests.count { it.isCompleted } // currently 3 tests; displayed as /5 untuk desain
+            val tests = listOfNotNull(item.balanceResult, item.eyesResult, item.faceResult, item.armsResult)
+            return tests.count { it.isCompleted } // 3 tes
         }
 
-        private fun computePercent(item: ScreeningResult): Int {
-            val tests: List<TestResult> = listOfNotNull(item.faceResult, item.armsResult, item.speechResult)
+        // (TETAPKAN kalau kamu masih butuh, tapi tidak dipakai untuk FAST overall)
+        @Suppress("unused")
+        private fun computePercentLegacy(item: ScreeningResult): Int {
+            val tests: List<TestResult> = listOfNotNull(item.balanceResult, item.eyesResult, item.faceResult, item.armsResult)
             if (tests.isEmpty()) return 0
             val avg = tests.map { it.score }.average()
             return (avg * 100).roundToInt().coerceIn(0, 100)
@@ -133,7 +143,6 @@ class ScreeningHistoryAdapter(
             binding.headerContainer.setBackgroundResource(bgHeader)
             binding.tvPercent.setTextColor(accent)
             binding.tvRiskLabelValue.setTextColor(accent)
-
             binding.progressBar.progressDrawable.setTint(progressTint)
         }
     }

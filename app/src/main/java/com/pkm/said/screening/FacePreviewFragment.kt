@@ -50,13 +50,6 @@ class FacePreviewFragment : Fragment() {
             )
         }
 
-//        binding.btnSkipTest.setOnClickListener {
-//            // Navigate to arms preview
-//            findNavController().navigate(
-//                R.id.action_facePreview_to_armsPreview
-//            )
-//        }
-
         binding.btnBack.setOnClickListener {
             findNavController().popBackStack()
         }

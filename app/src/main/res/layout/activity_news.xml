@@ -2,6 +2,7 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -15,10 +16,12 @@
         android:padding="8dp"
         android:layout_marginBottom="8dp"
         android:gravity="center_vertical"
+        android:background="@android:color/transparent"
         app:layout_constrainedWidth="true"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:ignore="RtlHardcoded">
 
         <ImageButton
             android:id="@+id/btnBack"
@@ -28,7 +31,8 @@
             android:background="@drawable/bg_circle_light"
             android:src="@drawable/ic_arrow_back"
             android:contentDescription="@string/arrow_back"
-            app:tint="@color/black" />
+            app:tint="@color/black"
+            tools:ignore="TouchTargetSizeCheck"/>
 
         <TextView
             android:id="@+id/tvTitle"
@@ -74,18 +78,21 @@
 
                 <androidx.cardview.widget.CardView
                     android:layout_width="match_parent"
-                    android:layout_height="240dp"
+                    android:layout_height="wrap_content"
                     app:cardCornerRadius="18dp"
-                    app:cardUseCompatPadding="false">
+                    app:cardUseCompatPadding="false"
+                    app:cardBackgroundColor="@android:color/transparent">>
 
                     <androidx.viewpager2.widget.ViewPager2
                         android:id="@+id/viewPager"
                         android:layout_width="match_parent"
-                        android:layout_height="match_parent"
+                        android:layout_height="240dp"
                         android:clipToPadding="false"
                         android:clipChildren="false"
                         android:paddingStart="32dp"
-                        android:paddingEnd="32dp" />
+                        android:paddingEnd="32dp"
+                        tools:background="@drawable/placeholder"
+                        tools:listitem="@layout/item_news_slider"/>
                 </androidx.cardview.widget.CardView>
             </LinearLayout>
 
@@ -102,13 +109,29 @@
                 app:tabIndicatorColor="@android:color/transparent"
                 app:tabIndicatorHeight="0dp"
                 app:tabMaxWidth="0dp"
-
                 app:tabMinWidth="0dp"
+
                 app:tabPaddingBottom="0dp"
-                app:tabPaddingEnd="6dp"
-                app:tabPaddingStart="6dp"
+                app:tabPaddingEnd="8dp"
+                app:tabPaddingStart="8dp"
                 app:tabPaddingTop="0dp"
-                app:tabRippleColor="@android:color/transparent" />
+                app:tabRippleColor="@android:color/transparent"
+                tools:tabCount="3"
+                tools:tabMode="fixed">
+
+                <!-- Preview tabs untuk design time -->
+                <com.google.android.material.tabs.TabItem
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+
+                <com.google.android.material.tabs.TabItem
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"/>
+
+                <com.google.android.material.tabs.TabItem
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </com.google.android.material.tabs.TabLayout>
 
             <!-- Edukasi -->
             <TextView
@@ -131,7 +154,9 @@
                 android:paddingStart="24dp"
                 android:paddingEnd="24dp"
                 android:clipToPadding="false"
-                android:nestedScrollingEnabled="false"/>
+                android:nestedScrollingEnabled="false"
+                tools:listitem="@layout/item_article_row"
+                tools:itemCount="3"/>
 
             <!-- Pencegahan -->
             <TextView
@@ -154,7 +179,9 @@
                 android:paddingStart="20dp"
                 android:paddingEnd="20dp"
                 android:clipToPadding="false"
-                android:nestedScrollingEnabled="false"/>
+                android:nestedScrollingEnabled="false"
+                tools:listitem="@layout/item_article_row"
+                tools:itemCount="3"/>
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>

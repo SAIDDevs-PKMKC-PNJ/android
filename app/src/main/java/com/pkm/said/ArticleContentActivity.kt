@@ -6,6 +6,8 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.bumptech.glide.Glide
+import com.google.gson.Gson
+import com.google.gson.JsonSyntaxException
 import com.pkm.said.databinding.ActivityArticleContentBinding
 
 class ArticleContentActivity : AppCompatActivity() {
@@ -17,29 +19,64 @@ class ArticleContentActivity : AppCompatActivity() {
         binding = ActivityArticleContentBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        @Suppress("DEPRECATION") val article = intent.getParcelableExtra<ArticleItem>("article")
-        if (article != null) {
-            bindArticle(article)
-            setupClicks(article)
-        } else {
+        val json = intent.getStringExtra(KEY_JSON)
+        val article = try {
+            Gson().fromJson(json, ArticleItem::class.java)
+        } catch (e: Exception) {
+            null
+        }
+
+        if (article == null || article.title.isEmpty()) {
             handleNullArticle()
             return
         }
+
+        bindArticle(article)
+        setupClickListeners(article)
     }
+
+//    private fun initializeArticle() {
+//        val json = intent.getStringExtra(KEY_JSON)
+//        val article = try {
+//            Gson().fromJson(json, ArticleItem::class.java)?.takeIf {
+//                it.title.isNotEmpty()
+//            }
+//        } catch (e: JsonSyntaxException) {
+//            null
+//        } catch (e: IllegalArgumentException) {
+//            null
+//        }
+//
+//        if (article == null) {
+//            handleNullArticle()
+//            return
+//        }
+//
+//        bindArticle(article)
+//        setupClickListeners(article)
+//    }
 
     private fun bindArticle(article: ArticleItem) {
         binding.tvTitle.text = article.title
         binding.tvDate.text = article.date
-        binding.tvAuthorName.text = if (article.source.isBlank()) getString(R.string.article_author_default) else article.source
+
+        // Use author field instead of source for author name
+        binding.tvAuthorName.text = article.author.ifBlank {
+            getString(R.string.article_author_default)
+        }
         binding.tvAuthorRole.text = getString(R.string.article_author_role)
-        binding.tvContent.text = article.content.ifBlank { article.description }
-            .ifBlank {
-                // fallback lorem untuk demo tampilan
-                getString(R.string.article_lorem_long)
-            }
-        binding.tvBadge.text = when {
-            article.category.isNotBlank() -> article.category.uppercase()
-            else -> getString(R.string.HeadlineTemplate)
+
+        val content = when {
+            article.content.isNotBlank() -> article.content
+            article.description.isNotBlank() -> article.description
+            else -> getString(R.string.article_lorem_long)
+        }
+        binding.tvContent.text = content
+
+        binding.tvBadge.text = if (article.category.isNotBlank()) {
+            article.category.uppercase()
+        } else {
+            getString(R.string.HeadlineTemplate)
         }
 
         Glide.with(this)
@@ -49,51 +86,69 @@ class ArticleContentActivity : AppCompatActivity() {
             .into(binding.ivHero)
     }
 
-    private fun setupClicks(article: ArticleItem) = with(binding) {
-        btnBack.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
-
-        fabBookmark.setOnClickListener {
-            // TODO: Simpan ke bookmark (Room/Firestore). Untuk sekarang, tampilkan feedback
-            showSnackbar(getString(R.string.bookmarked_msg))
+    private fun setupClickListeners(article: ArticleItem) {
+        binding.btnBack.setOnClickListener {
+            onBackPressedDispatcher.onBackPressed()
         }
 
-        fabShare.setOnClickListener {
+        binding.fabBookmark.setOnClickListener {
+            showToast(getString(R.string.bookmarked_msg))
+        }
+
+        binding.fabShare.setOnClickListener {
             shareArticle(article)
         }
     }
 
-    private fun showSnackbar(message: String) {
-        // Gunakan Material Snackbar jika mau; sementara pakai Toast
-        android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_SHORT).show()
-    }
-
     private fun shareArticle(article: ArticleItem) {
-        val shareText = "${article.title}\n\n${article.description.ifBlank { article.content.take(160) }}"
-        val intent = Intent(Intent.ACTION_SEND).apply {
+        val preview = when {
+            article.description.isNotBlank() -> article.description
+            article.content.isNotBlank() -> article.content.take(160)
+            else -> ""
+        }
+        val shareText = buildString {
+            append(article.title)
+            append("\n\n")
+            append(preview)
+            // Include URL if available
+            if (article.url.isNotBlank()) {
+                append("\n\n")
+                append(article.url)
+            }
+        }
+
+        val shareIntent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_SUBJECT, article.title)
             putExtra(Intent.EXTRA_TEXT, shareText)
         }
-        startActivity(Intent.createChooser(intent, getString(R.string.share_article)))
+
+        startActivity(Intent.createChooser(shareIntent, getString(R.string.share_article)))
     }
 
     private fun handleNullArticle() {
-        Toast.makeText(this, "Artikel tidak ditemukan", Toast.LENGTH_SHORT).show()
-        val intent = Intent(this, MainActivity::class.java).apply {
+        showToast("Artikel tidak ditemukan")
+
+        Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra("navigate_to", "dashboard")
-        }
-        startActivity(intent)
+        }.also { startActivity(it) }
+
         finish()
     }
 
+    private fun showToast(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    }
+
     companion object {
-        const val EXTRA_ARTICLE = "extra_article"
+        const val KEY_JSON = "article_json"
 
         fun start(context: Context, article: ArticleItem) {
-            val i = Intent(context, ArticleContentActivity::class.java)
-            i.putExtra(EXTRA_ARTICLE, article)
-            context.startActivity(i)
+            val intent = Intent(context, ArticleContentActivity::class.java).apply {
+                putExtra(KEY_JSON, Gson().toJson(article))
+            }
+            context.startActivity(intent)
         }
     }
 }

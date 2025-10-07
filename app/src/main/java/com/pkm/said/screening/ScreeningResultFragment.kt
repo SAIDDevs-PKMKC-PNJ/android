@@ -1,18 +1,25 @@
 package com.pkm.said.screening
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
+import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.google.gson.Gson
 import com.pkm.said.MainActivity
 import com.pkm.said.R
 import com.pkm.said.databinding.FragmentScreeningResultBinding
+import kotlinx.coroutines.launch
 
 class ScreeningResultFragment : Fragment() {
 
@@ -38,89 +45,116 @@ class ScreeningResultFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
         savedInstanceState?.getString("completed_session_json")?.let { json ->
             completedSession = Gson().fromJson(json, ScreeningResult::class.java)
         }
+
         setupResult()
         setupStaticClickListeners()
     }
 
     private fun setupResult() {
+        // Jika sudah ada hasil terserialisasi (rotasi), render langsung.
         completedSession?.let {
-            displayFASTResults(it)
+            displayBEFAResults(it)
             return
         }
 
-        val active = ScreeningDataManager.getCurrentSession(requireContext())
-        if (active != null) {
-            val pending = ScreeningDataManager.getPendingTests(requireContext())
-            if (pending.isNotEmpty()) {
-                displayIncompleteFAST(active, pending)
+        // ✅ CEK LOKAL DULU - Ambil sesi aktif dari ScreeningDataManager
+        val activeSession = ScreeningDataManager.getCurrentSession(requireContext())
+        if (activeSession != null) {
+            val pendingTests = ScreeningDataManager.getPendingTests(requireContext())
+
+            if (pendingTests.isNotEmpty()) {
+                // ❌ Ada tes yang belum selesai → tampilkan mode incomplete
+                displayIncompleteBEFA(activeSession, pendingTests)
                 return
             }
-            completedSession = ScreeningDataManager.completeSession(requireContext())
-            completedSession?.let { displayFASTResults(it) } ?: displayErrorResult()
+
+            // ✅ SEMUA TES SELESAI - Complete di lokal dulu
+            val locallyCompleted = ScreeningDataManager.completeSession(requireContext())
+            if (locallyCompleted != null) {
+                completedSession = locallyCompleted
+
+                // ✅ COBA KIRIM KE FIRESTORE (background, tidak blocking UI)
+                viewLifecycleOwner.lifecycleScope.launch {
+                    try {
+                        val success = ScreeningRepository.saveCompleteScreeningSession(locallyCompleted)
+                        if (success) {
+                            Log.d("ScreeningResult", "✅ Berhasil sync ke Firestore")
+                        } else {
+                            Log.w("ScreeningResult", "❌ Gagal sync ke Firestore, data tetap tersimpan lokal")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("ScreeningResult", "Error sync ke Firestore: ${e.message}")
+                        // Data tetap aman di lokal
+                    }
+                }
+
+                // ✅ LANGSUNG TAMPILKAN HASIL (tidak nunggu Firestore)
+                displayBEFAResults(locallyCompleted)
+            } else {
+                displayErrorResult()
+            }
             return
         }
 
-        // Tidak ada sesi aktif → coba ambil sesi terakhir dari history (mis. setelah rotasi)
+        // ✅ FALLBACK: Coba ambil sesi terakhir dari history lokal
         ScreeningDataManager.getLastCompletedSession(requireContext())?.let {
             completedSession = it
-            displayFASTResults(it)
+            displayBEFAResults(it)
         } ?: displayErrorResult()
     }
 
-
     /** ====== MODE: SCREENING LENGKAP (FINAL) ====== */
-    private fun displayFASTResults(session: ScreeningResult) {
+    @SuppressLint("SetTextI18n")
+    private fun displayBEFAResults(session: ScreeningResult) {
+        Log.d("ScreeningResult", "🔍 TEST RESULTS FOR UI:")
+        Log.d("ScreeningResult", "   - Balance: ${session.balanceResult?.isCompleted} | ${session.balanceResult?.score}")
+        Log.d("ScreeningResult", "   - Eyes: ${session.eyesResult?.isCompleted} | ${session.eyesResult?.score}")
+        Log.d("ScreeningResult", "   - Face: ${session.faceResult?.isCompleted} | ${session.faceResult?.score}")
+        Log.d("ScreeningResult", "   - Arms: ${session.armsResult?.isCompleted} | ${session.armsResult?.score}")
+
         setupRiskAssessment(session.overallRisk)
-        setupFASTTestResults(session)
+        setupBEFATestResults(session)
         setupRecommendation(session.overallRisk)
 
-        // FAST overall % (0..80)
-        val fastOverall = ScreeningDataManager.calculateFASTOverallPercent(session)
+        // BEFA overall % (0..100)
+        val befaOverall = ScreeningDataManager.calculateBEFASTOverallPercent(session)
         binding.tvRiskDescription.text = session.overallRisk.description
-        binding.tvFastOverall.text = "FAST overall: $fastOverall% (maks 80%)"
+        binding.tvFastOverall.text = "BEFA overall: $befaOverall% (0..100)"
 
-        binding.tvSessionInfo.text = "Sesi: ${session.sessionId}\nWaktu: ${session.completedAt}"
+        binding.tvSessionInfo.text = "Sesi: ${session.sessionId}\nWaktu: ${session.completedAtFormatted()}"
 
-        // Tombol-tombol default (Finish, Retry = mulai ulang, SaveReport, History)
+        // Tombol default (Finish, Retry, SaveReport, History)
         setupFinalButtons()
     }
 
     /** ====== MODE: SCREENING TIDAK LENGKAP (PENDING/ERROR) ====== */
-    private fun displayIncompleteFAST(session: ScreeningResult, pending: List<String>) {
-        // Tampilkan status UNKNOWN + banner “belum lengkap”
+    @SuppressLint("SetTextI18n")
+    private fun displayIncompleteBEFA(session: ScreeningResult, pending: List<String>) {
         setupRiskAssessment(RiskLevel.UNKNOWN)
         val pendingLabel = pending.joinToString(", ") { humanizeTestKey(it) }
         binding.tvRiskDescription.text =
-            "Screening belum lengkap. Tes belum selesai: $pendingLabel.\n" +
-                    "Silakan lanjutkan terlebih dahulu."
+            "Screening belum lengkap. Tes belum selesai: $pendingLabel.\nSilakan lanjutkan terlebih dahulu."
 
-        // Tampilkan hasil per tes yang sudah ada (Normal/Abnormal/Tidak Dilakukan)
-        setupFASTTestResults(session)
+        setupBEFATestResults(session)
 
-        // Rekomendasi khusus
         binding.tvRecommendation.text =
-            "Beberapa tes belum selesai. Tekan \"Lanjutkan Tes\" untuk melanjutkan " +
-                    "tanpa menghapus progres yang sudah ada."
+            "Beberapa tes belum selesai. Tekan \"Lanjutkan Tes\" untuk melanjutkan tanpa menghapus progres yang sudah ada."
 
-        // Info sesi aktif
         binding.tvSessionInfo.text = "Sesi: ${session.sessionId}\nDimulai: ${session.timestamp}"
 
-        // **Ubah tombol:**
-        // - btnRetry → “Lanjutkan Tes” (tanpa cancel session)
-        // - btnFinish → konfirmasi keluar (cancel session)
-        // - Nonaktifkan Save Report (belum final)
+        // Ubah tombol
         binding.btnRetry.text = "Lanjutkan Tes"
         binding.btnRetry.setOnClickListener { navigateToFirstPending(pending) }
 
-        binding.btnFinish.setOnClickListener { showFinishDialogForIncomplete(pending)  }
+        binding.btnFinish.setOnClickListener { showFinishDialogForIncomplete(pending) }
 
         binding.btnSaveReport.isEnabled = false
         binding.btnSaveReport.alpha = 0.5f
 
-        // History tetap boleh dibuka
         binding.btnViewHistory.setOnClickListener { navigateToHistory() }
     }
 
@@ -146,45 +180,131 @@ class ScreeningResultFragment : Fragment() {
         }
     }
 
-    private fun setupFASTTestResults(session: ScreeningResult) {
-        setupTestResultItem(
-            binding.layoutFaceResult,
-            binding.tvFaceTestName,
-            binding.tvFaceTestResult,
-            binding.ivFaceTestIcon,
-            "F - Face Test",
-            session.faceResult
+    /**
+     * Render 4 hasil BEFA.
+     */
+    private fun setupBEFATestResults(session: ScreeningResult) {
+        // 1) Balance
+        setupTestResultItemByNames(
+            slot = SlotNames(
+                layout = "layout_balance_result",
+                name = "tv_balance_test_name",
+                result = "tv_balance_test_result",
+                icon = "iv_balance_test_icon"
+            ),
+            label = "B - Balance Test",
+            testResult = session.balanceResult,
+            fallbackIfMissing = null
         )
-        setupTestResultItem(
-            binding.layoutArmsResult,
-            binding.tvArmsTestName,
-            binding.tvArmsTestResult,
-            binding.ivArmsTestIcon,
-            "A - Arms Test",
-            session.armsResult
+
+        // 2) Eyes
+        setupTestResultItemByNames(
+            slot = SlotNames(
+                layout = "layout_eyes_result",
+                name = "tv_eyes_test_name",
+                result = "tv_eyes_test_result",
+                icon = "iv_eyes_test_icon"
+            ),
+            label = "E - Eyes Test",
+            testResult = session.eyesResult,
+            fallbackIfMissing = SlotNames(
+                layout = "layout_eyes_result",
+                name = "tv_eyes_test_name",
+                result = "tv_eyes_test_result",
+                icon = "iv_eyes_test_icon"
+            ) to "E - Eyes Test"
         )
-        setupTestResultItem(
-            binding.layoutSpeechResult,
-            binding.tvSpeechTestName,
-            binding.tvSpeechTestResult,
-            binding.ivSpeechTestIcon,
-            "S - Speech Test",
-            session.speechResult
+
+        // 3) Face
+        setupTestResultItemByNames(
+            slot = SlotNames(
+                layout = "layout_face_result",
+                name = "tv_face_test_name",
+                result = "tv_face_test_result",
+                icon = "iv_face_test_icon"
+            ),
+            label = "F - Face Test",
+            testResult = session.faceResult
+        )
+
+        // 4) Arms
+        setupTestResultItemByNames(
+            slot = SlotNames(
+                layout = "layout_arms_result",
+                name = "tv_arms_test_name",
+                result = "tv_arms_test_result",
+                icon = "iv_arms_test_icon"
+            ),
+            label = "A - Arms Test",
+            testResult = session.armsResult
         )
     }
 
-    private fun setupTestResultItem(
+    // Utility: representasi id view per slot
+    private data class SlotNames(
+        val layout: String,
+        val name: String,
+        val result: String,
+        val icon: String
+    )
+
+    private fun <T : View> findByName(name: String): T? {
+        val id = resources.getIdentifier(name, "id", requireContext().packageName)
+        if (id == 0) return null
+        return binding.root.findViewById(id)
+    }
+
+    private fun setupTestResultItemByNames(
+        slot: SlotNames,
+        label: String,
+        testResult: TestResult?,
+        fallbackIfMissing: Pair<SlotNames, String>? = null
+    ) {
+        // coba slot utama
+        val layout: View? = findByName(slot.layout)
+        val nameTv: TextView? = findByName(slot.name)
+        val resultTv: TextView? = findByName(slot.result)
+        val iconIv: ImageView? = findByName(slot.icon)
+
+        Log.d("ScreeningResult", "📦 Found - Layout: ${layout != null}, NameTV: ${nameTv != null}, ResultTV: ${resultTv != null}, IconIV: ${iconIv != null}")
+
+        if (layout != null && nameTv != null && resultTv != null && iconIv != null) {
+            Log.d("ScreeningResult", "✅ Rendering: $label")
+            applyTestResultToViews(layout, nameTv, resultTv, iconIv, label, testResult)
+            return
+        } else {
+            Log.w("ScreeningResult", "❌ Missing views for: $label")
+        }
+
+        // fallback
+        fallbackIfMissing?.let { (fbSlot, fbLabel) ->
+            Log.d("ScreeningResult", "🔄 Trying fallback for: $label")
+            val fbLayout: View? = findByName(fbSlot.layout)
+            val fbNameTv: TextView? = findByName(fbSlot.name)
+            val fbResultTv: TextView? = findByName(fbSlot.result)
+            val fbIconIv: ImageView? = findByName(fbSlot.icon)
+            if (fbLayout != null && fbNameTv != null && fbResultTv != null && fbIconIv != null) {
+                Log.d("ScreeningResult", "✅ Fallback successful for: $fbLabel")
+                applyTestResultToViews(fbLayout, fbNameTv, fbResultTv, fbIconIv, fbLabel, testResult)
+                return
+            }
+        }
+        Log.e("ScreeningResult", "❌❌❌ FAILED to render: $label - no views found!")
+    }
+
+    @SuppressLint("SetTextI18n")
+    private fun applyTestResultToViews(
         layout: View,
-        nameTextView: android.widget.TextView,
-        resultTextView: android.widget.TextView,
-        iconImageView: android.widget.ImageView,
-        testName: String,
+        nameTextView: TextView,
+        resultTextView: TextView,
+        iconImageView: ImageView,
+        testNameLabel: String,
         testResult: TestResult?
     ) {
-        nameTextView.text = testName
+        nameTextView.text = testNameLabel
 
         fun sevStr(score: Float?): String {
-            return if (score == null) "(—%)" else "(${(score.coerceIn(0f,1f) * 100).toInt()}%)"
+            return if (score == null) "(—%)" else "(${(score.coerceIn(0f, 1f) * 100).toInt()}%)"
         }
 
         when {
@@ -193,24 +313,28 @@ class ScreeningResultFragment : Fragment() {
                 resultTextView.setTextColor(ContextCompat.getColor(requireContext(), R.color.GrayLight))
                 iconImageView.setImageResource(R.drawable.ic_test_skipped)
                 iconImageView.setColorFilter(ContextCompat.getColor(requireContext(), R.color.GrayLight))
+                layout.visibility = View.VISIBLE
             }
             !testResult.isCompleted -> {
                 resultTextView.text = "Belum Selesai ${sevStr(testResult.score)}"
                 resultTextView.setTextColor(ContextCompat.getColor(requireContext(), R.color.GrayLight))
                 iconImageView.setImageResource(R.drawable.ic_test_incomplete)
                 iconImageView.setColorFilter(ContextCompat.getColor(requireContext(), R.color.GrayLight))
+                layout.visibility = View.VISIBLE
             }
             testResult.isSuccessful -> {
                 resultTextView.text = "Normal ${sevStr(testResult.score)}"
                 resultTextView.setTextColor(ContextCompat.getColor(requireContext(), R.color.success_color))
                 iconImageView.setImageResource(R.drawable.ic_test_success)
                 iconImageView.setColorFilter(ContextCompat.getColor(requireContext(), R.color.success_color))
+                layout.visibility = View.VISIBLE
             }
             else -> {
                 resultTextView.text = "Abnormal ${sevStr(testResult.score)}"
                 resultTextView.setTextColor(ContextCompat.getColor(requireContext(), R.color.warning_color))
                 iconImageView.setImageResource(R.drawable.ic_test_failed)
                 iconImageView.setColorFilter(ContextCompat.getColor(requireContext(), R.color.warning_color))
+                layout.visibility = View.VISIBLE
             }
         }
     }
@@ -235,6 +359,7 @@ class ScreeningResultFragment : Fragment() {
         }
     }
 
+    @SuppressLint("SetTextI18n")
     private fun displayErrorResult() {
         binding.apply {
             tvRiskLevel.text = "Error"
@@ -246,7 +371,6 @@ class ScreeningResultFragment : Fragment() {
 
     /** ====== Tombol & Navigasi ====== */
 
-    // Listener statis (tetap), akan dioverride dinamis pada mode incomplete jika perlu
     private fun setupStaticClickListeners() {
         binding.btnFinish.setOnClickListener { navigateToMain() }
         binding.btnRetry.setOnClickListener { restartScreening() }
@@ -254,9 +378,8 @@ class ScreeningResultFragment : Fragment() {
         binding.btnViewHistory.setOnClickListener { navigateToHistory() }
     }
 
-    // Setelah hasil final (complete), biarkan behavior default
     private fun setupFinalButtons() {
-        binding.btnRetry.text = getString(R.string.retry) // pastikan ada string atau biarkan default
+        binding.btnRetry.text = getString(R.string.retry)
         binding.btnRetry.setOnClickListener { restartScreening() }
         binding.btnFinish.setOnClickListener { navigateToMain() }
         binding.btnSaveReport.isEnabled = true
@@ -265,20 +388,15 @@ class ScreeningResultFragment : Fragment() {
 
     private fun navigateToFirstPending(pending: List<String>) {
         val first = pending.firstOrNull() ?: run {
-            // fallback: kembali ke tes awal
-            findNavController().navigate(R.id.action_screeningResult_to_facePreview)
+            findNavController().navigate(R.id.action_screeningResult_to_balancePreview)
             return
         }
-        when (first) {
-            "face_test", "face" -> {
-                findNavController().navigate(R.id.action_screeningResult_to_facePreview)
-            }
-            "arms_test", "arms" -> findNavController().navigate(R.id.action_screeningResult_to_armPreview)
-            "speech_test", "speech" -> findNavController().navigate(R.id.action_screeningResult_to_speechPreview)
-            else -> {
-                // fallback aman: mulai dari Face
-                findNavController().navigate(R.id.action_screeningResult_to_facePreview)
-            }
+        when (first.lowercase()) {
+            "balance", "b" -> findNavController().navigate(R.id.action_screeningResult_to_balancePreview)
+            "eyes", "e" -> findNavController().navigate(R.id.action_screeningResult_to_eyesPreview)
+            "face", "f" -> findNavController().navigate(R.id.action_screeningResult_to_facePreview)
+            "arms", "a" -> findNavController().navigate(R.id.action_screeningResult_to_armPreview)
+            else -> findNavController().navigate(R.id.action_screeningResult_to_balancePreview)
         }
     }
 
@@ -299,35 +417,54 @@ class ScreeningResultFragment : Fragment() {
             .show()
     }
 
+    /**
+     * ✅ FINALKAN PARSIAL - Local first approach
+     */
     private fun finalizePartialSession() {
         val active = ScreeningDataManager.getCurrentSession(requireContext())
         if (active == null) {
-            android.widget.Toast.makeText(requireContext(), "Tidak ada sesi aktif.", android.widget.Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), "Tidak ada sesi aktif.", Toast.LENGTH_SHORT).show()
             return
         }
 
-        // Wajib minimal SATU segmen selesai
-        val anyCompleted = listOfNotNull(active.faceResult, active.armsResult, active.speechResult)
-            .any { it.isCompleted }
+        val anyCompleted = listOfNotNull(
+            active.balanceResult,
+            active.eyesResult,
+            active.faceResult,
+            active.armsResult
+        ).any { it.isCompleted }
 
         if (!anyCompleted) {
             AlertDialog.Builder(requireContext())
                 .setTitle("Belum ada tes yang selesai")
-                .setMessage("Tidak bisa menyelesaikan karena belum ada segmen FAST yang selesai. Silakan lanjutkan tes terlebih dahulu.")
+                .setMessage("Tidak bisa menyelesaikan karena belum ada segmen yang selesai. Silakan lanjutkan tes terlebih dahulu.")
                 .setPositiveButton("OK", null)
                 .show()
             return
         }
 
-        // Finalkan sesi dengan data parsial yang ada
-        val finalSession = ScreeningDataManager.completeSession(requireContext())
-        if (finalSession != null) {
-            completedSession = finalSession
-            // Tampilkan mode final (risk level, FAST overall %, tombol SaveReport aktif, dst.)
-            displayFASTResults(finalSession)
-            android.widget.Toast.makeText(requireContext(), "Screening diselesaikan sebagai hasil parsial.", android.widget.Toast.LENGTH_SHORT).show()
+        // ✅ COMPLETE DI LOKAL DULU
+        val locallyCompleted = ScreeningDataManager.completeSession(requireContext())
+        if (locallyCompleted != null) {
+            completedSession = locallyCompleted
+
+            // ✅ COBA KIRIM KE FIRESTORE (background)
+            viewLifecycleOwner.lifecycleScope.launch {
+                try {
+                    val success = ScreeningRepository.saveCompleteScreeningSession(locallyCompleted)
+                    if (success) {
+                        Log.d("ScreeningResult", "✅ Partial session synced to Firestore")
+                    }
+                } catch (e: Exception) {
+                    Log.e("ScreeningResult", "Error syncing partial session: ${e.message}")
+                }
+            }
+
+            // ✅ TAMPILKAN HASIL
+            displayBEFAResults(locallyCompleted)
+            Toast.makeText(requireContext(), "Screening diselesaikan sebagai hasil parsial.", Toast.LENGTH_SHORT).show()
         } else {
-            android.widget.Toast.makeText(requireContext(), "Gagal menyelesaikan sesi.", android.widget.Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), "Gagal menyelesaikan sesi.", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -339,10 +476,9 @@ class ScreeningResultFragment : Fragment() {
     }
 
     private fun restartScreening() {
-        // Restart penuh (hapus sesi & mulai dari awal)
         ScreeningDataManager.cancelSession(requireContext())
         try {
-            findNavController().navigate(R.id.action_screeningResult_to_facePreview)
+            findNavController().navigate(R.id.action_screeningResult_to_balancePreview)
         } catch (e: Exception) {
             requireActivity().recreate()
         }
@@ -350,26 +486,28 @@ class ScreeningResultFragment : Fragment() {
 
     private fun saveReport() {
         completedSession?.let {
-            android.widget.Toast.makeText(
+            Toast.makeText(
                 requireContext(),
                 "Fitur simpan laporan akan segera tersedia",
-                android.widget.Toast.LENGTH_SHORT
+                Toast.LENGTH_SHORT
             ).show()
         } ?: run {
-            android.widget.Toast.makeText(
+            Toast.makeText(
                 requireContext(),
                 "Screening belum lengkap — laporan belum bisa dibuat",
-                android.widget.Toast.LENGTH_SHORT
+                Toast.LENGTH_SHORT
             ).show()
         }
     }
 
     private fun navigateToHistory() {
-        android.widget.Toast.makeText(
-            requireContext(),
-            "Fitur akan segera tersedia",
-            android.widget.Toast.LENGTH_SHORT
-        ).show()
+        // ✅ Navigasi ke Dashboard di MainActivity
+        val intent = Intent(requireContext(), MainActivity::class.java).apply {
+            putExtra("navigate_to", "dashboard") // Flag untuk navigasi ke dashboard
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        startActivity(intent)
+        requireActivity().finish()
     }
 
     override fun onDestroyView() {
@@ -378,9 +516,10 @@ class ScreeningResultFragment : Fragment() {
     }
 
     private fun humanizeTestKey(key: String): String = when (key.lowercase()) {
-        "face_test", "face" -> "Face"
-        "arms_test", "arms", "arm_test", "arm", "befast_arm" -> "Arms"
-        "speech_test", "speech" -> "Speech"
+        "balance", "b" -> "Balance"
+        "eyes", "e" -> "Eyes"
+        "face", "f" -> "Face"
+        "arms", "a" -> "Arms"
         else -> key
     }
 }

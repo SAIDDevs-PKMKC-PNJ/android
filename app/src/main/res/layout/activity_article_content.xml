@@ -113,29 +113,37 @@
                     android:layout_gravity="bottom|end"
                     android:layout_margin="12dp"
                     android:orientation="horizontal"
-                    android:gravity="end">
+                    android:gravity="center_vertical">
 
-                    <com.google.android.material.floatingactionbutton.FloatingActionButton
+                    <ImageButton
                         android:id="@+id/fabBookmark"
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
                         android:src="@drawable/ic_bookmark"
+                        android:scaleType="centerInside"
                         android:contentDescription="@string/bookmark"
-                        app:tint="@android:color/white"
-                        app:backgroundTint="@color/BluePrimary" />
+                        android:background="@drawable/bg_circle_light"
+                        android:backgroundTint="@color/BluePrimary"
+                        android:elevation="6dp"
+                        android:stateListAnimator="@null"
+                        app:tint="@android:color/white" />
 
                     <Space
-                        android:layout_width="10dp"
+                        android:layout_width="8dp"
                         android:layout_height="0dp" />
 
-                    <com.google.android.material.floatingactionbutton.FloatingActionButton
+                    <ImageButton
                         android:id="@+id/fabShare"
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
                         android:src="@drawable/ic_share"
+                        android:scaleType="centerInside"
                         android:contentDescription="@string/share_article"
-                        app:tint="@android:color/white"
-                        app:backgroundTint="@color/BluePrimary" />
+                        android:background="@drawable/bg_circle_light"
+                        android:backgroundTint="@color/BluePrimary"
+                        android:elevation="6dp"
+                        android:stateListAnimator="@null"
+                        app:tint="@android:color/white" />
                 </LinearLayout>
             </FrameLayout>
 

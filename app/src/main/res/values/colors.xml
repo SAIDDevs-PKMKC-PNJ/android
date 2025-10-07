@@ -3,6 +3,7 @@
     <!-- Original Colors -->
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="whiteSecondary">#FFF3E0</color>
     <color name="lightBlue">#45B3CB</color>
     <color name="GrayLight">#8C8C8C</color>
     <color name="background">#C0E5ED</color>
@@ -128,4 +129,13 @@
     <color name="test_abnormal">#DE2E2E</color>
     <color name="test_skipped">#9E9E9E</color>
     <color name="test_incomplete">#FF9800</color>
+
+    <!-- Emergency Activity Color Palettes -->
+    <color name="emergencyPrimary">#D32F2F</color>
+    <color name="emergencyPrimaryDark">#B71C1C</color>
+    <color name="emergencyAccent">#FFA000</color>
+    <color name="emergencySurfaceLight">#FFEBEE</color>
+    <color name="emergencyOnPrimary">#FFFFFF</color>
+    <color name="emergencyOnSurface">#1E1E1E</color>
+
 </resources>

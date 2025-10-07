@@ -61,16 +61,38 @@
             android:id="@+id/tabLayoutIndicator"
             android:layout_width="wrap_content"
             android:layout_height="16dp"
+            android:layout_gravity="center"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="8dp"
+            android:background="@android:color/transparent"
+
             app:tabBackground="@drawable/tab_selector"
-            app:tabGravity="center"
+            app:tabIndicatorColor="@android:color/transparent"
             app:tabIndicatorHeight="0dp"
-            app:tabMaxWidth="32dp"
-            app:tabMinWidth="16dp"
-            app:tabMode="fixed"
-            app:tabPaddingStart="8dp"
+            app:tabMaxWidth="0dp"
+            app:tabMinWidth="0dp"
+
+            app:tabPaddingBottom="0dp"
             app:tabPaddingEnd="8dp"
-            app:tabPaddingTop="2dp"
-            app:tabPaddingBottom="2dp" />
+            app:tabPaddingStart="8dp"
+            app:tabPaddingTop="0dp"
+            app:tabRippleColor="@android:color/transparent"
+            tools:tabCount="3"
+            tools:tabMode="fixed">
+
+            <!-- Preview tabs untuk design time -->
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"/>
+
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </com.google.android.material.tabs.TabLayout>
 
         <!-- ✅ SPACER: Push next button to right -->
         <View

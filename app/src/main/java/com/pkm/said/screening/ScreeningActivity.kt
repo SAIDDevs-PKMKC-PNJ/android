@@ -11,10 +11,12 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
 import androidx.navigation.findNavController
 import com.pkm.said.R
 import com.pkm.said.databinding.ActivityScreeningBinding
+import kotlinx.coroutines.launch
 
 class ScreeningActivity : AppCompatActivity() {
 
@@ -24,10 +26,17 @@ class ScreeningActivity : AppCompatActivity() {
         private const val EXTRA_DEST = "dest"
         private const val EXTRA_START_NEW = "startNew"
 
-        fun start(context: Context, userId: String? = null, dest: String? = null,
-                  startNew: Boolean = false) {
+        /**
+         * @param dest: "balance" | "eyes" | "face" | "arms" | "result" (opsional)
+         */
+        fun start(
+            context: Context,
+            userId: String? = null,
+            dest: String? = null,
+            startNew: Boolean = false
+        ) {
             val i = Intent(context, ScreeningActivity::class.java).apply {
-                putExtra(KEY_USER_ID, userId ?: "itsLuxra")
+                putExtra(KEY_USER_ID, userId ?: "unknown")
                 dest?.let { putExtra(EXTRA_DEST, it) }
                 putExtra(EXTRA_START_NEW, startNew)
             }
@@ -37,7 +46,7 @@ class ScreeningActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityScreeningBinding
     private lateinit var navController: NavController
-    private var userId: String = "itsLuxra"
+    private var userId: String = "unknown"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,52 +54,81 @@ class ScreeningActivity : AppCompatActivity() {
         binding = ActivityScreeningBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // restore userId aman dari intent / saved state
+        // restore userId dari intent / saved state
         userId = savedInstanceState?.getString(KEY_USER_ID)
             ?: intent.getStringExtra(KEY_USER_ID)
-                    ?: "itsLuxra"
+                    ?: "unknown"
 
         setupFullscreenMode()
         setupNavigation()
         setupBackPressHandler()
 
-        // Mulai sesi HANYA sekali (hindari start ulang saat rotasi/recreate)
+        // Inisialisasi sesi screening
         if (savedInstanceState == null) {
-            val startNew = intent.getBooleanExtra(EXTRA_START_NEW, false)
-            val existing = ScreeningDataManager.getCurrentSession(this)
+            initializeScreeningSession()
+        }
+    }
 
-            // Mulai sesi baru hanya jika diminta, atau belum ada sesi, atau sesi sebelumnya sudah completed
-            if (startNew || existing == null || existing.isCompleted) {
-                ScreeningDataManager.startNewSession(this, userId)
-                Log.d(TAG, "Start NEW session for user: $userId (startNew=$startNew, existing=${existing != null})")
-            } else {
-                Log.d(TAG, "Resume existing session: ${existing.sessionId}")
-            }
+    private fun initializeScreeningSession() {
+        val startNew = intent.getBooleanExtra(EXTRA_START_NEW, false)
+        val explicitDest = intent.getStringExtra(EXTRA_DEST)?.lowercase()
 
-            val explicitDest = intent.getStringExtra(EXTRA_DEST)
-            val target = explicitDest ?: firstPendingKeyOrNull()
+        lifecycleScope.launch {
+            try {
+                // SIMPLIFIED: Hanya gunakan ScreeningDataManager, tidak perlu remote check
+                val currentSession = ScreeningDataManager.getCurrentSession(this@ScreeningActivity)
 
-            when (target) {
-                "face"   -> navController.navigate(R.id.faceTestPreviewFragment)
-                "arms"   -> navController.navigate(R.id.armsTestPreviewFragment)
-                "speech" -> navController.navigate(R.id.speechTestPreviewFragment)
-                "result" -> navController.navigate(R.id.screeningResultFragment)
-                null     -> { /* stay at startDestination */ }
-                else     -> { /* unknown dest, ignore */ }
+                if (startNew || currentSession == null || currentSession.isCompleted) {
+                    // Clear session lama yang mungkin stuck
+                    ScreeningDataManager.cancelSession(this@ScreeningActivity)
+
+                    // Mulai sesi baru
+                    val newSession = ScreeningDataManager.startNewSession(this@ScreeningActivity, userId)
+                    Log.d(TAG, "Started NEW screening session: ${newSession.sessionId}")
+                } else {
+                    Log.d(TAG, "Resuming EXISTING session: ${currentSession.sessionId}")
+                }
+
+                // Tentukan tujuan navigasi - PERBAIKI LOGIKA INI
+                val targetDest = when {
+                    explicitDest != null -> explicitDest
+                    ScreeningDataManager.areAllTestsCompleted(this@ScreeningActivity) -> "result"
+                    else -> getFirstPendingTest()
+                }
+
+                navigateTo(targetDest)
+
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to initialize screening: ${e.message}", e)
+                // Emergency fallback
+                ScreeningDataManager.cancelSession(this@ScreeningActivity)
+                ScreeningDataManager.startNewSession(this@ScreeningActivity, userId)
+                navigateTo("balance")
             }
         }
     }
 
-    private fun firstPendingKeyOrNull(): String? {
-        val active = ScreeningDataManager.getCurrentSession(this) ?: return null
-        if (active.isCompleted) return null
-        val pending = ScreeningDataManager.getPendingTests(this)
-        if (pending.isEmpty()) return null
-        return when (pending.first().lowercase()) {
-            "face_test","face" -> "face"
-            "arms_test","arms","arm_test","arm","befast_arm" -> "arms"
-            "speech_test","speech","befast_speech" -> "speech"
-            else -> "face"
+    /**
+     * Mendapatkan test pertama yang belum selesai - PERBAIKI
+     */
+    private fun getFirstPendingTest(): String {
+        val pendingTests = ScreeningDataManager.getPendingTests(this@ScreeningActivity)
+        Log.d(TAG, "Pending tests: $pendingTests")
+
+        // Urutan BEFAST yang benar
+        return when {
+            "balance" in pendingTests -> "balance"
+            "eyes" in pendingTests -> "eyes"
+            "face" in pendingTests -> "face"
+            "arms" in pendingTests -> "arms"
+            else -> {
+                // Jika tidak ada pending, cek apakah semua selesai
+                if (ScreeningDataManager.areAllTestsCompleted(this@ScreeningActivity)) {
+                    "result"
+                } else {
+                    "balance" // fallback
+                }
+            }
         }
     }
 
@@ -130,15 +168,6 @@ class ScreeningActivity : AppCompatActivity() {
         })
     }
 
-    private fun initializeScreeningSession() {
-        val existing = ScreeningDataManager.getCurrentSession(this)
-        if (existing?.isCompleted == true) {
-            ScreeningDataManager.cancelSession(this)
-        }
-        ScreeningDataManager.startNewSession(this, userId)
-        Log.d(TAG, "Screening session initialized for user: $userId")
-    }
-
     private fun showExitConfirmation() {
         AlertDialog.Builder(this)
             .setTitle("Keluar dari Screening?")
@@ -150,6 +179,7 @@ class ScreeningActivity : AppCompatActivity() {
     }
 
     fun exitScreening() {
+        // Hanya batalkan sesi di lokal, tidak perlu sync ke Firestore
         ScreeningDataManager.cancelSession(this)
         finish()
     }
@@ -157,5 +187,28 @@ class ScreeningActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         Log.d(TAG, "=== SCREENING ACTIVITY END ===")
+    }
+
+    // ===== Navigasi =====
+    private fun navigateTo(destKey: String) {
+        val destId = when (destKey.lowercase()) {
+            "balance" -> R.id.balanceTestPreviewFragment
+            "eyes"    -> R.id.eyesTestPreviewFragment
+            "face"    -> R.id.faceTestPreviewFragment
+            "arms"    -> R.id.armsTestPreviewFragment
+            "result"  -> R.id.screeningResultFragment
+            else      -> R.id.balanceTestPreviewFragment // fallback
+        }
+        safeNavigate(destId)
+    }
+
+    private fun safeNavigate(destId: Int) {
+        try {
+            if (navController.currentDestination?.id != destId) {
+                navController.navigate(destId)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Navigation ignored: ${e.message}")
+        }
     }
 }

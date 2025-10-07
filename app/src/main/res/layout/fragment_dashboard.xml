@@ -112,7 +112,6 @@
                     android:layout_marginStart="20dp"
                     android:layout_marginTop="20dp"
                     android:layout_marginEnd="20dp"
-                    android:layout_marginBottom="8dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
@@ -156,7 +155,7 @@
                         android:letterSpacing="0"
                         android:text="30%"
                         android:textColor="@color/warning_color"
-                        android:textSize="48sp"
+                        android:textSize="64sp"
                         android:textStyle="bold" />
 
                     <LinearLayout
@@ -170,6 +169,9 @@
                             style="@style/TextAppearance.Material3.TitleLarge"
                             android:layout_width="match_parent"
                             android:layout_height="0dp"
+                            android:layout_marginTop="8dp"
+                            android:layout_marginStart="12dp"
+                            android:layout_marginEnd="12dp"
                             android:layout_weight="1"
                             android:text="@string/home_score_status_normal"
                             android:textAlignment="center"
@@ -179,13 +181,15 @@
                         <TextView
                             android:id="@+id/tvScoreTimestamp"
                             android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
+                            android:layout_height="0dp"
+                            android:layout_weight="1"
                             android:layout_marginStart="12dp"
                             android:layout_marginEnd="12dp"
                             android:layout_marginBottom="6dp"
                             android:textAlignment="center"
                             android:textColor="@color/white"
                             android:textSize="12sp"
+                            android:textStyle="bold"
                             android:visibility="visible"
                             tools:text="Terakhir: 2025-09-28 14:21:08" />
                     </LinearLayout>
@@ -306,7 +310,7 @@
                         android:singleLine="true"
                         android:text="@string/history_navigation_link"
                         android:textColor="@color/BluePrimary"
-                        android:textSize="16dp"
+                        android:textSize="16sp"
                         android:textStyle="bold" />
                 </LinearLayout>
             </LinearLayout>
@@ -317,7 +321,7 @@
             android:id="@+id/tvFeatureTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="36dp"
+            android:layout_marginStart="24dp"
             android:layout_marginTop="18dp"
             android:layout_marginEnd="20dp"
             android:text="@string/home_feature_title"
@@ -328,11 +332,11 @@
         <!-- Feature Grid -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvFeatures"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="42dp"
+            android:layout_marginStart="24dp"
             android:layout_marginTop="12dp"
-            android:layout_marginEnd="42dp"
+            android:layout_marginEnd="24dp"
             android:minHeight="96dp"
             android:overScrollMode="never"
             tools:itemCount="4"
@@ -383,8 +387,8 @@
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/rvNews"
                 android:layout_width="match_parent"
-                android:layout_height="200dp"
-                android:layout_marginTop="16dp"
+                android:layout_height="220dp"
+                android:layout_marginTop="6dp"
                 android:clipToPadding="false"
                 android:overScrollMode="never"
                 android:paddingStart="16dp"

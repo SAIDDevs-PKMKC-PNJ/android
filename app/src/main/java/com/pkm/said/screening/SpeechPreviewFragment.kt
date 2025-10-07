@@ -45,9 +45,9 @@ class SpeechPreviewFragment : Fragment() {
     private fun setupClickListeners() {
         binding.btnStartTest.setOnClickListener {
             // Navigate to actual speech test
-            findNavController().navigate(
-                R.id.action_speechPreview_to_speechTest
-            )
+//            findNavController().navigate(
+//                R.id.action_speechPreview_to_speechTest
+//            )
         }
 
         binding.btnBack.setOnClickListener {

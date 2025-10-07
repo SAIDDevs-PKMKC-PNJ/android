@@ -10,13 +10,17 @@ import android.os.Looper
 import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
-import androidx.navigation.fragment.findNavController
+import androidx.lifecycle.lifecycleScope
 import com.pkm.said.databinding.FragmentSpeechTestBinding
+import kotlin.math.absoluteValue
+import kotlin.math.sin
+import kotlin.math.PI
+import kotlinx.coroutines.launch
 import java.io.File
-import kotlin.math.*
+import java.text.SimpleDateFormat
+import java.util.*
 
 class SpeechTestFragment : Fragment() {
 
@@ -31,7 +35,7 @@ class SpeechTestFragment : Fragment() {
     private val waveHandler = Handler(Looper.getMainLooper())
     private var updateWave = true
 
-    private val recordDurationMs = 10000L // detik
+    private val recordDurationMs = 10000L // 10 detik
     private val progressIntervalMs = 50L
     private var recordStartTime = 0L
     private var recordProgressHandler: Handler? = Handler(Looper.getMainLooper())
@@ -39,7 +43,11 @@ class SpeechTestFragment : Fragment() {
     private var progressHandler: Handler? = Handler(Looper.getMainLooper())
     private var progressRunnable: Runnable? = null
 
-    override fun onCreateView(inflater: android.view.LayoutInflater, container: android.view.ViewGroup?, savedInstanceState: Bundle?): View? {
+    override fun onCreateView(
+        inflater: android.view.LayoutInflater,
+        container: android.view.ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
         _binding = FragmentSpeechTestBinding.inflate(inflater, container, false)
         return binding.root
     }
@@ -57,6 +65,19 @@ class SpeechTestFragment : Fragment() {
         binding.progressBarRecord.visibility = View.GONE
         binding.tvCountdown.visibility = View.GONE
         binding.btnRetryMic.visibility = View.GONE
+
+        // Pastikan ada sesi aktif
+        ensureActiveSession()
+    }
+
+    private fun ensureActiveSession() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            // Jika tidak ada sesi aktif, buat sesi baru
+            if (ScreeningDataManager.getCurrentSession(requireContext()) == null) {
+                val userId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: "unknown"
+                ScreeningDataManager.startNewSession(requireContext(), userId)
+            }
+        }
     }
 
     private val requestMicPermission = registerForActivityResult(
@@ -65,16 +86,19 @@ class SpeechTestFragment : Fragment() {
         if (isGranted) {
             startRecording()
         } else {
-            Toast.makeText(requireContext(), "Mic permission ditolak", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), "Izin mikrofon diperlukan untuk tes ini", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun startRecording() {
-        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
             requestMicPermission.launch(Manifest.permission.RECORD_AUDIO)
             return
         }
-        audioFile = File(requireContext().cacheDir, "mic_test_${System.currentTimeMillis()}.3gp")
+
+        audioFile = File(requireContext().cacheDir, "speech_test_${System.currentTimeMillis()}.3gp")
         recorder = MediaRecorder().apply {
             setAudioSource(MediaRecorder.AudioSource.MIC)
             setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
@@ -83,6 +107,7 @@ class SpeechTestFragment : Fragment() {
             prepare()
             start()
         }
+
         isRecording = true
         binding.btnRecord.isEnabled = false
         binding.progressBarRecord.progress = 0
@@ -95,11 +120,11 @@ class SpeechTestFragment : Fragment() {
         startSmoothProgressBar()
 
         waveHandler.post(waveRunnable)
-        Toast.makeText(requireContext(), "Merekam selama ${recordDurationMs / 1000} detik...", Toast.LENGTH_SHORT).show()
+        Toast.makeText(requireContext(), "Merekam suara selama 10 detik...", Toast.LENGTH_SHORT).show()
     }
 
     private fun startSmoothProgressBar() {
-        recordProgressHandler = Handler()
+        recordProgressHandler = Handler(Looper.getMainLooper())
         recordProgressRunnable = object : Runnable {
             override fun run() {
                 val elapsed = System.currentTimeMillis() - recordStartTime
@@ -107,6 +132,7 @@ class SpeechTestFragment : Fragment() {
                 binding.progressBarRecord.progress = progress
                 val remaining = ((recordDurationMs - elapsed).coerceAtLeast(0)).toFloat() / 1000f
                 binding.tvCountdown.text = String.format("%.1f detik", remaining)
+
                 if (elapsed < recordDurationMs) {
                     recordProgressHandler?.postDelayed(this, progressIntervalMs)
                 } else {
@@ -126,20 +152,17 @@ class SpeechTestFragment : Fragment() {
                 release()
             }
         } catch (e: Exception) {
-            Toast.makeText(requireContext(), "Error rekaman: ${e.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), "Error saat merekam: ${e.message}", Toast.LENGTH_SHORT).show()
         } finally {
             recorder = null
             isRecording = false
             updateWave = false
 
-            // Stop wave & progress bar handler jika ada
             waveHandler.removeCallbacksAndMessages(null)
             recordProgressHandler?.removeCallbacks(recordProgressRunnable ?: Runnable {})
 
-            // Reset wave
             binding.bottomWaveView.setVoiceAmplitudes(List(128) { 0f })
 
-            // UI perubahan
             binding.btnRecord.isEnabled = true
             binding.btnRecord.visibility = View.GONE
             binding.progressBarRecord.visibility = View.GONE
@@ -156,7 +179,7 @@ class SpeechTestFragment : Fragment() {
 
     private fun playRecording() {
         if (audioFile == null || !audioFile!!.exists()) {
-            Toast.makeText(requireContext(), "File audio tidak ditemukan", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), "File rekaman tidak ditemukan", Toast.LENGTH_SHORT).show()
             return
         }
         if (player?.isPlaying == true) return
@@ -176,13 +199,13 @@ class SpeechTestFragment : Fragment() {
                 progressHandler?.removeCallbacks(progressRunnable ?: Runnable {})
             }
         }
+
         updateWave = true
         waveHandler.post(waveRunnable)
 
-        // Update progress bar sesuai durasi audio
         val duration = player?.duration ?: 1
         binding.progressBarPlay.max = duration
-        progressHandler = Handler()
+        progressHandler = Handler(Looper.getMainLooper())
         progressRunnable = object : Runnable {
             override fun run() {
                 if (player != null && player!!.isPlaying) {
@@ -194,26 +217,23 @@ class SpeechTestFragment : Fragment() {
         progressHandler?.post(progressRunnable!!)
     }
 
-    // Update amplitudo ke satu gelombang di bawah
     private val waveRunnable = object : Runnable {
         override fun run() {
             val amps: List<Float> = if (isRecording) {
-                val amp = try { recorder?.maxAmplitude ?: 0 } catch (e: Exception) { 0 }
-                // FftWaveView butuh 128 points, bukan 20
+                val amp = try { recorder?.maxAmplitude ?: 0 } catch (_: Exception) { 0 }
                 List(128) { i ->
                     when {
-                        i in 60..68 -> amp.toFloat() // Puncak di tengah
+                        i in 60..68 -> amp.toFloat()
                         i in 50..78 -> amp * (0.6f + 0.4f * Math.random()).toFloat()
                         i in 40..88 -> amp * (0.3f + 0.3f * Math.random()).toFloat()
                         else -> amp * (0.1f * Math.random()).toFloat()
                     }
                 }
             } else if (player?.isPlaying == true) {
-                // Simulasi FFT-like data saat playback
                 List(128) { i ->
                     val freq = i.toFloat() / 128f
                     val base = sin(freq * PI * 4).toFloat().absoluteValue
-                    (base * (2000..8000).random()).toFloat()
+                    (base * (2000..8000).random())
                 }
             } else {
                 List(128) { 0f }
@@ -226,36 +246,63 @@ class SpeechTestFragment : Fragment() {
             }
         }
     }
+
     private fun finishWithResult(success: Boolean) {
         binding.btnHeard.isEnabled = false
         binding.btnNotHeard.isEnabled = false
 
         val isSuccessful = success
         val severity = if (success) 0f else 1f
-        val note = if (success) "Rekaman berhasil & terdengar (aman)." else "Rekaman tidak terdengar/bermasalah."
+        val note = if (success)
+            "Tes suara: Rekaman terdengar jelas (normal)"
+        else
+            "Tes suara: Rekaman tidak terdengar/tidak jelas (abnormal)"
 
-        ScreeningDataManager.updateTestResult(
-            requireContext(),
-            TestResult(
-                testName = "speech_test",
-                isCompleted = true,
-                isSuccessful = isSuccessful,
-                score = severity,
-                notes = note,
-                timestamp = getCurrentTimestamp()
+        val result = TestResult(
+            testName = "speech_test",
+            isCompleted = true,
+            isSuccessful = isSuccessful,
+            score = severity,
+            notes = note,
+            timestamp = getCurrentTimestamp(),
+            duration = recordDurationMs,
+            testData = mapOf<String, Any>(
+                "audio_file" to (audioFile?.absolutePath ?: ""),
+                "file_size" to (audioFile?.length() ?: 0L),
+                "test_type" to "speech_clarity",
+                "simulation" to true
             )
         )
 
-        Toast.makeText(
-            requireContext(),
-            if (success) "Tersimpan: Aman (score 0%)" else "Tersimpan: Bahaya (score 100%)",
-            Toast.LENGTH_SHORT
-        ).show()
+        // 1. Simpan ke ScreeningDataManager (local)
+        ScreeningDataManager.updateTestResult(requireContext(), result)
 
-        // Lanjut ke hasil akhir
-        findNavController().navigate(com.pkm.said.R.id.action_speechTest_to_screeningResult)
+        // 2. Kirim ke Firestore via ScreeningRepository
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                // Dapatkan sesi saat ini
+                val currentSession = ScreeningDataManager.getCurrentSession(requireContext())
+                if (currentSession != null) {
+                    // Simpan ke Firestore
+                    ScreeningRepository.saveCompleteScreeningSession(currentSession)
+                    Toast.makeText(
+                        requireContext(),
+                        "Hasil tes suara tersimpan",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(
+                    requireContext(),
+                    "Data tersimpan lokal, sync nanti",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+
+            // Navigasi ke hasil
+//            findNavController().navigate(com.pkm.said.R.id.action_speechTest_to_screeningResult)
+        }
     }
-
 
     private fun retryRecording() {
         audioFile?.delete()
@@ -270,30 +317,38 @@ class SpeechTestFragment : Fragment() {
         binding.progressBarRecord.progress = 0
         binding.progressBarRecord.visibility = View.GONE
         binding.tvCountdown.visibility = View.GONE
-        Toast.makeText(requireContext(), "Silakan rekam ulang suara Anda.", Toast.LENGTH_SHORT).show()
+        Toast.makeText(requireContext(), "Silakan rekam ulang suara Anda", Toast.LENGTH_SHORT).show()
     }
 
     private fun getCurrentTimestamp(): String {
-        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
-        return sdf.format(java.util.Date())
+        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+        return sdf.format(Date())
     }
 
     override fun onPause() {
         super.onPause()
-        try { recorder?.stop() } catch (_: Exception) {}
-        recorder?.release(); recorder = null
-        player?.release(); player = null
-        waveHandler.removeCallbacksAndMessages(null)
-        recordProgressHandler?.removeCallbacks(recordProgressRunnable ?: Runnable {})
-        progressHandler?.removeCallbacks(progressRunnable ?: Runnable {})
+        cleanupResources()
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
+        cleanupResources()
+        _binding = null
+    }
+
+    private fun cleanupResources() {
+        try {
+            recorder?.stop()
+        } catch (_: Exception) {}
+
         recorder?.release()
+        recorder = null
+
         player?.release()
+        player = null
+
         waveHandler.removeCallbacksAndMessages(null)
         recordProgressHandler?.removeCallbacks(recordProgressRunnable ?: Runnable {})
-        _binding = null
+        progressHandler?.removeCallbacks(progressRunnable ?: Runnable {})
     }
 }

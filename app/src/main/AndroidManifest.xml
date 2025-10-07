@@ -11,14 +11,14 @@
         android:name="android.hardware.microphone"
         android:required="false" />
 
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-<!--    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />-->
-<!--    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />-->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 <!--    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />-->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
@@ -26,13 +26,23 @@
 <!--    <uses-permission android:name="android.permission.BIND_VOICE_INTERACTION"-->
 <!--        tools:ignore="ProtectedPermissions" />-->
 
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.VIBRATE"/>
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.CALL" />
+            <data android:scheme="tel" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+            <data android:scheme="tel" />
+        </intent>
+    </queries>
 
     <application
         android:allowBackup="true"
@@ -73,6 +83,9 @@
             android:name=".ChatbotActivity"
             android:exported="false"
             android:theme="@style/Theme.SAID"/>
+        <activity android:name=".EmergencyActivity"
+            android:exported="false"
+            android:theme="@style/Theme.SAID"/>
         <activity
             android:name=".ArticleContentActivity"
             android:exported="false"
@@ -93,14 +106,13 @@
             android:exported="false"/>
 
         <service
-            android:name=".service.VoiceAssistantService"
+            android:name=".service.VoiceActivationService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="microphone"
-            android:stopWithTask="false" />
-
+            android:foregroundServiceType="microphone" />
+        
         <activity
-            android:name=".HomeActivity"
+            android:name=".ScreeningManagementActivity"
             android:exported="false" />
 
         <activity
@@ -109,21 +121,16 @@
             android:theme="@style/Theme.SAID.Fullscreen"
             android:launchMode="singleTop"
             android:excludeFromRecents="false" />
-<!--        <service-->
-<!--            android:name=".service.SensorService"-->
-<!--            android:enabled="true"-->
-<!--            android:exported="false"-->
-<!--            android:foregroundServiceType="health" />-->
 
-<!--        <receiver android:name=".receiver.BootReceiver"-->
-<!--            android:enabled="true"-->
-<!--            android:exported="true">-->
-<!--            <intent-filter>-->
-<!--                <action android:name="android.intent.action.BOOT_COMPLETED" />-->
-<!--            </intent-filter>-->
-<!--        </receiver>-->
+        <receiver
+            android:name=".util.ScreeningReminderReceiver"
+            android:enabled="true"
+            android:exported="false" />
 
-
+        <!-- Tambahkan activities -->
+        <activity
+            android:name=".NotificationSettingsActivity"
+            android:exported="false" />
     </application>
 
 </manifest>

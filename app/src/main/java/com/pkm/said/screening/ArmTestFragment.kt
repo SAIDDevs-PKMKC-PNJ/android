@@ -14,23 +14,24 @@ import android.widget.*
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
+import com.pkm.said.databinding.FragmentArmTestBinding
 import com.pkm.said.R
-import com.pkm.said.screening.ScreeningDataManager.getCurrentTimestamp
 import kotlin.math.abs
 import kotlin.math.sqrt
 import kotlin.math.max
+import java.util.concurrent.Executors
 
 class ArmTestFragment : Fragment(), SensorEventListener {
 
     // UI
+    private var _binding: FragmentArmTestBinding? = null
+    private val binding get() = _binding!!
     private var tvInstruction: TextView? = null
     private var tvResult: TextView? = null
     private var tvTime: TextView? = null
     private var progress: ProgressBar? = null
     private var btnStart: Button? = null
     private var btnConfirm: Button? = null
-    private var btnRetry: Button? = null
-    private var btnRetryArmOnly: Button? = null
     private var btnSkip: Button? = null
     private var btnCantLiftArms: Button? = null
     private var btnOneHandOnly: Button? = null
@@ -89,8 +90,6 @@ class ArmTestFragment : Fragment(), SensorEventListener {
         progress = view.findViewById(R.id.progressBarTest)
         btnStart = view.findViewById(R.id.btnStartArmTest)
         btnConfirm = view.findViewById(R.id.btnConfirmResult)
-        btnRetry = view.findViewById(R.id.btnRetryTest)
-        btnRetryArmOnly = view.findViewById(R.id.btnRetryArmOnly)
         btnSkip = view.findViewById(R.id.btnSkipTest)
         btnCantLiftArms = view.findViewById(R.id.btnCantLiftArms)
         btnOneHandOnly = view.findViewById(R.id.btnOneHandOnly)
@@ -113,7 +112,6 @@ class ArmTestFragment : Fragment(), SensorEventListener {
             stopSensors()
             isTesting = false
             Toast.makeText(requireContext(), "Tes dihentikan sementara. Ulangi.", Toast.LENGTH_SHORT).show()
-            btnRetry?.visibility = View.VISIBLE
         }
         preTimer?.cancel(); preTimer = null
     }
@@ -126,8 +124,8 @@ class ArmTestFragment : Fragment(), SensorEventListener {
 
         contBtnHand = null
         tvInstruction = null; tvResult = null; tvTime = null; progress = null
-        btnStart = null; btnConfirm = null; btnRetry = null; btnRetryArmOnly = null
-        btnSkip = null; btnCantLiftArms = null; btnOneHandOnly = null
+        btnStart = null; btnConfirm = null; btnSkip = null
+        btnCantLiftArms = null; btnOneHandOnly = null
     }
 
     @SuppressLint("SetTextI18n")
@@ -152,8 +150,6 @@ class ArmTestFragment : Fragment(), SensorEventListener {
         btnOneHandOnly?.visibility = View.VISIBLE
 
         btnConfirm?.visibility = View.GONE
-        btnRetry?.visibility = View.GONE
-        btnRetryArmOnly?.visibility = View.GONE
         btnSkip?.visibility = View.GONE
 
         manualFailReason = null
@@ -176,24 +172,7 @@ class ArmTestFragment : Fragment(), SensorEventListener {
         }
 
         btnConfirm?.setOnClickListener { onConfirmSaveResult() }
-        btnRetry?.setOnClickListener { resetTest() }
-        btnRetryArmOnly?.setOnClickListener { resetTest(); startTest() }
-        btnSkip?.setOnClickListener {
-            // Simpan sebagai pending (tidak selesai) agar progress tersimpan
-            ScreeningDataManager.updateTestResult(
-                requireContext(),
-                TestResult(
-                    testName = "befast_arm",
-                    isCompleted = false,
-                    isSuccessful = false,
-                    score = 0f,
-                    notes = "Tes dilewati pengguna (pending)",
-                    timestamp = getCurrentTimestamp()
-                )
-            )
-            Toast.makeText(requireContext(), "Tes ARM disimpan sebagai pending.", Toast.LENGTH_SHORT).show()
-            navigateToNextTest()
-        }
+        btnSkip?.setOnClickListener { skipTest() }
     }
 
     private fun showManualResult(text: String, severe: Boolean) {
@@ -211,8 +190,6 @@ class ArmTestFragment : Fragment(), SensorEventListener {
         tvResult?.visibility = View.VISIBLE
 
         btnConfirm?.visibility = View.VISIBLE
-        btnRetry?.visibility = View.VISIBLE
-        btnRetryArmOnly?.visibility = View.VISIBLE
         btnSkip?.visibility = View.VISIBLE
     }
 
@@ -231,8 +208,6 @@ class ArmTestFragment : Fragment(), SensorEventListener {
         btnCantLiftArms?.visibility = View.GONE
         btnOneHandOnly?.visibility = View.GONE
         btnConfirm?.visibility = View.GONE
-        btnRetry?.visibility = View.GONE
-        btnRetryArmOnly?.visibility = View.GONE
         btnSkip?.visibility = View.GONE
         tvResult?.visibility = View.GONE
 
@@ -240,7 +215,7 @@ class ArmTestFragment : Fragment(), SensorEventListener {
         progress?.progress = 0
         tvTime?.visibility = View.VISIBLE
         tvTime?.text = "3"
-        tvInstruction?.text = getString(R.string.pre_test_reminder)
+        tvInstruction?.text = "Bersiap... Posisikan lengan sejajar lantai"
 
         timer?.cancel(); timer = null
         preTimer?.cancel(); preTimer = null
@@ -257,7 +232,7 @@ class ArmTestFragment : Fragment(), SensorEventListener {
 
     private fun beginMeasurementPhase() {
         isTesting = true
-        tvInstruction?.text = getString(R.string.test_hint)
+        tvInstruction?.text = "Tahan posisi stabil selama 10 detik..."
         progress?.visibility = View.VISIBLE
         progress?.progress = 0
         tvTime?.text = (testDurationMs/1000).toString()
@@ -286,18 +261,16 @@ class ArmTestFragment : Fragment(), SensorEventListener {
 
         val failed = detectImbalance()
         if (failed) {
-            tvResult?.text = getString(R.string.fail_detected)
+            tvResult?.text = "Gagal: Terdeteksi ketidakstabilan lengan"
             tvResult?.setTextColor(ContextCompat.getColor(requireContext(), R.color.warning_color))
         } else {
-            tvResult?.text = getString(R.string.finish_correctly)
+            tvResult?.text = "Berhasil: Posisi lengan stabil"
             tvResult?.setTextColor(ContextCompat.getColor(requireContext(), R.color.success_color))
         }
         tvResult?.visibility = View.VISIBLE
-        tvInstruction?.text = getString(R.string.hint_result)
+        tvInstruction?.text = "Konfirmasi hasil tes"
 
         btnConfirm?.visibility = View.VISIBLE
-        btnRetry?.visibility = View.VISIBLE
-        btnRetryArmOnly?.visibility = View.VISIBLE
         btnSkip?.visibility = View.VISIBLE
     }
 
@@ -306,16 +279,19 @@ class ArmTestFragment : Fragment(), SensorEventListener {
         setButtonsEnabled(false)
         try {
             manualFlag?.let { flag ->
-                val (category, severity, label) = when (flag) {
-                    ManualFlag.BOTH_CANT_LIFT -> Triple(3, 1.0f, "Critical: tidak bisa angkat kedua tangan (manual)")
-                    ManualFlag.ONE_HAND_ONLY  -> Triple(2, 0.66f, "Warning: hanya satu tangan yang bisa (manual)")
+                val (isSuccessful, score, notes) = when (flag) {
+                    ManualFlag.BOTH_CANT_LIFT -> ArmDetectionResult(
+                        isSuccessful = false,
+                        score = 1.0f,
+                        notes = "Critical: tidak bisa angkat kedua tangan. $manualFailReason"
+                    )
+                    ManualFlag.ONE_HAND_ONLY -> ArmDetectionResult(
+                        isSuccessful = false,
+                        score = 0.66f,
+                        notes = "Warning: hanya satu tangan yang bisa. $manualFailReason"
+                    )
                 }
-                saveArmResult(
-                    isCompleted = true,
-                    category = category,
-                    severity = severity,
-                    notes = "${label}. ${manualFailReason ?: ""}".trim()
-                )
+                saveResultAndNext(isSuccessful, score, notes)
                 return
             }
 
@@ -327,24 +303,13 @@ class ArmTestFragment : Fragment(), SensorEventListener {
             ).minOrNull()
 
             if (t0 == null || baselinePitch.isNaN() || baselineRoll.isNaN()) {
-                // data tidak cukup → simpan pending
-                // data tidak cukup → fallback normal agar hasil tetap tampil
-                ScreeningDataManager.updateTestResult(
-                    requireContext(),
-                    TestResult(
-                        testName = "befast_arm",
-                        isCompleted = true,
-                        isSuccessful = true,     // anggap normal
-                        score = 0f,              // severity nol
-                        notes = "Fallback normal: data sensor kurang. (izin/guncangan tidak terekam)",
-                        timestamp = getCurrentTimestamp(),
-                        testData = mapOf("fallback" to true)
-                    )
+                // fallback normal
+                saveResultAndNext(
+                    isSuccessful = true,
+                    score = 0.0f,
+                    notes = "Fallback normal: data sensor kurang. (izin/guncangan tidak terekam)"
                 )
-                Toast.makeText(requireContext(), "Data kurang, disimpan sebagai hasil normal (fallback).", Toast.LENGTH_SHORT).show()
-                navigateToNextTest()
                 return
-
             }
 
             val P = pitchSeries.filter { it.first - t0 >= warmupNs }.map { it.second }
@@ -352,15 +317,8 @@ class ArmTestFragment : Fragment(), SensorEventListener {
             val A = accMagSeries.filter { it.first - t0 >= warmupNs }.map { it.second }
             val G = gyroMagSeries.filter { it.first - t0 >= warmupNs }.map { it.second }
 
-            val scoring = computeArmScoring(P, R, A, G, baselinePitch, baselineRoll)
-            Log.d("Arms", "cat=${scoring.category} sev=${scoring.severity} details=${scoring.details}")
-            saveArmResult(
-                isCompleted = true,
-                category = scoring.category,
-                severity = scoring.severity,
-                notes = "ArmScore=${scoring.category}/3 (${(scoring.severity*100).toInt()}%). ${scoring.notes}",
-                details = scoring.details
-            )
+            val armResult = computeArmDetection(P, R, A, G, baselinePitch, baselineRoll)
+            saveResultAndNext(armResult.isSuccessful, armResult.score, armResult.notes)
         } finally {
             setButtonsEnabled(true)
         }
@@ -368,52 +326,72 @@ class ArmTestFragment : Fragment(), SensorEventListener {
 
     private fun setButtonsEnabled(enabled: Boolean) {
         btnConfirm?.isEnabled = enabled
-        btnRetry?.isEnabled = enabled
-        btnRetryArmOnly?.isEnabled = enabled
         btnSkip?.isEnabled = enabled
     }
 
-    private fun saveArmResult(
-        isCompleted: Boolean,
-        category: Int,
-        severity: Float,
-        notes: String,
-        details: Map<String, Any> = emptyMap()
-    ) {
-        val isNormal = (category == 0)
-        ScreeningDataManager.updateTestResult(
-            requireContext(),
-            TestResult(
-                testName = "befast_arm",
-                isCompleted = isCompleted,
-                isSuccessful = isNormal,
-                score = severity.coerceIn(0f, 1f), // severity 0..1 (semakin besar = makin abnormal)
-                notes = notes,
-                timestamp = getCurrentTimestamp(),
-                testData = details
-            )
+    private fun skipTest() {
+        saveResultAndNext(
+            isSuccessful = false,
+            score = 1.0f,
+            notes = "Arm test dilewati oleh pengguna"
         )
-        Toast.makeText(
-            requireContext(),
-            if (isCompleted)
-                when (category) {
-                    0 -> "Tersimpan: PASS (Normal)."
-                    1,2 -> "Tersimpan: WARNING."
-                    else -> "Tersimpan: CRITICAL."
-                }
-            else "Tersimpan sebagai pending.",
-            Toast.LENGTH_SHORT
-        ).show()
+    }
 
-        Log.d("Arms", "saved: completed=$isCompleted isSuccessful=$isNormal score=$severity")
-        navigateToNextTest()
+    private fun saveResultAndNext(isSuccessful: Boolean, score: Float, notes: String) {
+        // ✅ Gunakan test name yang STANDARD
+        val result = TestResult(
+            testName = "befast_arms",  // ✅ Sesuai dengan ScreeningDataManager
+            isCompleted = true,
+            isSuccessful = isSuccessful,
+            score = score,
+            notes = notes,
+            timestamp = ScreeningDataManager.getCurrentTimestamp(),
+            duration = testDurationMs,
+            testData = mapOf(
+                "test_type" to "arm_stability",
+                "duration_seconds" to (testDurationMs / 1000),
+                "manual_flag" to manualFlag?.name,
+                "manual_reason" to manualFailReason
+            ) as Map<String, Any>
+        )
+
+        // ✅ Simpan ke lokal - pastikan ini synchronous
+        ScreeningDataManager.updateTestResult(requireContext(), result)
+
+        // ✅ Debug: Cek apakah benar tersimpan
+        val currentSession = ScreeningDataManager.getCurrentSession(requireContext())
+        val armsResult = currentSession?.armsResult
+        Log.d("ArmTest", "✅ Saved arms test: completed=${armsResult?.isCompleted}, successful=${armsResult?.isSuccessful}")
+
+        // ✅ Navigasi dengan delay lebih aman
+        view?.postDelayed({
+            navigateToNextTest()
+        }, 500) // Delay lebih pendek tapi aman
     }
 
     private fun navigateToNextTest() {
         try {
-            findNavController().navigate(R.id.action_armsTest_to_speechPreview)
+            // ✅ Cek dulu apakah data benar-benar tersimpan
+            val currentSession = ScreeningDataManager.getCurrentSession(requireContext())
+            if (currentSession?.armsResult?.isCompleted != true) {
+                Log.e("ArmTest", "❌ Arms test not saved properly!")
+                // Fallback: coba save lagi
+                val fallbackResult = TestResult(
+                    testName = "befast_arms",
+                    isCompleted = true,
+                    isSuccessful = false,
+                    score = 1.0f,
+                    notes = "Fallback: data mungkin tidak tersimpan sempurna",
+                    timestamp = ScreeningDataManager.getCurrentTimestamp()
+                )
+                ScreeningDataManager.updateTestResult(requireContext(), fallbackResult)
+            }
+
+            // ✅ Navigasi ke result
+            findNavController().navigate(R.id.action_armsTest_to_result)
+
         } catch (e: Exception) {
-            // fallback
+            Log.e("ArmTest", "Navigation failed: ${e.message}")
             findNavController().popBackStack()
         }
     }
@@ -471,7 +449,7 @@ class ArmTestFragment : Fragment(), SensorEventListener {
     }
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
-    // === Quick UI detection (untuk pesan cepat; skoring final pakai computeArmScoring) ===
+    // === Quick UI detection ===
     private fun detectImbalance(): Boolean {
         if (pitchSeries.isEmpty() || rollSeries.isEmpty() || accMagSeries.isEmpty()) return false
 
@@ -504,27 +482,19 @@ class ArmTestFragment : Fragment(), SensorEventListener {
         return (freeFall || impact) || tiltFail || (releaseSuspect && (overStatic || impact))
     }
 
-    /** === Skoring final ARM (0..3 → severity 0..1) === */
-    private data class ArmScoring(
-        val category: Int,      // 0..3
-        val severity: Float,    // 0f..1f
-        val notes: String,
-        val details: Map<String, Any>
+    /** === Arm Detection Result === */
+    private data class ArmDetectionResult(
+        val isSuccessful: Boolean,
+        val score: Float,
+        val notes: String
     )
 
-    private fun computeArmScoring(
+    private fun computeArmDetection(
         P: List<Float>, R: List<Float>, A: List<Float>, G: List<Float>,
         baselinePitch: Float, baselineRoll: Float
-    ): ArmScoring {
+    ): ArmDetectionResult {
         if (P.isEmpty() || R.isEmpty() || A.isEmpty() || baselinePitch.isNaN() || baselineRoll.isNaN()) {
-            return ArmScoring(0, 0f, "Data tidak cukup; diasumsikan normal untuk skoring.", emptyMap())
-        }
-
-        fun std(list: List<Float>): Float {
-            val mean = list.average().toFloat()
-            var s = 0.0
-            for (v in list) s += (v - mean)*(v - mean)
-            return sqrt((s / list.size).toFloat())
+            return ArmDetectionResult(true, 0f, "Data tidak cukup; diasumsikan normal")
         }
 
         val driftPitch = abs(P.last() - baselinePitch)
@@ -542,52 +512,18 @@ class ArmTestFragment : Fragment(), SensorEventListener {
         val rapid    = rapidAngleChange(P) || rapidAngleChange(R)
         val accelDip = hasAccelDip(A)
 
-        // Heuristik skenario:
-        // - BOTH_HANDS_DOWN (kritikal): tilt besar/menetap tanpa drop/impact (simetris turun)
         val bothHandsDown = (maxDrift >= 12f && (stdP < 4f && stdR < 4f) && !freeFall && !impact)
-        // - ONE_HAND_RELEASE (warning): freefall/impact/rapid/gyroSpike/accelDip
         val oneHandRelease = freeFall || impact || rapid || gyroSpike || accelDip
 
-        val category = when {
-            bothHandsDown -> 3    // Critical
-            oneHandRelease -> 2   // Warning (indikasi satu tangan lepas/pegang lemah)
-            (maxDrift >= 6f || stdP >= 2.5f || stdR >= 2.5f) -> 1 // Mild warning
-            else -> 0
+        return when {
+            bothHandsDown -> ArmDetectionResult(false, 1.0f, "Critical: indikasi kedua lengan turun")
+            oneHandRelease -> ArmDetectionResult(false, 0.66f, "Warning: indikasi satu tangan lemah/pelepasan")
+            (maxDrift >= 6f || stdP >= 2.5f || stdR >= 2.5f) -> ArmDetectionResult(false, 0.33f, "Mild: drift/instabilitas ringan")
+            else -> ArmDetectionResult(true, 0.0f, "Normal: posisi lengan stabil")
         }
-
-        val severity = when (category) {
-            0 -> 0f
-            1 -> 0.33f
-            2 -> 0.66f
-            else -> 1f
-        }
-
-        val label = when (category) {
-            0 -> "Normal/stabil"
-            1 -> "Mild: drift/instabilitas ringan"
-            2 -> "Warning: indikasi satu tangan lemah/pelepasan singkat"
-            else -> "Critical: indikasi kedua lengan turun (stabil miring) atau pelepasan berat"
-        }
-
-        val details = mapOf(
-            "driftPitchDeg" to "%.1f".format(driftPitch),
-            "driftRollDeg"  to "%.1f".format(driftRoll),
-            "maxDriftDeg"   to "%.1f".format(maxDrift),
-            "stdPitchDeg"   to "%.1f".format(stdP),
-            "stdRollDeg"    to "%.1f".format(stdR),
-            "freeFall"      to freeFall,
-            "impact"        to impact,
-            "gyroSpike"     to gyroSpike,
-            "rapidChange"   to rapid,
-            "accelDip"      to accelDip,
-            "bothHandsDown" to bothHandsDown,
-            "oneHandRelease" to oneHandRelease
-        )
-
-        return ArmScoring(category, severity, label, details)
     }
 
-    // === Small helpers ===
+    // === Helper functions ===
     private fun std(list: List<Float>): Float {
         val mean = list.average().toFloat()
         var s = 0.0

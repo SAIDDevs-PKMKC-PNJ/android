@@ -6,7 +6,7 @@
     android:insetBottom="1dp">
 
     <shape android:shape="oval">
-        <solid android:color="@color/GrayLight" />
+        <solid android:color="@color/GrayLight_alpha_50" />
         <size
             android:width="12dp"
             android:height="12dp" />

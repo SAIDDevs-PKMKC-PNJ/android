@@ -16,6 +16,7 @@ import kotlin.math.roundToInt
 class ScreeningDetailAdapter :
     ListAdapter<TestResult, ScreeningDetailAdapter.VH>(DIFF) {
 
+
     companion object {
         private val DIFF = object : DiffUtil.ItemCallback<TestResult>() {
             override fun areItemsTheSame(oldItem: TestResult, newItem: TestResult): Boolean =
@@ -26,6 +27,9 @@ class ScreeningDetailAdapter :
         }
     }
 
+    // helper kecil buat destructuring 4 nilai
+    private data class Quad<A,B,C,D>(val first: A, val second: B, val third: C, val fourth: D)
+
     inner class VH(private val binding: ItemScreeningDetailBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
@@ -35,28 +39,28 @@ class ScreeningDetailAdapter :
             // Nama tes
             binding.tvTestName.text = mapName(item.testName)
 
-            // Persentase: score = severity 0..1
-            // Bedakan 3 status UI: Pending (tidak selesai), Normal, Abnormal
-            val (percentText, tintRes, nameColorRes) = when {
-                !item.isCompleted -> Triple("—", R.color.GrayLight, R.color.GrayLight) // pending
-                item.isSuccessful -> {
-                    val p = (item.score * 100).roundToInt().coerceIn(0, 100)
-                    Triple("$p%", R.color.warning, R.color.BluePrimary)
-                }
-                else -> {
-                    val p = (item.score * 100).roundToInt().coerceIn(0, 100)
-                    Triple("$p%", R.color.warning_color, R.color.BluePrimary)
-                }
-            }
+            // Persentase severity 0..100 dari score 0..1 (clamp aman)
+            val pct = (item.score.coerceIn(0f, 1f) * 100f).roundToInt().coerceIn(0, 100)
+
+            val (percentText, tintRes, nameColorRes, cd) = when {
+                !item.isCompleted -> Triple("—", R.color.GrayLight, R.color.GrayLight) to "Pending"
+                item.isSuccessful -> Triple("$pct%", R.color.success_color, R.color.BluePrimary) to "Normal"
+                else              -> Triple("$pct%", R.color.warning_color, R.color.BluePrimary) to "Abnormal"
+            }.let { (triple, label) -> Quad(triple.first, triple.second, triple.third, label) }
 
             binding.tvPercent.text = percentText
             binding.tvTestName.setTextColor(ContextCompat.getColor(ctx, nameColorRes))
 
-            // Tint indikator bulat (lebih aman daripada setColorFilter)
+            // Tint indikator bulat
             ImageViewCompat.setImageTintList(
                 binding.dotIndicator,
                 ColorStateList.valueOf(ContextCompat.getColor(ctx, tintRes))
             )
+            binding.dotIndicator.contentDescription = "Status $cd"
+
+            // (opsional) jika kamu punya TextView notes/time di layout, bisa isi di sini
+            // binding.tvNote?.text = item.notes
+            // binding.tvTime?.text = item.timestamp
         }
 
         private fun mapName(raw: String): String = when (raw.lowercase()) {

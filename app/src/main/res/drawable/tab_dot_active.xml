@@ -5,8 +5,16 @@
     android:insetRight="1dp"
     android:insetBottom="1dp">
 
+
     <shape android:shape="oval">
-        <solid android:color="@color/BluePrimary" />
+        <gradient
+            android:endColor="@color/lightBlue"
+            android:centerColor="#DAF0F5"
+            android:startColor="@color/white"
+            android:gradientRadius="9dp"
+            android:type="radial"
+            android:centerX="0.5"
+            android:centerY="0.5"/>
         <size
             android:width="12dp"
             android:height="12dp" />

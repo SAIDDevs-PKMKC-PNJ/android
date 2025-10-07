@@ -11,6 +11,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.tabs.TabLayoutMediator
+import com.google.gson.Gson
 import com.pkm.said.adapter.ArticleListAdapter
 import com.pkm.said.adapter.NewsSliderAdapter
 import com.pkm.said.databinding.ActivityNewsBinding
@@ -138,96 +139,134 @@ class NewsActivity : AppCompatActivity() {
     // ======================
     private fun loadDataFromApi() {
         val apiKey = BuildConfig.NEWS_API_KEY
+
+        // Query lebih ringkas, tetap menepis noise olahraga / band
         val q = """
-            (stroke OR Stroke OR "TIA" OR "transient ischemic attack" OR "gejala stroke" OR "pencegahan stroke" OR "FAST stroke") NOT ("The Strokes" OR golf OR tennis OR cricket OR "heat stroke" OR sunstroke OR heatwave)""".trimIndent()
+        stroke OR "transient ischemic attack" 
+        -"The Strokes" -golf -tennis -cricket -"heat stroke" -sunstroke -heatwave
+        """.trim().replace("\n", " ")
 
-        // Batasi pencarian ke title+description biar lebih relevan
-        val searchIn = "title,description"
+        // Cari di title + description + content (biar recall tinggi)
+        val searchIn = "title,description,content"
 
-        val supported = setOf(
-            "id",
-            "ar",
-            "de",
-            "en",
-            "es",
-            "fr",
-            "he",
-            "it",
-            "nl",
-            "no",
-            "pt",
-            "ru",
-            "sv",
-            "ud",
-            "zh"
-        )
-        val deviceLang = Locale.getDefault().language // misalnya "id"
+        val supported = setOf("id","ar","de","en","es","fr","he","it","nl","no","pt","ru","sv","ud","zh")
+        val deviceLang = Locale.getDefault().language
         val apiLang = if (deviceLang in supported) deviceLang else "en"
 
-        // (Opsional) batasi domain Indonesia yang sering bahas kesehatan
         val domainsId = listOf(
-            "kompas.com", "health.detik.com", "cnnindonesia.com", "tempo.co",
-            "alodokter.com", "klikdokter.com", "hellosehat.com", "liputan6.com",
-            "suara.com", "tribunnews.com", "kumparan.com", "antaranews.com"
+            "kompas.com","health.detik.com","cnnindonesia.com","tempo.co",
+            "alodokter.com","klikdokter.com","hellosehat.com","liputan6.com",
+            "suara.com","tribunnews.com","kumparan.com","antaranews.com"
         ).joinToString(",")
 
         val to = java.time.OffsetDateTime.now().toString()
-        val from = java.time.LocalDate.now().minusDays(30).toString()
+        val from = java.time.LocalDate.now().minusDays(60).toString() // perluas 60 hari
 
         showLoading(true)
 
+        Log.d(TAG, "Query: '$q'")
+        Log.d(TAG, "Domains: '$domainsId'")
+        Log.d(TAG, "Language: '$apiLang'")
+
+        // 1) Ketat (bhs lokal + domain Indo)
         NewsRetrofit.api.searchEverything(
             q = q,
-            language = apiLang,
+            language = "id",
             domains = domainsId,
             searchIn = searchIn,
             sortBy = "publishedAt",
             to = to,
             from = from,
             page = 1,
-            pageSize = 40,
+            pageSize = 100,
             apiKey = apiKey
         ).enqueue(object : Callback<NewsResponse> {
-            override fun onResponse(call: Call<NewsResponse>, response: Response<NewsResponse>) {
-                val list = response.body()?.articles.orEmpty().map { it.toArticleItem() }
+            override fun onResponse(call: Call<NewsResponse>, resp: Response<NewsResponse>) {
+                Log.d(TAG, "Response code: ${resp.code()}")
+                Log.d(TAG, "Response raw: ${resp.raw()}")
+
+                val list = resp.body()?.articles.orEmpty().map { it.toArticleItem() }
                     .filter { it.title.isNotBlank() }
-                if (response.isSuccessful && list.isNotEmpty()) {
-                    bindArticlesToUi(response.body()!!.articles!!)
-                } else {
-                    // 2nd: tanpa domains (lebih luas)
-                    NewsRetrofit.api.searchEverything(
-                        q = q,
-                        language = apiLang,
-                        domains = domainsId,
-                        searchIn = searchIn,
-                        sortBy = "publishedAt",
-                        to = to,
-                        from = from,
-                        page = 1,
-                        pageSize = 40,
-                        apiKey = apiKey
-                    ).enqueue(object : Callback<NewsResponse> {
-                        override fun onResponse(
-                            call2: Call<NewsResponse>,
-                            res2: Response<NewsResponse>
-                        ) {
-                            val list2 = res2.body()?.articles.orEmpty().map { it.toArticleItem() }
-                                .filter { it.title.isNotBlank() }
-                            if (res2.isSuccessful && list2.isNotEmpty()) {
-                                bindArticlesToUi(res2.body()!!.articles!!)
-                            } else {
-                                // 3rd: English fallback
-                                fetchFallbackEn(q, apiKey, searchIn)
-                            }
+
+                Log.d(TAG, "Articles received: ${list.size}")
+                list.forEachIndexed { index, article ->
+                    Log.d(TAG, "Article $index: ${article.title}")
+                }
+
+                if (resp.isSuccessful && list.isNotEmpty()) {
+                    bindArticlesToUi(resp.body()!!.articles!!)
+                    return
+                }
+
+                // 2) Longgar: HAPUS domains (benar2 tanpa domains), tetap pakai bahasa lokal
+                NewsRetrofit.api.searchEverything(
+                    q = q,
+                    language = apiLang,
+                    searchIn = searchIn,
+                    sortBy = "publishedAt",
+                    to = to,
+                    from = from,
+                    page = 1,
+                    pageSize = 100,
+                    apiKey = apiKey
+                ).enqueue(object : Callback<NewsResponse> {
+                    override fun onResponse(call2: Call<NewsResponse>, r2: Response<NewsResponse>) {
+                        Log.d(TAG, "Response code: ${r2.code()}")
+                        Log.d(TAG, "Response raw: ${r2.raw()}")
+
+                        val list2 = r2.body()?.articles.orEmpty().map { it.toArticleItem() }
+                            .filter { it.title.isNotBlank() }
+
+                        Log.d(TAG, "Articles received: ${list.size}")
+                        list2.forEachIndexed { index, article ->
+                            Log.d(TAG, "Article $index: ${article.title}")
                         }
 
-                        override fun onFailure(call2: Call<NewsResponse>, t: Throwable) {
-                            fetchFallbackEn(q, apiKey, searchIn)
+                        if (r2.isSuccessful && list2.isNotEmpty()) {
+                            bindArticlesToUi(r2.body()!!.articles!!)
+                        } else {
+                            // 3) Longgar lagi: tanpa filter bahasa (biarkan campur), baru terakhir en
+                            fetchAnyLang(q, apiKey, searchIn, from, to)
                         }
-                    })
+                    }
+                    override fun onFailure(call2: Call<NewsResponse>, t: Throwable) {
+                        fetchAnyLang(q, apiKey, searchIn, from, to)
+                    }
+                })
+            }
+            override fun onFailure(call: Call<NewsResponse>, t: Throwable) {
+                fetchAnyLang(q, apiKey, searchIn, from, to)
+            }
+        })
+    }
+
+    private fun fetchAnyLang(
+        q: String,
+        apiKey: String,
+        searchIn: String,
+        from: String,
+        to: String
+    ) {
+        NewsRetrofit.api.searchEverything(
+            q = q,
+            // language = null → semua bahasa
+            searchIn = searchIn,
+            sortBy = "publishedAt",
+            to = to,
+            from = from,
+            page = 1,
+            pageSize = 100,
+            apiKey = apiKey
+        ).enqueue(object : Callback<NewsResponse> {
+            override fun onResponse(call: Call<NewsResponse>, r: Response<NewsResponse>) {
+                val items = r.body()?.articles.orEmpty().filter { !it.title.isNullOrBlank() }
+                if (!r.isSuccessful || items.isEmpty()) {
+                    // 4) Terakhir: fallback English saja
+                    fetchFallbackEn(q, apiKey, searchIn)
+                } else {
+                    bindArticlesToUi(items)
                 }
             }
-
             override fun onFailure(call: Call<NewsResponse>, t: Throwable) {
                 fetchFallbackEn(q, apiKey, searchIn)
             }
@@ -238,21 +277,20 @@ class NewsActivity : AppCompatActivity() {
         NewsRetrofit.api.searchEverything(
             q = q,
             language = "en",
+            searchIn = searchIn,
             sortBy = "publishedAt",
             page = 1,
-            pageSize = 40,
+            pageSize = 100,
             apiKey = apiKey
         ).enqueue(object : Callback<NewsResponse> {
             override fun onResponse(call: Call<NewsResponse>, response: Response<NewsResponse>) {
-                val articles =
-                    response.body()?.articles.orEmpty().filter { !it.title.isNullOrBlank() }
+                val articles = response.body()?.articles.orEmpty().filter { !it.title.isNullOrBlank() }
                 if (!response.isSuccessful || articles.isEmpty()) {
-                    // LAST RESORT: dummy minimal 1 agar UI tidak repetitif
                     showLoading(false)
                     val dummy = listOf(
                         placeholderArticle(1, "Headline").copy(
                             title = "Kenali Gejala FAST: Cara Cepat Deteksi Stroke",
-                            description = "Fokus pada Face drooping, Arm weakness, Speech difficulty, Time to call.",
+                            description = "Fokus pada Face, Arm, Speech, Time.",
                             source = "SAID",
                             date = java.time.LocalDate.now().toString()
                         )
@@ -260,27 +298,18 @@ class NewsActivity : AppCompatActivity() {
                     sliderAdapter.submitList(dummy)
                     edukasiAdapter.submitList(listOf(placeholderArticle(1, "Edukasi")))
                     pencegahanAdapter.submitList(listOf(placeholderArticle(1, "Pencegahan")))
-                    Toast.makeText(
-                        this@NewsActivity,
-                        "Menampilkan konten default karena hasil kosong",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                    return
+                    Toast.makeText(this@NewsActivity, "Konten default ditampilkan", Toast.LENGTH_SHORT).show()
+                } else {
+                    bindArticlesToUi(articles)
                 }
-                bindArticlesToUi(articles)
             }
-
             override fun onFailure(call: Call<NewsResponse>, t: Throwable) {
                 showLoading(false)
                 val dummy = listOf(placeholderArticle(1, "Headline"))
                 sliderAdapter.submitList(dummy)
                 edukasiAdapter.submitList(listOf(placeholderArticle(1, "Edukasi")))
                 pencegahanAdapter.submitList(listOf(placeholderArticle(1, "Pencegahan")))
-                Toast.makeText(
-                    this@NewsActivity,
-                    "Gagal memuat berita. Menampilkan dummy.",
-                    Toast.LENGTH_SHORT
-                ).show()
+                Toast.makeText(this@NewsActivity, "Gagal memuat berita. Menampilkan dummy.", Toast.LENGTH_SHORT).show()
             }
         })
     }
@@ -290,6 +319,17 @@ class NewsActivity : AppCompatActivity() {
     private fun placeholderArticle(id: Int, category: String) = ArticleItem(
         id = "ph-$category-$id",
         title = when (category) {
+            "Edukasi" -> "Stroke"
+            "Pencegahan" -> "5 Langkah Sederhana Cegah Stroke"
+            else -> "Update Seputar Stroke"
+        },
+        date = "—",
+        source = "SAID",
+        imageUrl = "", // biar pakai placeholder image di Glide
+        category = category,
+        description = "",
+        author = "",
+        content = when (category) {
             "Edukasi" -> "Apa Itu Stroke?\n" +
                     "Stroke terjadi ketika aliran darah ke otak terhambat, baik karena pembuluh darah tersumbat (stroke iskemik) atau pembuluh darah pecah (stroke hemoragik). Kekurangan oksigen dan nutrisi menyebabkan sel-sel otak mati, yang dapat mengakibatkan kecacatan permanen, bahkan kematian. \n" +
                     "Mengenali Gejala dengan Metode FAST\n" +
@@ -336,17 +376,6 @@ class NewsActivity : AppCompatActivity() {
                     "Kendalikan penyakit bawaan\n" +
                     "Jika Anda memiliki hipertensi, diabetes, atau kolesterol tinggi, pastikan rutin kontrol dan minum obat sesuai anjuran dokter."
 
-            else -> "Update Seputar Stroke"
-        },
-        date = "—",
-        source = "SAID",
-        imageUrl = "", // biar pakai placeholder image di Glide
-        category = category,
-        description = "",
-        author = "",
-        content = when (category) {
-            "Edukasi" -> "Stroke"
-            "Pencegahan" -> "5 Langkah Sederhana Cegah Stroke"
             else -> "Update Seputar Stroke"
         },
         url = "",
@@ -421,19 +450,35 @@ class NewsActivity : AppCompatActivity() {
             firstHeadlinesShown = true
         }
 
-        // --- Klasifikasi sederhana via keyword (tetap) ---
         val edukasiKeywords = listOf(
-            "apa itu", "jenis", "gejala", "definisi", "penyebab", "edukasi", "fakta", "panduan",
-            "iskemik", "hemoragik", "stroke iskemik", "stroke hemoragik", "fast",
-            "what is", "types", "symptoms", "definition", "causes", "education", "facts", "guide",
-            "ischemic", "hemorrhagic", "tia", "transient ischemic attack", "signs", "recognize"
+            // Inti FAST/BEFAST
+            "befast", "metode befast", "fast method", "f.a.s.t",
+            "face arm speech time", "wajah lengan bicara waktu",
+            "kelumpuhan wajah", "lengan lemah", "bicara pelo",
+
+            // Deteksi & Gejala Inti
+            "gejala", "tanda-tanda", "deteksi", "kenali",
+
+            // Edukasi Medis Inti
+            "edukasi", "jenis", "iskemik", "hemoragik", "tia",
+
+            // English core
+            "symptoms", "warning signs", "detect", "recognize",
+            "education", "types", "ischemic", "hemorrhagic"
         )
 
         val pencegahanKeywords = listOf(
-            "pencegahan", "mencegah", "tips", "gaya hidup", "diet", "olahraga", "kebiasaan",
-            "kontrol tekanan darah", "kurangi garam", "berhenti merokok", "turunkan risiko",
-            "prevention", "prevent", "tips", "lifestyle", "diet", "exercise", "habits",
-            "blood pressure control", "low sodium", "quit smoking", "reduce risk", "risk reduction"
+            // Pencegahan & Penanganan Inti
+            "pencegahan", "cegah", "penanganan", "pertolongan",
+            "prevention", "prevent", "treatment", "management",
+
+            // Menjaga Kesehatan Inti
+            "menjaga", "kontrol tekanan", "tekanan darah",
+            "maintain", "blood pressure", "hypertension",
+
+            // Menghindari Risiko Inti
+            "menghindari", "berhenti merokok", "olahraga",
+            "avoid", "quit smoking", "exercise"
         )
 
         fun normalize(s: String): String {
@@ -518,8 +563,9 @@ class NewsActivity : AppCompatActivity() {
             source = source?.name.orEmpty(),
             imageUrl = urlToImage.orEmpty(),
             category = category,
-            description = description.orEmpty(),
-            content = content.orEmpty(),
+            description = (description ?: content).orEmpty().cleanContent(),
+            content = content.orEmpty().cleanContent(),
+
             url = rawUrl,
             domain = domain,
             language = this.language,     // isi jika field ini ada di NewsArticle
@@ -531,12 +577,11 @@ class NewsActivity : AppCompatActivity() {
     // ======================
     // Navigation
     // ======================
-    private fun openDetail(article: ArticleItem) {
-        val intent = Intent(this, ArticleContentActivity::class.java).apply {
-            putExtra("article", article)
-        }
-        startActivity(intent)
+    private fun openDetail(item: ArticleItem) {
+        // Pakai helper bawaan activity biar selalu kirim JSON + fallback
+        ArticleContentActivity.start(this, item)
     }
+
 
     // ======================
     // Lifecycle
@@ -555,4 +600,10 @@ class NewsActivity : AppCompatActivity() {
         autoScrollHandler.removeCallbacks(autoScrollRunnable)
         super.onDestroy()
     }
+}
+
+private fun String?.cleanContent(): String {
+    if (this.isNullOrBlank()) return ""
+    val idx = indexOf("[+")
+    return if (idx > 0) substring(0, idx).trim() else this.trim()
 }

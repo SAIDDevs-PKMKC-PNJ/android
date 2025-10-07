@@ -105,7 +105,23 @@
             android:textColor="@android:color/white"
             android:textStyle="bold"
             android:background="@drawable/bg_logout_rounded"/>
-
     </LinearLayout>
+
+    <FrameLayout
+        android:id="@+id/profileOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#80000000"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true"
+        android:elevation="10dp">
+
+        <ProgressBar
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_gravity="center"/>
+    </FrameLayout>
+
 
 </RelativeLayout>

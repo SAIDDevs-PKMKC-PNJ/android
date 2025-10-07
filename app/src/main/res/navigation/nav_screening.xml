@@ -3,9 +3,59 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_screening"
-    app:startDestination="@id/faceTestPreviewFragment">
+    app:startDestination="@id/balanceTestPreviewFragment">
 
-    <!-- FACE TEST - Preview dan Test -->
+    <!-- BALANCE TEST - Preview dan Test (NEW) -->
+    <fragment
+        android:id="@+id/balanceTestPreviewFragment"
+        android:name="com.pkm.said.screening.BalancePreviewFragment"
+        android:label="Balance Test Preview"
+        tools:layout="@layout/fragment_balance_preview">
+        <action
+            android:id="@+id/action_balancePreview_to_balanceTest"
+            app:destination="@id/balanceTestFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/balanceTestFragment"
+        android:name="com.pkm.said.screening.BalanceTestFragment"
+        android:label="Balance Test"
+        tools:layout="@layout/fragment_balance_test">
+        <action
+            android:id="@+id/action_balanceTest_to_eyesPreview"
+            app:destination="@id/eyesTestPreviewFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left" />
+    </fragment>
+
+    <!-- EYES TEST - Preview dan Test (NEW) -->
+    <fragment
+        android:id="@+id/eyesTestPreviewFragment"
+        android:name="com.pkm.said.screening.EyesPreviewFragment"
+        android:label="Eyes Test Preview"
+        tools:layout="@layout/fragment_eyes_preview">
+        <action
+            android:id="@+id/action_eyesPreview_to_eyesTest"
+            app:destination="@id/eyesTestFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/eyesTestFragment"
+        android:name="com.pkm.said.screening.EyesTestFragment"
+        android:label="Eyes Test"
+        tools:layout="@layout/fragment_eyes_test">
+        <action
+            android:id="@+id/action_eyesTest_to_facePreview"
+            app:destination="@id/faceTestPreviewFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left" />
+    </fragment>
+
+    <!-- FACE TEST - Preview dan Test (EXISTING) -->
     <fragment
         android:id="@+id/faceTestPreviewFragment"
         android:name="com.pkm.said.screening.FacePreviewFragment"
@@ -15,7 +65,7 @@
             android:id="@+id/action_facePreview_to_faceTest"
             app:destination="@id/faceTestFragment"
             app:enterAnim="@anim/slide_in_right"
-            app:exitAnim="@anim/slide_out_left"/>
+            app:exitAnim="@anim/slide_out_left" />
     </fragment>
 
     <fragment
@@ -27,10 +77,10 @@
             android:id="@+id/action_faceTest_to_armsPreview"
             app:destination="@id/armsTestPreviewFragment"
             app:enterAnim="@anim/slide_in_right"
-            app:exitAnim="@anim/slide_out_left"/>
+            app:exitAnim="@anim/slide_out_left" />
     </fragment>
 
-    <!-- ARMS TEST - Preview dan Test -->
+    <!-- ARMS TEST - Preview dan Test (EXISTING) -->
     <fragment
         android:id="@+id/armsTestPreviewFragment"
         android:name="com.pkm.said.screening.ArmPreviewFragment"
@@ -40,7 +90,7 @@
             android:id="@+id/action_armsPreview_to_armsTest"
             app:destination="@id/armsTestFragment"
             app:enterAnim="@anim/slide_in_right"
-            app:exitAnim="@anim/slide_out_left"/>
+            app:exitAnim="@anim/slide_out_left" />
     </fragment>
 
     <fragment
@@ -48,14 +98,22 @@
         android:name="com.pkm.said.screening.ArmTestFragment"
         android:label="Arms Test"
         tools:layout="@layout/fragment_arm_test">
+        <!-- Reuse ID lama agar kode tidak perlu diubah:
+             dulunya ke Speech Preview, sekarang langsung ke Result -->
         <action
-            android:id="@+id/action_armsTest_to_speechPreview"
-            app:destination="@id/speechTestPreviewFragment"
+            android:id="@+id/action_armsTest_to_result"
+            app:destination="@id/screeningResultFragment"
             app:enterAnim="@anim/slide_in_right"
-            app:exitAnim="@anim/slide_out_left"/>
+            app:exitAnim="@anim/slide_out_left" />
+        <!-- Kalau mau ID baru, aktifkan ini dan update kode:
+        <action
+            android:id="@+id/action_armsTest_to_screeningResult"
+            app:destination="@id/screeningResultFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left" /> -->
     </fragment>
 
-    <!-- SPEECH TEST - Preview dan Test -->
+    <!-- (OPSIONAL) BLOK SPEECH — boleh dihapus kalau sudah pasti tidak dipakai
     <fragment
         android:id="@+id/speechTestPreviewFragment"
         android:name="com.pkm.said.screening.SpeechPreviewFragment"
@@ -65,7 +123,7 @@
             android:id="@+id/action_speechPreview_to_speechTest"
             app:destination="@id/speechTestFragment"
             app:enterAnim="@anim/slide_in_right"
-            app:exitAnim="@anim/slide_out_left"/>
+            app:exitAnim="@anim/slide_out_left" />
     </fragment>
 
     <fragment
@@ -77,55 +135,43 @@
             android:id="@+id/action_speechTest_to_screeningResult"
             app:destination="@id/screeningResultFragment"
             app:enterAnim="@anim/slide_in_right"
-            app:exitAnim="@anim/slide_out_left"/>
+            app:exitAnim="@anim/slide_out_left" />
     </fragment>
-
-<!--    &lt;!&ndash; TIME TEST - Preview dan Test &ndash;&gt;-->
-<!--    <fragment-->
-<!--        android:id="@+id/timeTestPreviewFragment"-->
-<!--        android:name="com.pkm.said.screening.TimeTestPreviewFragment"-->
-<!--        android:label="Time Test Preview"-->
-<!--        tools:layout="@layout/fragment_time_test_preview">-->
-<!--        <action-->
-<!--            android:id="@+id/action_timePreview_to_timeTest"-->
-<!--            app:destination="@id/timeTestFragment"-->
-<!--            app:enterAnim="@anim/slide_in_right"-->
-<!--            app:exitAnim="@anim/slide_out_left"/>-->
-<!--    </fragment>-->
-
-<!--    <fragment-->
-<!--        android:id="@+id/timeTestFragment"-->
-<!--        android:name="com.pkm.said.screening.TimeTestFragment"-->
-<!--        android:label="Time Test"-->
-<!--        tools:layout="@layout/fragment_time_test">-->
-<!--        <action-->
-<!--            android:id="@+id/action_timeTest_to_result"-->
-<!--            app:destination="@id/screeningResultFragment"-->
-<!--            app:enterAnim="@anim/slide_in_right"-->
-<!--            app:exitAnim="@anim/slide_out_left"/>-->
-<!--    </fragment>-->
+    -->
 
     <!-- SCREENING RESULT -->
     <fragment
         android:id="@+id/screeningResultFragment"
         android:name="com.pkm.said.screening.ScreeningResultFragment"
-        android:label="Hasil Screening FAST"
+        android:label="Hasil Screening"
         tools:layout="@layout/fragment_screening_result">
+        <!-- Tambahkan akses cepat untuk ulang test mana saja -->
+        <action
+            android:id="@+id/action_screeningResult_to_balancePreview"
+            app:destination="@id/balanceTestPreviewFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left" />
+        <action
+            android:id="@+id/action_screeningResult_to_eyesPreview"
+            app:destination="@id/eyesTestPreviewFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left" />
         <action
             android:id="@+id/action_screeningResult_to_facePreview"
             app:destination="@id/faceTestPreviewFragment"
             app:enterAnim="@anim/slide_in_right"
-            app:exitAnim="@anim/slide_out_left"/>
+            app:exitAnim="@anim/slide_out_left" />
         <action
             android:id="@+id/action_screeningResult_to_armPreview"
             app:destination="@id/armsTestPreviewFragment"
             app:enterAnim="@anim/slide_in_right"
-            app:exitAnim="@anim/slide_out_left"/>
+            app:exitAnim="@anim/slide_out_left" />
+        <!-- Lama (speech): boleh dihapus kalau tidak dipakai
         <action
             android:id="@+id/action_screeningResult_to_speechPreview"
-            app:destination="@+id/speechTestPreviewFragment"
+            app:destination="@id/speechTestPreviewFragment"
             app:enterAnim="@anim/slide_in_right"
-            app:exitAnim="@anim/slide_out_left"/>
+            app:exitAnim="@anim/slide_out_left" /> -->
     </fragment>
 
 </navigation>

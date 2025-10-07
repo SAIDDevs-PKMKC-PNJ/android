@@ -4,19 +4,24 @@ import android.content.Intent
 import android.os.Bundle
 import android.text.SpannableString
 import android.text.style.StyleSpan
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.google.android.material.chip.Chip
 import com.pkm.said.databinding.FragmentScreeningHistoryBinding
 import com.pkm.said.screening.RiskLevel
 import com.pkm.said.screening.ScreeningDataManager
+import com.pkm.said.screening.ScreeningRepository
 import com.pkm.said.screening.ScreeningResult
 import com.pkm.said.adapter.ScreeningHistoryAdapter
+import com.pkm.said.screening.completedAtFormatted
+import com.pkm.said.util.AuthManager
+import kotlinx.coroutines.launch
 
 class ScreeningHistoryFragment : Fragment() {
 
@@ -57,9 +62,7 @@ class ScreeningHistoryFragment : Fragment() {
                 val bundle = Bundle().apply { putString("sessionId", result.sessionId) }
                 findNavController().navigate(R.id.navigation_historyDetail, bundle)
             },
-            onShare = { result ->
-                shareResult(result)
-            }
+            onShare = { result -> shareResult(result) }
         )
         binding.recyclerHistory.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerHistory.adapter = adapter
@@ -67,19 +70,13 @@ class ScreeningHistoryFragment : Fragment() {
 
     private fun setupChips() {
         // All
-        binding.chipAll.setOnClickListener {
-            selectFilter(null)
-        }
-        // High
-        binding.chipHigh.setOnClickListener {
-            selectFilter(RiskLevel.HIGH) // atau CRITICAL juga? Bisa tambah chip sendiri
-        }
-        binding.chipMedium.setOnClickListener {
-            selectFilter(RiskLevel.MEDIUM)
-        }
-        binding.chipLow.setOnClickListener {
-            selectFilter(RiskLevel.LOW)
-        }
+        binding.chipAll.setOnClickListener { selectFilter(null) }
+        // High (termasuk CRITICAL)
+        binding.chipHigh.setOnClickListener { selectFilter(RiskLevel.HIGH) }
+        binding.chipMedium.setOnClickListener { selectFilter(RiskLevel.MEDIUM) }
+        binding.chipLow.setOnClickListener { selectFilter(RiskLevel.LOW) }
+
+        binding.chipAll.isChecked = true
     }
 
     private fun selectFilter(risk: RiskLevel?) {
@@ -89,41 +86,95 @@ class ScreeningHistoryFragment : Fragment() {
     }
 
     private fun updateChipSelection() {
-        fun Chip.mark(selected: Boolean) {
-            isChecked = selected
-        }
-        binding.chipAll.mark(currentFilter == null)
-        binding.chipHigh.mark(currentFilter == RiskLevel.HIGH)
-        binding.chipMedium.mark(currentFilter == RiskLevel.MEDIUM)
-        binding.chipLow.mark(currentFilter == RiskLevel.LOW)
+        binding.chipAll.isChecked = currentFilter == null
+        binding.chipHigh.isChecked = currentFilter == RiskLevel.HIGH
+        binding.chipMedium.isChecked = currentFilter == RiskLevel.MEDIUM
+        binding.chipLow.isChecked = currentFilter == RiskLevel.LOW
     }
 
     private fun loadData() {
-        fullHistory = ScreeningDataManager.getScreeningHistory(requireContext())
+        setLoading(true)
 
-        binding.layoutEmpty.isVisible = fullHistory.isEmpty()
-        binding.recyclerHistory.isVisible = fullHistory.isNotEmpty()
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                // NEW: Langsung ambil dari Firestore (data permanen)
+                fullHistory = ScreeningRepository.getScreeningHistory(limit = 50)
 
-        applyFilter()
+                // NEW: Jika kosong, coba fallback ke data lokal yang completed
+                if (fullHistory.isEmpty()) {
+                    fullHistory = ScreeningDataManager.getScreeningHistory(requireContext())
+                        .filter { it.isCompleted }
+                        .take(50)
+                }
+
+            } catch (e: Exception) {
+                // NEW: Error handling yang lebih baik
+                Log.e("ScreeningHistory", "Gagal memuat riwayat: ${e.message}")
+
+                // Fallback ke data lokal saja
+                fullHistory = ScreeningDataManager.getScreeningHistory(requireContext())
+                    .filter { it.isCompleted }
+                    .take(50)
+
+                // Tampilkan pesan error
+                if (fullHistory.isEmpty()) {
+                    showErrorState("Gagal memuat data")
+                } else {
+                    showWarningState("Menggunakan data lokal")
+                }
+            } finally {
+                setLoading(false)
+                applyFilter()
+            }
+        }
+    }
+    private fun setLoading(loading: Boolean) {
+        binding.loadingOverlay.isVisible = loading
+        binding.recyclerHistory.isVisible = !loading && fullHistory.isNotEmpty()
+        binding.layoutEmpty.isVisible = !loading && fullHistory.isEmpty()
+        binding.layoutError.isVisible = false
+        binding.layoutWarning.isVisible = false
+    }
+
+    private fun showErrorState(message: String) {
+        binding.layoutError.isVisible = true
+        binding.tvErrorText.text = message
+        binding.recyclerHistory.isVisible = false
+        binding.layoutEmpty.isVisible = false
+    }
+
+    private fun showWarningState(message: String) {
+        binding.layoutWarning.isVisible = true
+        binding.tvWarningText.text = message
+        binding.btnRetry.setOnClickListener { loadData() }
     }
 
     private fun applyFilter() {
         val list = when (currentFilter) {
             null -> fullHistory
-            RiskLevel.HIGH -> fullHistory.filter { it.overallRisk == RiskLevel.HIGH || it.overallRisk == RiskLevel.CRITICAL }
+            RiskLevel.HIGH -> fullHistory.filter {
+                it.overallRisk == RiskLevel.HIGH || it.overallRisk == RiskLevel.CRITICAL
+            }
+            RiskLevel.MEDIUM -> fullHistory.filter { it.overallRisk == RiskLevel.MEDIUM }
+            RiskLevel.LOW -> fullHistory.filter { it.overallRisk == RiskLevel.LOW }
             else -> fullHistory.filter { it.overallRisk == currentFilter }
         }
         adapter.submitList(list)
         binding.tvCount.text = getString(R.string.session, list.size)
         binding.layoutEmpty.isVisible = list.isEmpty()
         binding.recyclerHistory.isVisible = list.isNotEmpty()
+        if (list.isNotEmpty()) {
+            binding.layoutError.isVisible = false
+            binding.layoutWarning.isVisible = false
+        }
     }
 
     private fun shareResult(result: ScreeningResult) {
-        val percent = computeOverallPercent(result)
+        val percent = ScreeningDataManager.calculateBEFASTOverallPercent(result)
+        val whenText = result.completedAtFormatted()
         val shareText = """
             Hasil FAST Screening:
-            - Tanggal: ${result.timestamp}
+            - Tanggal: $whenText
             - Risiko: ${result.overallRisk.displayName}
             - Perkiraan: ${percent}%
             #FAST #StrokeAwareness
@@ -135,13 +186,10 @@ class ScreeningHistoryFragment : Fragment() {
         startActivity(Intent.createChooser(intent, "Bagikan hasil screening"))
     }
 
-    private fun computeOverallPercent(result: ScreeningResult): Int {
-        return ScreeningDataManager.calculateFASTOverallPercent(result)
-    }
-
     override fun onResume() {
         super.onResume()
         loadData()
+        if (!AuthManager.ensureUserLoggedIn(requireActivity())) return
     }
 
     override fun onDestroyView() {

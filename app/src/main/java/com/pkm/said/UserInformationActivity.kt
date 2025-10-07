@@ -163,6 +163,7 @@ class UserInformationActivity : AppCompatActivity() {
                             Toast.makeText(this, "Data berhasil disimpan", Toast.LENGTH_SHORT).show()
                             SessionManager.saveFullProfile(
                                 this,
+                                user.uid,
                                 name,
                                 intentEmail ?: user.email,
                                 intentPhotoUrl ?: user.photoUrl?.toString(),

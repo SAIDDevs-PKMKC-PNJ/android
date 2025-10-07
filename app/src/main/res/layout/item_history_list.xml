@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginVertical="4dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="2dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:gravity="center_vertical">
+
+        <!-- Risk Indicator -->
+        <View
+            android:id="@+id/viewRiskIndicator"
+            android:layout_width="4dp"
+            android:layout_height="40dp"
+            android:background="#4CAF50"
+            android:layout_marginEnd="12dp"/>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <!-- Date and Time -->
+            <TextView
+                android:id="@+id/tvDateTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="29 Juli 2024, 14:30"
+                android:textColor="@android:color/black"
+                android:textSize="14sp"
+                android:textStyle="bold"/>
+
+            <!-- Risk Status -->
+            <TextView
+                android:id="@+id/tvRiskStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Risiko Rendah"
+                android:textColor="#4CAF50"
+                android:textSize="13sp"
+                android:layout_marginTop="2dp"/>
+
+        </LinearLayout>
+
+        <!-- Score -->
+        <TextView
+            android:id="@+id/tvScore"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="25%"
+            android:textColor="@android:color/black"
+            android:textSize="16sp"
+            android:textStyle="bold"/>
+
+    </LinearLayout>
+</androidx.cardview.widget.CardView>

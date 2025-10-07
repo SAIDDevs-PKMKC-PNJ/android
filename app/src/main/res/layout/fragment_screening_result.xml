@@ -8,18 +8,21 @@
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="24dp">
+        android:layout_height="wrap_content">
 
         <!-- Header -->
         <TextView
+            style="@style/TextAppearance.Material3.TitleLarge"
             android:id="@+id/tv_header"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:layout_marginEnd="24dp"
+            android:layout_marginStart="24dp"
             android:layout_marginBottom="8dp"
             android:gravity="center"
             android:text="Hasil Screening FAST"
-            android:textColor="@color/BluePrimary"
+            android:textColor="@color/white"
             android:textSize="28sp"
             android:textStyle="bold"
             app:layout_constraintEnd_toEndOf="parent"
@@ -28,12 +31,16 @@
 
         <!-- Session Info -->
         <TextView
+            style="@style/TextAppearance.Material3.BodySmall"
             android:id="@+id/tv_session_info"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginEnd="24dp"
+            android:layout_marginStart="24dp"
             android:layout_marginBottom="24dp"
             android:gravity="center"
             android:text="Sesi: • Waktu: "
+            android:textStyle="bold"
             android:textColor="@color/white_alpha_80"
             android:textSize="14sp"
             app:layout_constraintEnd_toEndOf="parent"
@@ -45,6 +52,8 @@
             android:id="@+id/card_risk_assessment"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginEnd="24dp"
+            android:layout_marginStart="24dp"
             android:layout_marginBottom="12dp"
             app:cardCornerRadius="20dp"
             app:cardElevation="8dp"
@@ -108,6 +117,8 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
+            android:layout_marginEnd="24dp"
+            android:layout_marginStart="24dp"
             android:layout_marginBottom="12dp"
             app:cardBackgroundColor="@color/white"
             app:cardCornerRadius="16dp"
@@ -132,7 +143,75 @@
                     android:textSize="18sp"
                     android:textStyle="bold" />
 
-                <!-- Face Test Result -->
+                <!-- ===== B - Balance Test ===== -->
+                <LinearLayout
+                    android:id="@+id/layout_balance_result"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:id="@+id/iv_balance_test_icon"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_marginEnd="12dp"
+                        android:src="@drawable/ic_test_success" />
+
+                    <TextView
+                        android:id="@+id/tv_balance_test_name"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="B - Balance Test"
+                        android:textColor="@color/BluePrimary"
+                        android:textSize="14sp" />
+
+                    <TextView
+                        android:id="@+id/tv_balance_test_result"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Tidak Dilakukan (—%)"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- ===== E - Eyes Test ===== -->
+                <LinearLayout
+                    android:id="@+id/layout_eyes_result"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:id="@+id/iv_eyes_test_icon"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_marginEnd="12dp"
+                        android:src="@drawable/ic_test_success" />
+
+                    <TextView
+                        android:id="@+id/tv_eyes_test_name"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="E - Eyes Test"
+                        android:textColor="@color/BluePrimary"
+                        android:textSize="14sp" />
+
+                    <TextView
+                        android:id="@+id/tv_eyes_test_result"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Tidak Dilakukan (—%)"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- ===== F - Face Test ===== -->
                 <LinearLayout
                     android:id="@+id/layout_face_result"
                     android:layout_width="match_parent"
@@ -161,13 +240,12 @@
                         android:id="@+id/tv_face_test_result"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Normal (85%)"
+                        android:text="Tidak Dilakukan (—%)"
                         android:textSize="14sp"
                         android:textStyle="bold" />
-
                 </LinearLayout>
 
-                <!-- Arms Test Result -->
+                <!-- ===== A - Arms Test ===== -->
                 <LinearLayout
                     android:id="@+id/layout_arms_result"
                     android:layout_width="match_parent"
@@ -196,20 +274,20 @@
                         android:id="@+id/tv_arms_test_result"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Normal (92%)"
+                        android:text="Tidak Dilakukan (—%)"
                         android:textSize="14sp"
                         android:textStyle="bold" />
-
                 </LinearLayout>
 
-                <!-- Speech Test Result -->
+                <!-- (Opsional) S - Speech Test (boleh dibiarkan untuk kompatibilitas / fallback) -->
                 <LinearLayout
                     android:id="@+id/layout_speech_result"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="12dp"
                     android:gravity="center_vertical"
-                    android:orientation="horizontal">
+                    android:orientation="horizontal"
+                    android:visibility="gone">
 
                     <ImageView
                         android:id="@+id/iv_speech_test_icon"
@@ -231,47 +309,13 @@
                         android:id="@+id/tv_speech_test_result"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Normal (78%)"
+                        android:text="Tidak Dilakukan (—%)"
                         android:textSize="14sp"
                         android:textStyle="bold" />
-
                 </LinearLayout>
 
-                <!-- Time Test Result -->
-<!--                <LinearLayout-->
-<!--                    android:id="@+id/layout_time_result"-->
-<!--                    android:layout_width="match_parent"-->
-<!--                    android:layout_height="wrap_content"-->
-<!--                    android:gravity="center_vertical"-->
-<!--                    android:orientation="horizontal">-->
-
-<!--                    <ImageView-->
-<!--                        android:id="@+id/iv_time_test_icon"-->
-<!--                        android:layout_width="24dp"-->
-<!--                        android:layout_height="24dp"-->
-<!--                        android:layout_marginEnd="12dp"-->
-<!--                        android:src="@drawable/ic_test_success" />-->
-
-<!--                    <TextView-->
-<!--                        android:id="@+id/tv_time_test_name"-->
-<!--                        android:layout_width="0dp"-->
-<!--                        android:layout_height="wrap_content"-->
-<!--                        android:layout_weight="1"-->
-<!--                        android:text="T - Time Test"-->
-<!--                        android:textColor="@color/BluePrimary"-->
-<!--                        android:textSize="14sp" />-->
-
-<!--                    <TextView-->
-<!--                        android:id="@+id/tv_time_test_result"-->
-<!--                        android:layout_width="wrap_content"-->
-<!--                        android:layout_height="wrap_content"-->
-<!--                        android:text="Normal (95%)"-->
-<!--                        android:textSize="14sp"-->
-<!--                        android:textStyle="bold" />-->
-
-<!--                </LinearLayout>-->
-
             </LinearLayout>
+
 
         </androidx.cardview.widget.CardView>
 
@@ -281,6 +325,8 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
+            android:layout_marginEnd="24dp"
+            android:layout_marginStart="24dp"
             android:layout_marginBottom="16dp"
             app:cardBackgroundColor="@color/white"
             app:cardCornerRadius="16dp"
@@ -293,6 +339,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
+                android:layout_marginEnd="24dp"
+                android:layout_marginStart="24dp"
                 android:padding="20dp">
 
                 <TextView
@@ -332,6 +380,8 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginEnd="24dp"
+                android:layout_marginStart="24dp"
                 android:layout_marginBottom="12dp"
                 android:orientation="horizontal">
 
@@ -370,6 +420,9 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginEnd="24dp"
+                android:layout_marginStart="24dp"
+                android:layout_marginBottom="24dp"
                 android:orientation="horizontal">
 
                 <com.google.android.material.button.MaterialButton
@@ -405,6 +458,26 @@
             </LinearLayout>
 
         </LinearLayout>
+
+        <FrameLayout
+            android:id="@+id/resultOverlay"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:background="#80000000"
+            android:visibility="gone"
+            android:clickable="true"
+            android:focusable="true"
+            android:elevation="10dp"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent">
+
+            <ProgressBar
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:layout_gravity="center"/>
+        </FrameLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

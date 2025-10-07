@@ -7,6 +7,7 @@
     <string name="dashboard_fragment_label">DashboardFragment</string>
     <string name="chat_fragment_label">SecondFragment</string>
     <string name="news_fragment_label">NewsFragment</string>
+    <string name="back">Back</string>
     <string name="next">Next</string>
     <string name="previous">Previous</string>
 
@@ -67,7 +68,7 @@
     <string name="home_restart">Restart</string>
     <string name="home_score_status_normal">jenis risiko</string>
     <string name="home_feature_title">Fitur Kami</string>
-    <string name="home_news_title">News</string>
+    <string name="home_news_title">Berita Terkini</string>
     <string name="content_desc_more">Lebih lanjut</string>
     <string name="content_desc_news_image">Konten Edukasi</string>
     <string name="feature_chatbot">Chatbot</string>
@@ -85,7 +86,7 @@
     <string name="username">Username</string>
     <string name="Age">29</string>
     <string name="createdDate">Tanggal Bergabung</string>
-    <string name="createdDate_desc">27 Januari 2025</string>
+    <string name="createdDate_desc">----</string>
     <string name="change_photo">Edit Foto</string>
     <string name="profile_photo">profile foto</string>
     <string name="articleTitle">Judul Berita</string>
@@ -114,4 +115,12 @@
     <string name="logout_success">Logout Berhasil</string>
     <string name="logout">Logout</string>
     <string name="logout_failed_try_again">Logout bermasalah silahkan ulangi lain kali</string>
+    <string name="slider_label">Geser untuk membatalkan...</string>
+    <string name="reminder_handler_daily_true">Pengingat akan dikirim setiap hari pukul %1$s</string>
+    <string name="emergency_number">+628159445670</string>
+    <string name="emergency_noresponse_hint">Jika tidak ada respons, aplikasi akan menghubungi kontak darurat dan mengirim lokasi Anda.</string>
+    <string name="emergency_phone_status_ready">SEDANG BERBICARA DENGAN PETUGAS</string>
+    <string name="emergency_phone_status_notready">TELEPON SEDANG BERDERING...</string>
+    <string name="emergency_phone_status_finish">PROSES DARURAT SELESAI</string>
+    <string name="emergency_finish_hint">Panggilan darurat telah selesai.</string>
 </resources>

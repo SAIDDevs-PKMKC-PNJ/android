@@ -1,6 +1,7 @@
 package com.pkm.said
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.app.DatePickerDialog
 import android.content.Intent
 import android.net.Uri
@@ -41,14 +42,12 @@ class ProfileFormFragment : Fragment() {
     private var _binding: FragmentProfileFormBinding? = null
     private val binding get() = _binding!!
     private val firebaseUser get() = FirebaseAuth.getInstance().currentUser
-
     private val firestore by lazy { FirebaseFirestore.getInstance() }
     private var selectedPhotoUri: Uri? = null
     private var isEditing = false
     private val http by lazy { OkHttpClient() }
     private val moshi by lazy { Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build() }
     private val cldAdapter by lazy { moshi.adapter(CloudinaryUploadResp::class.java) }
-
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -63,6 +62,14 @@ class ProfileFormFragment : Fragment() {
         Log.d(TAG, "onViewCreated called")
         setupUserData()
         setupClick()
+        setupInitialState() // ✅ INITIAL STATE: NON-EDITABLE
+    }
+
+    // ✅ SETUP INITIAL STATE - FIELD TIDAK BISA DIEDIT
+    private fun setupInitialState() {
+        setEditable(false)
+        binding.btnEditSave.text = "Edit Profil"
+        isEditing = false
     }
 
     private fun setupUserData() {
@@ -70,7 +77,6 @@ class ProfileFormFragment : Fragment() {
             Log.w(TAG, "setupUserData: firebaseUser null")
             binding.tvProfileName.text = "User Tanpa Nama"
             showAvatar(null)
-
             binding.etName.setText("")
             binding.etBirthdate.setText("")
             binding.etAddress.setText("")
@@ -99,7 +105,7 @@ class ProfileFormFragment : Fragment() {
                 binding.etAddress.setText(doc.getString("address").orEmpty())
                 binding.etPhone.setText(doc.getString("phone").orEmpty())
 
-                Log.d(TAG, "Firestore loaded: age=${doc.getString("age")}, address=${doc.getString("address")}, phone=${doc.getString("phone")}")
+                Log.d(TAG, "Firestore loaded: birthdate=${doc.getString("birthdate")}, address=${doc.getString("address")}, phone=${doc.getString("phone")}")
             }
             .addOnFailureListener { e ->
                 Log.e(TAG, "Firestore get failed", e)
@@ -122,6 +128,309 @@ class ProfileFormFragment : Fragment() {
         }
     }
 
+    private fun setupClick() {
+        Log.d(TAG, "setupClick: Men-setup click listener")
+
+        binding.btnEditSave.setOnClickListener {
+            if (!isEditing) {
+                // ✅ MASUK KE MODE EDIT
+                enterEditMode()
+            } else {
+                // ✅ MODE SIMPAN - VALIDASI DULU
+                if (validateInputs()) {
+                    saveProfileData()
+                }
+            }
+        }
+
+        binding.etBirthdate.setOnClickListener {
+            if (!isEditing) {
+                // ✅ JIKA TIDAK DALAM MODE EDIT, TAMPILKAN PESAN
+                Toast.makeText(requireContext(), "Tekan 'Edit Profil' untuk mengubah data", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            showDatePicker()
+        }
+
+        binding.btnBack.setOnClickListener {
+            if (isEditing) {
+                // ✅ JIKA SEDANG EDIT, TANYA KONFIRMASI BATAL
+                showCancelConfirmationDialog()
+            } else {
+                findNavController().navigateUp()
+            }
+        }
+
+        binding.avatarClickCover.setOnClickListener {
+            if (!isEditing) {
+                Toast.makeText(requireContext(), "Tekan 'Edit Profil' untuk mengubah foto", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            Log.d(TAG, "ivProfile clicked, membuka galeri")
+            pickImageFromGallery()
+        }
+    }
+
+    // ✅ MASUK KE MODE EDIT
+    private fun enterEditMode() {
+        Log.d(TAG, "btnEditSave: masuk mode edit")
+        isEditing = true
+        setEditable(true)
+        binding.btnEditSave.text = "Simpan Perubahan"
+        binding.btnEditSave.isEnabled = true
+
+        // ✅ TAMPILKAN INDIKATOR SEDANG EDIT
+        showEditModeIndicator(true)
+    }
+
+    // ✅ KELUAR DARI MODE EDIT (SETELAH SIMPAN/BATAL)
+    private fun exitEditMode() {
+        Log.d(TAG, "Keluar dari mode edit")
+        isEditing = false
+        setEditable(false)
+        binding.btnEditSave.text = "Edit Profil"
+        binding.btnEditSave.isEnabled = true
+
+        // ✅ SEMBUNYIKAN INDIKATOR EDIT
+        showEditModeIndicator(false)
+
+        // ✅ RESET SELECTED PHOTO JIKA ADA
+        selectedPhotoUri = null
+    }
+
+    // ✅ TAMPILKAN/SEMBUNYIKAN INDIKATOR MODE EDIT
+    private fun showEditModeIndicator(editing: Boolean) {
+        if (editing) {
+            binding.tvEditIndicator.visibility = View.VISIBLE
+            binding.tvEditIndicator.text = "Mode Edit - Isi data lalu tekan 'Simpan Perubahan'"
+        } else {
+            binding.tvEditIndicator.visibility = View.GONE
+        }
+    }
+
+    private fun setEditable(editable: Boolean) {
+        Log.d(TAG, "setEditable: $editable")
+        binding.etName.isEnabled = editable
+        binding.etBirthdate.isEnabled = editable
+        binding.etAddress.isEnabled = editable
+        binding.etPhone.isEnabled = editable
+
+        // ✅ VISUAL FEEDBACK - BEDA WARNA/TAMPILAN
+        val alpha = if (editable) 1.0f else 0.7f
+        binding.etName.alpha = alpha
+        binding.etBirthdate.alpha = alpha
+        binding.etAddress.alpha = alpha
+        binding.etPhone.alpha = alpha
+
+        if (editable) binding.etName.requestFocus()
+    }
+
+    // ✅ VALIDASI INPUT SEBELUM SIMPAN
+    private fun validateInputs(): Boolean {
+        val name = binding.etName.text.toString().trim()
+        val birthdate = binding.etBirthdate.text.toString().trim()
+        val address = binding.etAddress.text.toString().trim()
+        val phone = binding.etPhone.text.toString().trim()
+
+        if (name.isEmpty()) {
+            binding.etName.error = "Nama harus diisi"
+            binding.etName.requestFocus()
+            return false
+        }
+
+        if (birthdate.isEmpty()) {
+            binding.etBirthdate.error = "Tanggal lahir harus diisi"
+            binding.etBirthdate.requestFocus()
+            return false
+        }
+
+        if (address.isEmpty()) {
+            binding.etAddress.error = "Alamat harus diisi"
+            binding.etAddress.requestFocus()
+            return false
+        }
+
+        if (phone.isEmpty()) {
+            binding.etPhone.error = "Nomor telepon harus diisi"
+            binding.etPhone.requestFocus()
+            return false
+        }
+
+        // ✅ CLEAR ERRORS JIKA VALIDASI BERHASIL
+        binding.etName.error = null
+        binding.etBirthdate.error = null
+        binding.etAddress.error = null
+        binding.etPhone.error = null
+
+        return true
+    }
+
+    // ✅ DIALOG KONFIRMASI BATAL EDIT
+    private fun showCancelConfirmationDialog() {
+        AlertDialog.Builder(requireContext())
+            .setTitle("Batalkan Perubahan?")
+            .setMessage("Perubahan yang belum disimpan akan hilang.")
+            .setPositiveButton("Ya, Batalkan") { dialog, _ ->
+                dialog.dismiss()
+                // ✅ RELOAD DATA ASLI DAN KELUAR DARI EDIT MODE
+                setupUserData()
+                exitEditMode()
+                Toast.makeText(requireContext(), "Perubahan dibatalkan", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Lanjutkan Edit", null)
+            .show()
+    }
+
+    @Suppress("DEPRECATION")
+    private fun pickImageFromGallery() {
+        Log.d(TAG, "pickImageFromGallery: Memulai intent pick image")
+        val intent = Intent(Intent.ACTION_PICK)
+        intent.type = "image/*"
+        startActivityForResult(intent, PICK_IMAGE_REQUEST)
+    }
+
+    private fun showDatePicker() {
+        val calendar = Calendar.getInstance()
+        val year = calendar.get(Calendar.YEAR)
+        val month = calendar.get(Calendar.MONTH)
+        val day = calendar.get(Calendar.DAY_OF_MONTH)
+
+        DatePickerDialog(requireContext(), { _, y, m, d ->
+            val dateString = "%02d/%02d/%04d".format(d, m + 1, y)
+            binding.etBirthdate.setText(dateString)
+        }, year, month, day).show()
+    }
+
+    @Suppress("DEPRECATION")
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        Log.d(TAG, "onActivityResult: requestCode=$requestCode, resultCode=$resultCode")
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == PICK_IMAGE_REQUEST && resultCode == Activity.RESULT_OK) {
+            selectedPhotoUri = data?.data
+            selectedPhotoUri?.let {
+                Log.d(TAG, "onActivityResult: Image dipilih: $it")
+                Glide.with(this)
+                    .load(it)
+                    .error(R.drawable.ic_avatar_default)
+                    .circleCrop()
+                    .into(binding.ivProfile)
+            }
+        }
+    }
+
+    private fun saveProfileData() {
+        val user = firebaseUser ?: run {
+            Toast.makeText(context, "User tidak ditemukan", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // ✅ SET LOADING STATE
+        setLoadingState(true)
+
+        val newName = binding.etName.text.toString().trim()
+        val birthdate = binding.etBirthdate.text.toString().trim()
+        val address = binding.etAddress.text.toString().trim()
+        val phone = binding.etPhone.text.toString().trim()
+
+        if (selectedPhotoUri != null) {
+            // ✅ UPLOAD FOTO BARU JIKA ADA
+            lifecycleScope.launch {
+                try {
+                    val resp = uploadUriToCloudinaryUnsigned(
+                        uri = selectedPhotoUri!!,
+                        cloudName = BuildConfig.CLOUDINARY_CLOUD_NAME,
+                        uploadPreset = BuildConfig.CLOUDINARY_UNSIGNED_PRESET,
+                        folder = "profile_photos/${user.uid}"
+                    )
+
+                    val finalUrl = resp?.secure_url
+                    val publicId = resp?.public_id
+
+                    val profileUpdates = UserProfileChangeRequest.Builder()
+                        .setDisplayName(newName)
+                        .apply { if (finalUrl != null) setPhotoUri(Uri.parse(finalUrl)) }
+                        .build()
+
+                    user.updateProfile(profileUpdates).addOnSuccessListener {
+                        saveToFirestore(user.uid, newName, birthdate, address, phone, finalUrl, publicId)
+                    }.addOnFailureListener { e ->
+                        setLoadingState(false)
+                        Log.e(TAG, "Update profile failed", e)
+                        Toast.makeText(context, "Gagal update profil: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    setLoadingState(false)
+                    Log.e(TAG, "Upload foto gagal", e)
+                    Toast.makeText(context, "Gagal upload foto: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        } else {
+            // ✅ LANGSUNG UPDATE TANPA FOTO BARU
+            val profileUpdates = UserProfileChangeRequest.Builder()
+                .setDisplayName(newName)
+                .build()
+
+            user.updateProfile(profileUpdates).addOnSuccessListener {
+                saveToFirestore(user.uid, newName, birthdate, address, phone, null, null)
+            }.addOnFailureListener { e ->
+                setLoadingState(false)
+                Log.e(TAG, "Update profile failed", e)
+                Toast.makeText(context, "Gagal update profil: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    // ✅ FUNGSI SIMPAN KE FIRESTORE
+    private fun saveToFirestore(
+        userId: String,
+        name: String,
+        birthdate: String,
+        address: String,
+        phone: String,
+        photoUrl: String?,
+        publicId: String?
+    ) {
+        val userMap = mutableMapOf(
+            "name" to name,
+            "birthdate" to birthdate,
+            "address" to address,
+            "phone" to phone,
+            "updatedAt" to System.currentTimeMillis()
+        )
+
+        // ✅ TAMBAHKAN PHOTO URL JIKA ADA
+        photoUrl?.let { userMap["photoUrl"] = it }
+        publicId?.let { userMap["cloudinaryPublicId"] = it }
+
+        firestore.collection("users").document(userId)
+            .set(userMap, com.google.firebase.firestore.SetOptions.merge())
+            .addOnSuccessListener {
+                setLoadingState(false)
+                Toast.makeText(context, "Profil berhasil diperbarui", Toast.LENGTH_SHORT).show()
+
+                // ✅ KELUAR DARI MODE EDIT DAN RELOAD DATA
+                exitEditMode()
+                setupUserData() // Reload untuk menampilkan data terbaru
+            }
+            .addOnFailureListener { e ->
+                setLoadingState(false)
+                Log.e(TAG, "Save to Firestore failed", e)
+                Toast.makeText(context, "Gagal menyimpan data: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+    }
+
+    // ✅ SET LOADING STATE
+    private fun setLoadingState(loading: Boolean) {
+        binding.btnEditSave.isEnabled = !loading
+        binding.btnEditSave.text = if (loading) "Menyimpan..." else "Simpan Perubahan"
+        binding.btnBack.isEnabled = !loading
+
+        // ✅ TAMPILKAN/SEMBUNYIKAN PROGRESS BAR JIKA ADA
+        binding.progressBar.visibility = if (loading) View.VISIBLE else View.GONE
+    }
+
+    // ✅ UPLOAD KE CLOUDINARY (FUNGSI YANG SUDAH ADA)
     suspend fun uploadUriToCloudinaryUnsigned(
         uri: Uri,
         cloudName: String,
@@ -129,7 +438,6 @@ class ProfileFormFragment : Fragment() {
         folder: String
     ): CloudinaryUploadResp? = withContext(Dispatchers.IO) {
         try {
-            // Ambil mime type dari file
             val cr = requireContext().contentResolver
             val mime = cr.getType(uri) ?: "image/jpeg"
             val ext = MimeTypeMap.getSingleton().getExtensionFromMimeType(mime) ?: "jpg"
@@ -161,165 +469,6 @@ class ProfileFormFragment : Fragment() {
             null
         }
     }
-
-    private fun setupClick() {
-        Log.d(TAG, "setupClick: Men-setup click listener")
-        binding.btnEditSave.setOnClickListener {
-            if (!isEditing) {
-                // Masuk ke mode edit
-                Log.d(TAG, "btnEditSave: masuk mode edit")
-                isEditing = true
-                setEditable(true)
-                binding.btnEditSave.text = "Simpan"
-            } else {
-                // Mode simpan
-                Log.d(TAG, "btnEditSave: menyimpan perubahan")
-                saveProfileData()
-            }
-        }
-        binding.etBirthdate.setOnClickListener {
-            if (!isEditing) return@setOnClickListener   // locked → Abaikan
-            showDatePicker()
-        }
-        binding.btnBack.setOnClickListener {
-            Log.d(TAG, "btnBack clicked")
-            findNavController().navigateUp()
-        }
-        binding.avatarClickCover.setOnClickListener {
-            Log.d(TAG, "ivProfile clicked, membuka galeri")
-            pickImageFromGallery()
-        }
-    }
-
-    private fun setEditable(editable: Boolean) {
-        Log.d(TAG, "setEditable: $editable")
-        binding.etName.isEnabled = editable
-        binding.etBirthdate.isEnabled = editable
-        binding.etAddress.isEnabled = editable
-        binding.etPhone.isEnabled = editable
-        if (editable) binding.etName.requestFocus()
-    }
-
-
-    @Suppress("DEPRECATION")
-    private fun pickImageFromGallery() {
-        Log.d(TAG, "pickImageFromGallery: Memulai intent pick image")
-        val intent = Intent(Intent.ACTION_PICK)
-        intent.type = "image/*"
-        startActivityForResult(intent, PICK_IMAGE_REQUEST)
-    }
-
-    private fun showDatePicker() {
-        val calendar = Calendar.getInstance()
-        val year = calendar.get(Calendar.YEAR)
-        val month = calendar.get(Calendar.MONTH)
-        val day = calendar.get(Calendar.DAY_OF_MONTH)
-
-        DatePickerDialog(requireContext(), { _, y, m, d ->
-            val dateString = "%02d/%02d/%04d".format(d, m + 1, y)
-            binding.etBirthdate.setText(dateString)
-        }, year, month, day).show()
-    }
-
-
-    @Suppress("DEPRECATION")
-    @Deprecated("Deprecated in Java")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        Log.d(TAG, "onActivityResult: requestCode=$requestCode, resultCode=$resultCode")
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == PICK_IMAGE_REQUEST && resultCode == Activity.RESULT_OK) {
-            selectedPhotoUri = data?.data
-            selectedPhotoUri?.let {
-                Log.d(TAG, "onActivityResult: Image dipilih: $it")
-                Glide.with(this)
-                    .load(it)
-                    .error(R.drawable.ic_person)
-                    .circleCrop()
-                    .into(binding.ivProfile)
-            }
-        }
-    }
-
-    private fun saveProfileData() {
-        val user = firebaseUser ?: run {
-            Toast.makeText(context, "User tidak ditemukan", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val newName = binding.etName.text.toString().trim()
-        val birthdate = binding.etBirthdate.text.toString().trim()
-        val address = binding.etAddress.text.toString().trim()
-        val phone = binding.etPhone.text.toString().trim()
-
-        // tampilkan loading spinner di sini kalau ada
-
-        if (selectedPhotoUri != null) {
-            // kalau ada foto baru → upload dulu
-            lifecycleScope.launch {
-                try {
-                    val resp = uploadUriToCloudinaryUnsigned(
-                        uri = selectedPhotoUri!!,
-                        cloudName = BuildConfig.CLOUDINARY_CLOUD_NAME,
-                        uploadPreset = BuildConfig.CLOUDINARY_UNSIGNED_PRESET,
-                        folder = "profile_photos/${user.uid}"
-                    )
-
-                    val finalUrl = resp?.secure_url
-                    val publicId = resp?.public_id
-
-                    val profileUpdates = UserProfileChangeRequest.Builder()
-                        .setDisplayName(newName)
-                        .apply { if (finalUrl != null) photoUri = Uri.parse(finalUrl) }
-                        .build()
-
-                    user.updateProfile(profileUpdates).addOnSuccessListener {
-                        val userMap = mapOf(
-                            "name" to newName,
-                            "birthdate" to birthdate,
-                            "address" to address,
-                            "phone" to phone,
-                            "photoUrl" to (finalUrl ?: ""),
-                            "cloudinaryPublicId" to (publicId ?: ""),
-                            "updatedAt" to System.currentTimeMillis()
-                        )
-                        firestore.collection("users").document(user.uid)
-                            .set(userMap, com.google.firebase.firestore.SetOptions.merge())
-                            .addOnSuccessListener {
-                                Toast.makeText(context, "Profil berhasil diperbarui", Toast.LENGTH_SHORT).show()
-                                setEditable(false)
-                                setupUserData()
-                            }
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Upload foto gagal", e)
-                    Toast.makeText(context, "Gagal upload foto", Toast.LENGTH_SHORT).show()
-                }
-            }
-        } else {
-            // kalau hanya ubah data text → langsung update
-            val profileUpdates = UserProfileChangeRequest.Builder()
-                .setDisplayName(newName)
-                .build()
-
-            user.updateProfile(profileUpdates).addOnSuccessListener {
-                val userMap = mapOf(
-                    "name" to newName,
-                    "birthdate" to birthdate,
-                    "address" to address,
-                    "phone" to phone,
-                    "updatedAt" to System.currentTimeMillis()
-                )
-                firestore.collection("users").document(user.uid)
-                    .set(userMap, com.google.firebase.firestore.SetOptions.merge())
-                    .addOnSuccessListener {
-                        Toast.makeText(context, "Profil berhasil diperbarui", Toast.LENGTH_SHORT).show()
-                        setEditable(false)
-                        setupUserData()
-                    }
-            }
-        }
-    }
-
 
     override fun onDestroyView() {
         super.onDestroyView()

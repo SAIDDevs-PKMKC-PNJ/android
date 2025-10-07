@@ -395,6 +395,7 @@ class LoginActivity : AppCompatActivity() {
 
                                 SessionManager.saveFullProfile(
                                     context = this@LoginActivity,
+                                    uid = user.uid,
                                     name = name,
                                     email = user.email,
                                     photoUrl = finalUrl,
@@ -411,6 +412,7 @@ class LoginActivity : AppCompatActivity() {
                                 // Fallback pakai data lama + google url bila ada
                                 SessionManager.saveFullProfile(
                                     context = this@LoginActivity,
+                                    uid = user.uid,
                                     name = name,
                                     email = user.email,
                                     photoUrl = googlePhotoUrl,
@@ -427,6 +429,7 @@ class LoginActivity : AppCompatActivity() {
                     // Sudah ada doc & (mungkin) sudah ada photo → lanjut seperti biasa
                     SessionManager.saveFullProfile(
                         context = this,
+                        uid = user.uid,
                         name = name,
                         email = user.email,
                         photoUrl = savedPhoto ?: googlePhotoUrl,
@@ -552,13 +555,13 @@ class LoginActivity : AppCompatActivity() {
     }
 
     // ✅ Generate Nonce for Security
-    private fun generateNonce(): String {
-        val rawNonce = UUID.randomUUID().toString()
-        val bytes = rawNonce.toByteArray()
-        val md = MessageDigest.getInstance("SHA-256")
-        val digest = md.digest(bytes)
-        return digest.fold("") { str, it -> str + "%02x".format(it) }
-    }
+//    private fun generateNonce(): String {
+//        val rawNonce = UUID.randomUUID().toString()
+//        val bytes = rawNonce.toByteArray()
+//        val md = MessageDigest.getInstance("SHA-256")
+//        val digest = md.digest(bytes)
+//        return digest.fold("") { str, it -> str + "%02x".format(it) }
+//    }
 
     // ✅ Redirect to Main Activity
     private fun redirectToMainActivity() {

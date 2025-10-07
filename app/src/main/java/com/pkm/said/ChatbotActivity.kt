@@ -25,6 +25,7 @@ import androidx.core.view.updatePadding
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.pkm.said.adapter.MessageAdapter
 import com.pkm.said.databinding.ActivityChatbotBinding
+import com.pkm.said.util.AuthManager
 import com.pkm.said.util.InputMode
 import kotlinx.coroutines.Job
 import java.util.Locale
@@ -34,9 +35,14 @@ class ChatbotActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "ChatbotActivity"
+        private const val EXTRA_INITIAL_MESSAGE = "extra_initial_message"
 
-        fun start(context: Context) {
-            val intent = Intent(context, ChatbotActivity::class.java)
+        fun start(context: Context, initialMessage: String? = null) {
+            val intent = Intent(context, ChatbotActivity::class.java).apply {
+                if (!initialMessage.isNullOrBlank()) {
+                    putExtra(EXTRA_INITIAL_MESSAGE, initialMessage)
+                }
+            }
             context.startActivity(intent)
         }
     }
@@ -90,6 +96,12 @@ class ChatbotActivity : AppCompatActivity() {
             Log.d(TAG, "✅ View Binding setup completed")
 
             setupViews()
+
+            val initial = intent.getStringExtra(EXTRA_INITIAL_MESSAGE)
+            if (!initial.isNullOrBlank()) {
+                sendMessage(initial, isUser = true)
+                simulateBotResponse(initial)
+            }
 
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error setting up activity", e)
@@ -475,6 +487,11 @@ class ChatbotActivity : AppCompatActivity() {
     }
 
     private fun dpToPx(dp: Int): Int = (dp * resources.displayMetrics.density).toInt()
+
+    override fun onResume() {
+        super.onResume()
+        if (!AuthManager.ensureUserLoggedIn(this)) return
+    }
 
     override fun onDestroy() {
         super.onDestroy()

@@ -8,23 +8,30 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.bumptech.glide.Glide
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthRecentLoginRequiredException
 import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.firestore.FirebaseFirestore
 import com.pkm.said.databinding.FragmentProfileBinding
 import com.pkm.said.databinding.ItemProfileMenuBinding
-import com.google.firebase.auth.EmailAuthProvider
-import com.google.firebase.auth.FirebaseAuthRecentLoginRequiredException
-// import com.google.firebase.storage.FirebaseStorage
-import androidx.appcompat.app.AlertDialog
-import android.widget.EditText
-import com.google.firebase.firestore.FirebaseFirestore
 import com.pkm.said.screening.ScreeningDataManager
+import com.pkm.said.service.VoiceActivationService
+import com.pkm.said.util.AuthManager
 import com.pkm.said.util.SessionManager
+import androidx.core.content.edit
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 
 class ProfileFragment : Fragment() {
 
@@ -65,10 +72,29 @@ class ProfileFragment : Fragment() {
         setupClickListeners()
     }
 
+    private fun setProfileLoading(isLoading: Boolean) {
+        try {
+            val contentGroup = binding.root.findViewById<ViewGroup>(R.id.container_card)
+            val progressBar = view?.findViewById<View>(R.id.profileOverlay)
+
+            if (isLoading) {
+                progressBar?.visibility = View.VISIBLE
+                contentGroup?.alpha = 0.4f
+                contentGroup?.isEnabled = false
+            } else {
+                progressBar?.visibility = View.GONE
+                contentGroup?.alpha = 1f
+                contentGroup?.isEnabled = true
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting loading state", e)
+        }
+    }
+
     private fun checkUserAuthentication() {
         if (currentUser == null) {
             Log.w(TAG, "User not authenticated, redirecting to login")
-            showError("Please login to access profile")
+            showError("Silakan login untuk mengakses profil")
             navigateToLoginScreen()
         } else {
             Log.d(TAG, "User authenticated: ${currentUser?.email}")
@@ -82,14 +108,15 @@ class ProfileFragment : Fragment() {
             val user = currentUser
 
             // Nama
-            binding.tvProfileName.text = user?.displayName ?: "User Tanpa Nama"
+            val cachedName = SessionManager.getUserName(requireContext())
+            if (cachedName != null) {
+                binding.tvProfileName.text = cachedName
+            }
 
-            // Tanggal daftar
-            val joinDate = user?.metadata?.creationTimestamp?.let {
-                java.text.SimpleDateFormat("dd MMMM yyyy", java.util.Locale("id"))
-                    .format(java.util.Date(it))
-            } ?: "-"
-            binding.tvJoinDate.text = joinDate
+            if (user == null) {
+                setProfileLoading(false)
+                return
+            }
 
             // Ambil foto dari Firestore dulu
             if (user != null) {
@@ -97,6 +124,8 @@ class ProfileFragment : Fragment() {
                     .addOnSuccessListener { doc ->
                         val dbPhotoUrl = doc.getString("photoUrl")
                         val finalUrl = if (!dbPhotoUrl.isNullOrBlank()) dbPhotoUrl else user.photoUrl?.toString()
+
+                        binding.tvProfileName.text = doc.getString("name") ?: user.displayName ?: "Pengguna"
 
                         if (!finalUrl.isNullOrBlank()) {
                             Glide.with(this)
@@ -110,6 +139,14 @@ class ProfileFragment : Fragment() {
                             binding.ivProfile.setImageResource(R.drawable.ic_avatar_default)
                             Log.d(TAG, "No photoUrl, using default icon")
                         }
+                        val joinDate = user.metadata?.creationTimestamp?.let {
+                            java.text.SimpleDateFormat("dd MMMM yyyy", java.util.Locale("id"))
+                                .format(java.util.Date(it))
+                        } ?: "-"
+                        binding.tvJoinDate.text = joinDate
+
+                        SessionManager.saveBasicFromFirebase(requireContext(), user)
+                        setProfileLoading(false)
                     }
                     .addOnFailureListener { e ->
                         Log.e(TAG, "❌ Firestore get failed", e)
@@ -122,23 +159,25 @@ class ProfileFragment : Fragment() {
                         } else {
                             binding.ivProfile.setImageResource(R.drawable.ic_avatar_default)
                         }
+                        setProfileLoading(false)
                     }
             } else {
                 binding.ivProfile.setImageResource(R.drawable.ic_avatar_default)
+                setProfileLoading(false)
             }
 
             // Menu
             setMenuItem(binding.menuInformasi, R.drawable.ic_user, "Informasi Pribadi")
             setMenuItem(binding.menuHistory, R.drawable.ic_location, "Riwayat Screening")
-            setMenuItem(binding.menuSettings, R.drawable.ic_setting, "Settings")
+            setMenuItem(binding.menuSettings, R.drawable.ic_setting, "Setting reminder")
             setMenuItem(binding.menuHapus, R.drawable.ic_delete, "Hapus Akun")
 
             Log.d(TAG, "✅ User data setup completed")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error setting up user data", e)
+            setProfileLoading(false)
         }
     }
-
 
     private fun setMenuItem(binding: ItemProfileMenuBinding, iconRes: Int, label: String) {
         try {
@@ -163,10 +202,11 @@ class ProfileFragment : Fragment() {
             }
             binding.menuSettings.root.setOnClickListener {
                 Log.d(TAG, "Menu: Settings clicked")
-                showToast("Fitur Settings belum tersedia")
+                val intent = Intent(requireContext(), NotificationSettingsActivity::class.java)
+                startActivity(intent)
             }
             binding.menuHapus.root.setOnClickListener {
-                Log.d(TAG, "Menu: Donasi clicked")
+                Log.d(TAG, "Menu: Hapus Akun clicked")
                 showDeleteAccountDialog()
             }
             binding.btnLogout.setOnClickListener {
@@ -196,7 +236,7 @@ class ProfileFragment : Fragment() {
                 .show()
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error showing logout dialog", e)
-            performFirebaseLogout()
+            showToast("Gagal menampilkan dialog logout")
         }
     }
 
@@ -205,47 +245,57 @@ class ProfileFragment : Fragment() {
         if (!isAdded) return
 
         binding.btnLogout.isEnabled = false
-        binding.btnLogout.text = getString(R.string.logging_out)
+        binding.btnLogout.text = "Logging out..."
 
-        try {
-            val userEmail = currentUser?.email
-            Log.d(TAG, "Logging out user: $userEmail")
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                stopVoiceActivationService()
 
-            firebaseAuth.signOut()
-            if (firebaseAuth.currentUser == null) {
-                Log.d(TAG, "✅ Firebase logout successful")
+                val userEmail = currentUser?.email
+                Log.d(TAG, "Logging out user: $userEmail")
 
-                // Rapikan data lokal
-                ScreeningDataManager.cancelSession(requireContext())
-                ScreeningDataManager.clearAll(requireContext())
-                clearAppData() // jika perlu & aman dipanggil di sini
+                FirebaseAuth.getInstance().signOut()
 
-                showToast(getString(R.string.logout_success))
-                navigateToLoginScreen() // gunakan CLEAR_TASK + NEW_TASK
-            } else {
-                Log.e(TAG, "❌ Firebase logout failed - user still authenticated")
-                throw IllegalStateException("Firebase logout failed")
+                if (FirebaseAuth.getInstance().currentUser == null) {
+                    Log.d(TAG, "✅ Firebase logout successful")
+
+                    withContext(Dispatchers.IO) {
+                        cleanupLocalData()
+                    }
+
+                    withContext(Dispatchers.Main) {
+                        showToast("Logout berhasil")
+                        navigateToLoginScreen()
+                    }
+
+                } else {
+                    Log.e(TAG, "❌ Firebase logout failed - user still authenticated")
+                    throw IllegalStateException("Firebase logout failed")
+                }
+
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Error during Firebase logout", e)
+                withContext(Dispatchers.Main) {
+                    if (isAdded) {
+                        binding.btnLogout.isEnabled = true
+                        binding.btnLogout.text = getString(R.string.logout)
+                        showError("Logout gagal: ${e.message ?: "Coba lagi"}")
+                    }
+                }
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error during Firebase logout", e)
-            if (!isAdded) return
-            showError(getString(R.string.logout_failed_try_again))
-            binding.btnLogout.isEnabled = true
-            binding.btnLogout.text = getString(R.string.logout)
         }
     }
 
-
-    private fun clearAppData() {
+    private fun cleanupLocalData() {
         try {
-            Log.d(TAG, "Clearing app-specific data...")
-            val editor = sharedPreferences.edit()
-            editor.apply()
-            val cacheDir = requireContext().cacheDir
-            cacheDir.deleteRecursively()
-            Log.d(TAG, "✅ App data cleared")
+            Log.d(TAG, "Cleaning local data...")
+            ScreeningDataManager.cancelSession(requireContext())
+            ScreeningDataManager.clearAll(requireContext())
+            SessionManager.clear(requireContext())
+            sharedPreferences.edit { clear() }
+            Log.d(TAG, "✅ Local data cleaned successfully")
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Error clearing app data", e)
+            Log.e(TAG, "❌ Error cleaning local data", e)
         }
     }
 
@@ -253,7 +303,7 @@ class ProfileFragment : Fragment() {
         val ctx = requireContext()
         AlertDialog.Builder(ctx)
             .setTitle("Hapus Akun")
-            .setMessage("Tindakan ini permanen. Semua data profil Anda akan dihapus. Lanjutkan?")
+            .setMessage("Tindakan ini PERMANEN. Semua data profil dan riwayat screening akan dihapus. Lanjutkan?")
             .setNegativeButton("Batal", null)
             .setPositiveButton("Hapus") { _, _ ->
                 deleteAccountWithBestEffort()
@@ -263,173 +313,242 @@ class ProfileFragment : Fragment() {
 
     private fun setDeletingUi(isDeleting: Boolean) {
         binding.menuHapus.root.isEnabled = !isDeleting
-    }
+        binding.menuHapus.root.alpha = if (isDeleting) 0.5f else 1.0f
 
+        if (isDeleting) {
+            binding.menuHapus.menuTitle.text = "Menghapus akun..."
+        } else {
+            binding.menuHapus.menuTitle.text = "Hapus Akun"
+        }
+    }
 
     private fun deleteAccountWithBestEffort() {
         val user = FirebaseAuth.getInstance().currentUser
         if (user == null) {
-            Toast.makeText(requireContext(), "Tidak ada user aktif.", Toast.LENGTH_SHORT).show()
+            showToast("Tidak ada user aktif.")
             return
         }
 
         setDeletingUi(true)
 
-        // 1) Hapus data Firestore user doc (dan optional foto di Storage)
-        val uid = user.uid
-        val users = FirebaseFirestore.getInstance().collection("users").document(uid)
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val uid = user.uid
 
-        users.get()
-            .addOnSuccessListener { doc ->
-//                val photoUrl = doc.getString("photoUrl")
-                // (Opsional) Hapus foto dari Firebase Storage jika url mengarah ke Storage
-//                maybeDeleteStoragePhoto(photoUrl) {
-                    // Lanjut hapus dokumen user
-                users.delete()
-                    .addOnSuccessListener {
-                        // lalu lanjut hapus akun Auth
-                        deleteAuthAccount()
+                // ✅ 1. Pastikan credentials valid untuk Firestore operations
+                if (isAuthTokenExpired(user)) {
+                    Log.w(TAG, "⚠️ Auth token expired, requesting reauth")
+                    withContext(Dispatchers.Main) {
+                        setDeletingUi(false)
+                        showReauthDialog()
                     }
-                    .addOnFailureListener { e ->
-                        // Tetap coba hapus akun Auth walau doc gagal (best effort)
-                        Log.w(TAG, "Gagal hapus Firestore doc: ${e.message}")
-                        deleteAuthAccount()
-                    }
-//                }
-            }
-            .addOnFailureListener { e ->
-                Log.w(TAG, "Gagal ambil Firestore doc: ${e.message}")
-                // Tetap lanjut hapus akun Auth
-                deleteAuthAccount()
-            }
-    }
+                    return@launch
+                }
 
-    /**
-     * Hapus akun dari Firebase Auth. Jika butuh reauth, munculkan dialog reauth.
-     */
-    private fun deleteAuthAccount() {
-        val auth = FirebaseAuth.getInstance()
-        val user = auth.currentUser ?: run {
-            setDeletingUi(false)
-            Toast.makeText(requireContext(), "User sudah keluar.", Toast.LENGTH_SHORT).show()
-            return
-        }
+                // ✅ 2. Hapus Firestore data SELAGAM MASIH TERAUTHENTIKASI
+                deleteFirestoreData(uid)
 
-        user.delete()
-            .addOnSuccessListener {
-                onAccountDeletedSuccess()
-            }
-            .addOnFailureListener { e ->
-                if (e is FirebaseAuthRecentLoginRequiredException) {
-                    // Perlu re-authentication
-                    showReauthDialog()
-                } else {
+                // ✅ 3. Baru hapus auth account (akhir session)
+                user.delete().await()
+                Log.d(TAG, "✅ Firebase Auth account deleted successfully")
+
+                // ✅ 4. Cleanup local data (tidak butuh auth)
+                withContext(Dispatchers.Main) {
+                    onAccountDeletedSuccess()
+                }
+
+            } catch (e: FirebaseAuthRecentLoginRequiredException) {
+                Log.w(TAG, "⚠️ Reauthentication required during process")
+                withContext(Dispatchers.Main) {
                     setDeletingUi(false)
-                    Toast.makeText(requireContext(), "Gagal hapus akun: ${e.message}", Toast.LENGTH_LONG).show()
+                    showReauthDialog()
+                }
+                return@launch
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Account deletion failed: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    setDeletingUi(false)
+                    showError("Gagal menghapus akun: ${e.message ?: "Coba lagi nanti"}")
                 }
             }
+        }
     }
 
-    private fun onAccountDeletedSuccess() {
-        // Bersihkan session lokal bila ada
+    private fun isAuthTokenExpired(user: FirebaseUser): Boolean {
+        return try {
+            // Cek last sign-in time (lebih reliable daripada force refresh)
+            val lastSignIn = user.metadata?.lastSignInTimestamp ?: 0
+            val currentTime = System.currentTimeMillis()
+            val hoursSinceLastSignIn = (currentTime - lastSignIn) / (1000 * 60 * 60)
+
+            // Jika lebih dari 1 jam, mungkin butuh reauth
+            hoursSinceLastSignIn > 1
+        } catch (e: Exception) {
+            Log.w(TAG, "Error checking auth token: ${e.message}")
+            true // Safe default: assume need reauth
+        }
+    }
+
+    private suspend fun deleteFirestoreData(uid: String) {
+        val db = FirebaseFirestore.getInstance()
+
         try {
-            SessionManager.clear(this.requireContext())
-        } catch (_: Exception) { }
+            Log.d(TAG, "🗑️ Starting Firestore cleanup for user: $uid")
 
-        // Pastikan signOut
-        FirebaseAuth.getInstance().signOut()
+            // 1. Hapus semua screenings dulu
+            val screenings = db.collection("users").document(uid)
+                .collection("screenings").get().await()
 
-        Toast.makeText(requireContext(), "Akun berhasil dihapus.", Toast.LENGTH_LONG).show()
+            Log.d(TAG, "📊 Found ${screenings.documents.size} screenings to delete")
 
-        // Arahkan ke OpeningActivity / Login
-        startActivity(
-            Intent(requireContext(), OpeningActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
-        )
-        requireActivity().finish()
+            screenings.documents.forEachIndexed { index, doc ->
+                try {
+                    doc.reference.delete().await()
+                    Log.d(TAG, "✅ Screening ${index + 1}/${screenings.size()} deleted: ${doc.id}")
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ Failed to delete screening ${doc.id}: ${e.message}")
+                    // Continue dengan screening lainnya meski ada yang gagal
+                }
+            }
+
+            // 2. Hapus user document
+            try {
+                db.collection("users").document(uid).delete().await()
+                Log.d(TAG, "✅ User document deleted successfully")
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Failed to delete user document: ${e.message}")
+                throw e // Re-throw karena ini critical
+            }
+
+            Log.d(TAG, "🎉 Firestore cleanup completed successfully")
+
+        } catch (e: Exception) {
+            Log.e(TAG, "⚠️ Firestore cleanup failed: ${e.message}", e)
+            throw e // Re-throw untuk handling di caller
+        }
     }
 
-    /**
-     * Reauth untuk email/password. Untuk Google/SSO, ganti dengan dapatkan credential Google lalu panggil user.reauthenticate(credential).
-     */
     private fun showReauthDialog() {
         val user = FirebaseAuth.getInstance().currentUser
         val email = user?.email ?: ""
 
-        val view = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_reauth_password, null)
+        val view = LayoutInflater.from(requireContext())
+            .inflate(R.layout.dialog_reauth_password, null)
         val etEmail = view.findViewById<EditText>(R.id.etEmail)
         val etPassword = view.findViewById<EditText>(R.id.etPassword)
 
         etEmail.setText(email)
+        etEmail.isEnabled = false
 
         AlertDialog.Builder(requireContext())
             .setTitle("Verifikasi Ulang")
-            .setMessage("Masukkan email & password untuk melanjutkan penghapusan akun.")
+            .setMessage("Masukkan password untuk konfirmasi penghapusan akun.")
             .setView(view)
-            .setNegativeButton("Batal", null)
-            .setPositiveButton("Lanjut") { _, _ ->
-                val emailTxt = etEmail.text.toString().trim()
-                val passTxt  = etPassword.text.toString().trim()
-                reauthenticateAndDeleteEmailPassword(emailTxt, passTxt)
+            .setNegativeButton("Batal") { dialog, _ ->
+                dialog.dismiss()
+                setDeletingUi(false)
+            }
+            .setPositiveButton("Konfirmasi Hapus") { _, _ ->
+                val password = etPassword.text.toString().trim()
+                if (password.isEmpty()) {
+                    showError("Password harus diisi")
+                    return@setPositiveButton
+                }
+                reauthenticateAndDelete(email, password)
+            }
+            .setOnCancelListener {
+                setDeletingUi(false)
             }
             .show()
     }
 
-    private fun reauthenticateAndDeleteEmailPassword(email: String, password: String) {
+    private fun reauthenticateAndDelete(email: String, password: String) {
         val user = FirebaseAuth.getInstance().currentUser ?: return
-        val cred = EmailAuthProvider.getCredential(email, password)
 
         setDeletingUi(true)
 
-        user.reauthenticate(cred)
+        user.reauthenticate(EmailAuthProvider.getCredential(email, password))
             .addOnSuccessListener {
-                // Sudah reauth → ulangi hapus
-                deleteAuthAccount()
+                Log.d(TAG, "✅ Reauthentication successful")
+
+                // ✅ LANGSUNG hapus data setelah reauth, jangan kembali ke awal
+                viewLifecycleOwner.lifecycleScope.launch {
+                    try {
+                        val uid = user.uid
+
+                        // 1. Hapus Firestore data DENGAN CREDENTIALS YANG SEGAR
+                        deleteFirestoreData(uid)
+
+                        // 2. Baru hapus auth account
+                        user.delete().await()
+                        Log.d(TAG, "✅ Firebase Auth account deleted successfully")
+
+                        // 3. Cleanup
+                        withContext(Dispatchers.Main) {
+                            onAccountDeletedSuccess()
+                        }
+
+                    } catch (e: Exception) {
+                        Log.e(TAG, "❌ Post-reauth deletion failed: ${e.message}")
+                        withContext(Dispatchers.Main) {
+                            setDeletingUi(false)
+                            showError("Gagal menghapus data: ${e.message ?: "Coba lagi"}")
+                        }
+                    }
+                }
             }
             .addOnFailureListener { e ->
+                Log.e(TAG, "❌ Reauthentication failed: ${e.message}")
                 setDeletingUi(false)
-                Toast.makeText(requireContext(), "Reauth gagal: ${e.message}", Toast.LENGTH_LONG).show()
+                showError("Password salah atau verifikasi gagal")
             }
     }
 
-    /**
-     * (Opsional) Hapus foto profil dari Firebase Storage bila URL berasal dari Storage.
-     * Jika bukan Storage URL, langsung lanjutkan completion().
-     */
-//    private fun maybeDeleteStoragePhoto(photoUrl: String?, completion: () -> Unit) {
-//        if (photoUrl.isNullOrBlank()) {
-//            completion(); return
-//        }
-//        // Hanya tangani jika ini URL storage Firebase
-//        val isStorageUrl = photoUrl.startsWith("gs://") || photoUrl.contains("firebasestorage.googleapis.com")
-//        if (!isStorageUrl) {
-//            completion(); return
-//        }
-//
-//        try {
-//            val ref = FirebaseStorage.getInstance().getReferenceFromUrl(photoUrl)
-//            ref.delete()
-//                .addOnCompleteListener {
-//                    // apa pun hasilnya, lanjut
-//                    completion()
-//                }
-//        } catch (e: Exception) {
-//            Log.w(TAG, "Gagal parse Storage URL: ${e.message}")
-//            completion()
-//        }
-//    }
+    private fun onAccountDeletedSuccess() {
+        Log.d(TAG, "🎉 Account deletion completed successfully")
+
+        cleanupLocalData()
+        stopVoiceActivationService()
+        FirebaseAuth.getInstance().signOut()
+
+        showToast("Akun berhasil dihapus")
+        navigateToLoginScreen()
+    }
+
+    private fun stopVoiceActivationService() {
+        try {
+            Log.d(TAG, "Stopping Voice Activation Service...")
+            val stopIntent = Intent(requireContext(), VoiceActivationService::class.java).apply {
+                action = VoiceActivationService.ACTION_STOP
+            }
+            requireContext().stopService(stopIntent)
+            Log.d(TAG, "✅ Voice Activation Service stop requested")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error stopping Voice Activation Service", e)
+        }
+    }
 
     private fun navigateToLoginScreen() {
         try {
             Log.d(TAG, "Navigating to login screen...")
-            val intent = Intent(requireContext(), LoginActivity::class.java)
-            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            val intent = Intent(requireContext(), LoginActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+            }
             startActivity(intent)
             requireActivity().finish()
             Log.d(TAG, "✅ Navigation to LoginActivity completed")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error navigating to login", e)
-            showToast("Logout successful. Please restart the app.")
+            try {
+                val restartIntent = Intent(requireContext(), MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP
+                }
+                startActivity(restartIntent)
+                requireActivity().finish()
+            } catch (e2: Exception) {
+                Log.e(TAG, "❌ Even fallback navigation failed", e2)
+                showToast("Logout berhasil. Silakan restart aplikasi.")
+            }
         }
     }
 
@@ -460,5 +579,10 @@ class ProfileFragment : Fragment() {
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error in cleanup", e)
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (!AuthManager.ensureUserLoggedIn(requireActivity())) return
     }
 }

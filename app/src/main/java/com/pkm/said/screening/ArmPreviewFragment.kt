@@ -42,27 +42,6 @@ class ArmPreviewFragment : Fragment() {
 //        }
 //    }
 
-//    private fun setupViews() {
-//        // Setup lottie animation untuk arms test
-//        binding.lottiePreview.apply {
-//            try {
-//                setAnimation("arms_test_preview.json")
-//                repeatCount = com.airbnb.lottie.LottieDrawable.INFINITE
-//                playAnimation()
-//            } catch (e: Exception) {
-//                // Jika animasi tidak ada, sembunyikan lottie
-//                visibility = View.GONE
-//            }
-//        }
-//
-//        // Content sudah di-set di layout XML, tapi bisa di-customize lagi jika perlu
-//        // Test number: "2 / 4"
-//        // FAST Letter: "A"
-//        // Test Title: "Arms Test"
-//        // Test Subtitle: "Tes Kekuatan Lengan"
-//        // Instructions: sudah lengkap di XML
-//    }
-
     private fun setupClickListeners() {
         binding.btnStartTest.setOnClickListener {
             // Navigate to actual arms test

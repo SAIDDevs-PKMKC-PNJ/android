@@ -1,5 +1,6 @@
 package com.pkm.said
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -9,9 +10,11 @@ import android.view.ViewGroup
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
 import android.graphics.Rect
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
-import androidx.navigation.fragment.findNavController
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.PagerSnapHelper
@@ -22,8 +25,11 @@ import com.pkm.said.adapter.NewsAdapter
 import com.pkm.said.screening.RiskLevel
 import com.pkm.said.screening.ScreeningActivity
 import com.pkm.said.screening.ScreeningDataManager
+import com.pkm.said.screening.ScreeningRepository
+import com.pkm.said.screening.completedAtFormatted
 import com.pkm.said.util.SessionManager
 import com.pkm.said.service.NewsRetrofit
+import kotlinx.coroutines.launch
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -97,14 +103,38 @@ class DashboardFragment : Fragment() {
         }
 
         binding.ivAvatar.setOnClickListener {
-            findNavController().navigate(R.id.action_dashboard_to_profile)
+            (requireActivity() as? MainActivity)?.selectBottomTab(R.id.navigation_history)
         }
         binding.tvWelcome.text = getString(R.string.welcome_text, finalName)
     }
 
     private fun setupSearch() {
-        binding.ivSearch.setOnClickListener {
-            startActivity(Intent(requireContext(), ChatbotActivity::class.java))
+        val et = binding.etSearch
+        val iv = binding.ivSearch
+
+        fun hideKeyboard() {
+            val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.hideSoftInputFromWindow(et.windowToken, 0)
+        }
+
+        fun go(raw: String) {
+            val q = raw.trim()
+            if (q.isEmpty()) {
+                et.error = getString(R.string.dashboard_search_bar_hint)
+                et.requestFocus()
+                return
+            }
+            hideKeyboard()
+            ChatbotActivity.start(requireContext(), initialMessage = q)
+        }
+
+        iv.setOnClickListener { go(et.text?.toString().orEmpty()) }
+
+        et.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                go(et.text?.toString().orEmpty())
+                true
+            } else false
         }
     }
 
@@ -114,59 +144,76 @@ class DashboardFragment : Fragment() {
         binding.groupEmptyState.isVisible = false
         binding.groupPendingState.isVisible = false
 
-        val active = ScreeningDataManager.getCurrentSession(requireContext())
-        val last   = ScreeningDataManager.getLastCompletedSession(requireContext())
+        // Jalankan fetch remote + fallback lokal
+        viewLifecycleOwner.lifecycleScope.launch {
+            // ✅ PERBAIKAN: Gunakan approach local-first yang sederhana
+            val activeLocal = ScreeningDataManager.getCurrentSession(requireContext())
+            val lastLocal = ScreeningDataManager.getLastCompletedSession(requireContext())
 
-        when {
-            // C. Ada sesi aktif yang belum selesai
-            active != null && !active.isCompleted -> {
-                val pending = ScreeningDataManager.getPendingTests(requireContext())
-                binding.groupPendingState.isVisible = true
-                binding.tvPendingSubtitle.text =
-                    if (pending.isEmpty()) "Menunggu finalisasi."
-                    else "Tes belum selesai: ${pending.joinToString { humanizeTestKey(it) }}"
+            // ✅ Ambil data remote sebagai backup
+            val lastRemote = try {
+                ScreeningRepository.getLastCompletedRemote()
+            } catch (e: Exception) {
+                null // Jika gagal, pakai data lokal
+            }
 
-                binding.btnContinueScreening.setOnClickListener {
-                    // Arahkan ke tes pertama yang pending (fallback ke Face)
-                    val first = pending.firstOrNull() ?: "face_test"
-                    navigateToPending(first)
+            // ✅ Tentukan mana yang ditampilkan
+            val active = activeLocal
+            val last = lastRemote ?: lastLocal
+
+            when {
+                // C. Ada sesi aktif yang belum selesai
+                active != null && !active.isCompleted -> {
+                    val pending = ScreeningDataManager.getPendingTests(requireContext())
+                    binding.groupPendingState.isVisible = true
+                    binding.tvPendingSubtitle.text =
+                        if (pending.isEmpty()) "Menunggu finalisasi."
+                        else "Tes belum selesai: ${pending.joinToString { humanizeTestKey(it) }}"
+
+                    // ✅ ONCLICK LISTENER TETAP SAMA
+                    binding.btnContinueScreening.setOnClickListener {
+                        val first = pending.firstOrNull() ?: "face_test"
+                        navigateToPending(first)
+                    }
+                    binding.btnCancelScreening.setOnClickListener {
+                        ScreeningDataManager.cancelSession(requireContext())
+                        setupScreeningCard() // refresh UI
+                    }
                 }
-                binding.btnCancelScreening.setOnClickListener {
-                    ScreeningDataManager.cancelSession(requireContext())
-                    setupScreeningCard() // refresh UI
+
+                // A. Ada hasil final terakhir
+                last != null -> {
+                    binding.groupScoreContent.isVisible = true
+                    val percent = ScreeningDataManager.calculateBEFASTOverallPercent(last)
+                    binding.tvScoreValue.text = "$percent%"
+                    binding.tvScoreStatus.text = ScreeningDataManager.getRiskLabel(last)
+                    applyRiskColor(last.overallRisk)
+
+                    val whenStr = last.completedAtFormatted().let { if (it == "-") last.timestamp else it }
+                    binding.tvScoreTimestamp.text = whenStr
+                    binding.tvScoreTimestamp.isVisible = true
+                }
+
+                // B. Tidak ada riwayat sama sekali
+                else -> {
+                    binding.groupEmptyState.isVisible = true
+                    // ✅ ONCLICK LISTENER TETAP SAMA
+                    binding.btnStartScreening.setOnClickListener {
+                        ScreeningActivity.start(requireContext(), userId = null)
+                    }
                 }
             }
 
-            // A. Ada hasil final terakhir
-            last != null -> {
-                binding.groupScoreContent.isVisible = true
-                val percent = ScreeningDataManager.calculateFASTOverallPercent(last)
-                binding.tvScoreValue.text = "$percent%"
-                binding.tvScoreStatus.text = ScreeningDataManager.getRiskLabel(last)
-                applyRiskColor(last.overallRisk)
-
-                binding.tvScoreTimestamp.text = last.completedAt ?: last.timestamp
-                binding.tvScoreTimestamp.isVisible = true
+            // ✅ ONCLICK LISTENER TETAP SAMA
+            binding.chipRestart.setOnClickListener {
+                ScreeningActivity.start(requireContext(), userId = null)
             }
-
-            // B. Tidak ada riwayat sama sekali
-            else -> {
-                binding.groupEmptyState.isVisible = true
-                binding.btnStartScreening.setOnClickListener {
-                    // Mulai flow screening
-                    ScreeningActivity.start(requireContext(), userId = null)
-                }
+            binding.tvHistoryLink.setOnClickListener {
+                (requireActivity() as? MainActivity)?.selectBottomTab(R.id.navigation_profile)
             }
-        }
-
-        // Aksi tambahan (opsional)
-        binding.chipRestart.setOnClickListener {
-            ScreeningActivity.start(requireContext(), userId = null)
-        }
-        binding.tvHistoryLink.setOnClickListener {
-            findNavController().navigate(R.id.action_dashboard_to_history)
         }
     }
+
 
     // Helper: sama seperti di fragment result-mu
     private fun humanizeTestKey(key: String): String = when (key.lowercase()) {
@@ -220,7 +267,7 @@ class DashboardFragment : Fragment() {
                 title = getString(R.string.feature_screening)
             ),
             FeatureItem(
-                id = "edukasi",
+                id = "berita",
                 iconRes = R.drawable.ic_news,
                 title = getString(R.string.feature_edukasi)
             ),
@@ -232,12 +279,12 @@ class DashboardFragment : Fragment() {
                     startActivity(Intent(requireContext(), ChatbotActivity::class.java))
                 }
                 "darurat" -> {
-                    // TODO: Arahkan ke halaman Darurat
+                    startActivity(Intent(requireContext(), EmergencyActivity::class.java))
                 }
                 "skrining" -> {
-                    startActivity(Intent(requireContext(), HomeActivity::class.java))
+                    startActivity(Intent(requireContext(), ScreeningManagementActivity::class.java))
                 }
-                "edukasi" -> {
+                "berita" -> {
                     startActivity(Intent(requireContext(), NewsActivity::class.java))
                 }
             }
@@ -320,12 +367,9 @@ class DashboardFragment : Fragment() {
     }
 
     private fun openDetail(item: ArticleItem) {
-        val intent = Intent(requireContext(), ArticleContentActivity::class.java).apply {
-            putExtra("article", item) // ArticleItem sudah @Parcelize
-        }
-        startActivity(intent)
+        // Pakai helper bawaan activity biar selalu kirim JSON + fallback
+        ArticleContentActivity.start(requireContext(), item)
     }
-
 
     override fun onDestroyView() {
         super.onDestroyView()

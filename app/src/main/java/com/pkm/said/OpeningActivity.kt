@@ -1,5 +1,6 @@
 package com.pkm.said
 
+import android.content.Context
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import android.content.Intent
@@ -7,6 +8,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
+import com.pkm.said.util.SessionManager
 
 class OpeningActivity : AppCompatActivity() {
     private val delay: Long = 2000
@@ -20,16 +22,29 @@ class OpeningActivity : AppCompatActivity() {
             val currentUser = FirebaseAuth.getInstance().currentUser
             Log.d(tag, "👤 Checking Firebase login status")
 
+            // Cek jika voice service sudah jalan (untuk debugging)
+            val isServiceRunning = isVoiceServiceRunning()
+            Log.d(tag, "🎤 Voice service status: ${if (isServiceRunning) "RUNNING" else "STOPPED"}")
+
             if (currentUser != null) {
-                // User sudah login, langsung ke MainActivity
                 Log.d(tag, "✅ User is already logged in: ${currentUser.email}")
+                if (!SessionManager.isLoggedIn(this)) {
+                    SessionManager.saveBasicFromFirebase(this, currentUser)
+                }
                 startActivity(Intent(this, MainActivity::class.java))
             } else {
-                // User belum login, langsung ke intro
                 Log.d(tag, "✅ User non logged in, navigating to intro")
+                SessionManager.clear(this)
                 startActivity(Intent(this, IntroActivity::class.java))
             }
             finish()
         }, delay)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun isVoiceServiceRunning(): Boolean {
+        val manager = getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager
+        return manager.getRunningServices(Integer.MAX_VALUE)
+            .any { it.service.className == "com.pkm.said.service.VoiceActivationService" }
     }
 }
