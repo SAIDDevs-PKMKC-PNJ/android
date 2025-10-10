@@ -68,7 +68,6 @@
                     android:orientation="vertical">
 
                     <TextView
-                        style="@style/TextAppearance.Material3.TitleLarge"
                         android:id="@+id/tvRiskTitle"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -78,13 +77,13 @@
                         android:textStyle="bold"/>
 
                     <TextView
-                        style="@style/TextAppearance.Material3.BodyLarge"
                         android:id="@+id/tvBeFastCount"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="FAST: 3/3"
                         android:textColor="@color/white"
-                        android:textSize="12sp"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
                         android:layout_marginTop="6dp"/>
                 </LinearLayout>
 
@@ -211,6 +210,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Detail:"
+                        android:textSize="14sp"
                         android:textColor="@color/black"
                         android:textStyle="bold"
                         android:layout_marginTop="18dp"
@@ -248,10 +248,9 @@
                                 android:layout_height="wrap_content"
                                 android:text="Status Tes"
                                 android:textColor="@color/white"
-                                android:textSize="11sp"/>
+                                android:textSize="12sp"/>
 
                             <TextView
-                                style="@style/TextAppearance.Material3.TitleLarge"
                                 android:id="@+id/tvStatusValue"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
@@ -273,10 +272,9 @@
                                 android:layout_height="wrap_content"
                                 android:text="Tingkat Risiko"
                                 android:textColor="@color/white"
-                                android:textSize="11sp"/>
+                                android:textSize="12sp"/>
 
                             <TextView
-                                style="@style/TextAppearance.Material3.TitleLarge"
                                 android:id="@+id/tvRiskProbability"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
@@ -328,6 +326,10 @@
                             android:textStyle="bold"
                             android:insetTop="0dp"
                             android:insetBottom="0dp"
+                            app:icon="@drawable/ic_share"
+                            app:iconPadding="8dp"
+                            app:iconGravity="textStart"
+                            app:iconTint="@color/black"
                             app:backgroundTint="@color/white"/>
                     </LinearLayout>
                 </LinearLayout>

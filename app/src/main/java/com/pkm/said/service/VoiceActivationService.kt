@@ -34,6 +34,7 @@ class VoiceActivationService : Service() {
     private var textToSpeech: TextToSpeech? = null
     private var isTtsReady = false
     private var isServiceRunning = false
+    private var isInitialized = false
 
     private var emergencyResponseTimer: CountDownTimer? = null
     private var isWaitingForEmergencyResponse = false
@@ -68,12 +69,13 @@ class VoiceActivationService : Service() {
     private fun initializeTTS() {
         textToSpeech = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                val result = textToSpeech?.setLanguage(Locale.getDefault())
+                var result = textToSpeech?.setLanguage(Locale.US)
 
                 if (result == TextToSpeech.LANG_MISSING_DATA ||
                     result == TextToSpeech.LANG_NOT_SUPPORTED
                 ) {
                     Log.e(TAG, "TTS Language not supported")
+                    result = textToSpeech?.setLanguage(Locale.getDefault())
                 } else {
                     isTtsReady = true
                     Log.d(TAG, "TTS initialized successfully")
@@ -127,22 +129,65 @@ class VoiceActivationService : Service() {
     }
 
     private fun initializePicovoice() {
-        picovoiceManager = PicovoiceManager(
-            context = this,
-            onIntentDetected = { inference ->
-                handleIntentDetection(inference)
+        Log.d(TAG, "🔧 Starting Picovoice initialization...")
+
+        try {
+            picovoiceManager = PicovoiceManager(
+                context = this,
+                onIntentDetected = { inference ->
+                    Log.d(TAG, "🎯 Intent detected: ${inference.intent}")
+                    // Handle intent
+                },
+                onListeningStatusChange = { isListening ->
+                    Log.d(TAG, "👂 Listening status: $isListening")
+                    broadcastListeningState(isListening)
+                }
+            )
+
+            // Debug initialization step by step
+            val success = picovoiceManager?.initPicovoice() ?: false
+
+            if (success) {
+                Log.d(TAG, "✅ Picovoice initialized successfully")
+                isInitialized = true
+                startListening()
+            } else {
+                Log.e(TAG, "❌ Picovoice initialization failed")
+                isInitialized = false
             }
-        )
 
-        val success = picovoiceManager.initPicovoice()
-        if (!success) {
-            Log.e(TAG, "Failed to initialize Picovoice")
-            stopSelf()
-            return
+        } catch (e: Exception) {
+            Log.e(TAG, "💥 Critical error during Picovoice initialization", e)
+            isInitialized = false
         }
-
-        Log.d(TAG, "Picovoice initialized successfully")
     }
+
+    private fun startListening() {
+        if (isInitialized) {
+            Log.d(TAG, "🎤 Starting wake word detection...")
+            picovoiceManager?.start()
+            broadcastServiceState("RUNNING")
+        } else {
+            Log.e(TAG, "❌ Cannot start listening - Picovoice not initialized")
+            broadcastServiceState("STOPPED")
+        }
+    }
+
+    private fun broadcastServiceState(state: String) {
+        val intent = Intent("VOICE_SERVICE_STATE").apply {
+            putExtra("state", state)
+            putExtra("is_initialized", isInitialized)
+        }
+        sendBroadcast(intent)
+    }
+
+    private fun broadcastListeningState(isListening: Boolean) {
+        val intent = Intent("VOICE_LISTENING_STATE").apply {
+            putExtra("is_listening", isListening)
+        }
+        sendBroadcast(intent)
+    }
+
 
     private fun startVoiceService() {
         if (isServiceRunning) {
@@ -245,6 +290,26 @@ class VoiceActivationService : Service() {
 
         // Show action notification
         showActionNotification("Executed: ${inference.intent}")
+
+        Handler(Looper.getMainLooper()).postDelayed({
+            try {
+                // Kita asumsikan PicovoiceManager.start() me-restart engine ke mode wake word
+                picovoiceManager.start()
+                updateNotification("Voice activation active")
+                Log.d(TAG, "✅ Picovoice restarted to wake word mode")
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Failed to restart Picovoice", e)
+            }
+        }, 3000)
+    }
+
+    fun updateListeningStatus(isListening: Boolean) {
+        if (isListening) {
+            updateNotification("🎤 Listening for command...")
+        } else {
+            // Kembali ke status default Porcupine
+            updateNotification("Voice activation active (Say 'Hi Said')")
+        }
     }
 
     private fun handleStartScreening() {

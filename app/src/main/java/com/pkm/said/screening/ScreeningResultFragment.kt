@@ -57,7 +57,7 @@ class ScreeningResultFragment : Fragment() {
     private fun setupResult() {
         // Jika sudah ada hasil terserialisasi (rotasi), render langsung.
         completedSession?.let {
-            displayBEFAResults(it)
+            displayBEFASResults(it)
             return
         }
 
@@ -68,7 +68,7 @@ class ScreeningResultFragment : Fragment() {
 
             if (pendingTests.isNotEmpty()) {
                 // ❌ Ada tes yang belum selesai → tampilkan mode incomplete
-                displayIncompleteBEFA(activeSession, pendingTests)
+                displayIncompleteBEFAS(activeSession, pendingTests)
                 return
             }
 
@@ -93,7 +93,7 @@ class ScreeningResultFragment : Fragment() {
                 }
 
                 // ✅ LANGSUNG TAMPILKAN HASIL (tidak nunggu Firestore)
-                displayBEFAResults(locallyCompleted)
+                displayBEFASResults(locallyCompleted)
             } else {
                 displayErrorResult()
             }
@@ -103,21 +103,22 @@ class ScreeningResultFragment : Fragment() {
         // ✅ FALLBACK: Coba ambil sesi terakhir dari history lokal
         ScreeningDataManager.getLastCompletedSession(requireContext())?.let {
             completedSession = it
-            displayBEFAResults(it)
+            displayBEFASResults(it)
         } ?: displayErrorResult()
     }
 
     /** ====== MODE: SCREENING LENGKAP (FINAL) ====== */
     @SuppressLint("SetTextI18n")
-    private fun displayBEFAResults(session: ScreeningResult) {
+    private fun displayBEFASResults(session: ScreeningResult) {
         Log.d("ScreeningResult", "🔍 TEST RESULTS FOR UI:")
         Log.d("ScreeningResult", "   - Balance: ${session.balanceResult?.isCompleted} | ${session.balanceResult?.score}")
         Log.d("ScreeningResult", "   - Eyes: ${session.eyesResult?.isCompleted} | ${session.eyesResult?.score}")
         Log.d("ScreeningResult", "   - Face: ${session.faceResult?.isCompleted} | ${session.faceResult?.score}")
         Log.d("ScreeningResult", "   - Arms: ${session.armsResult?.isCompleted} | ${session.armsResult?.score}")
+        Log.d("ScreeningResult", "   - Speech: ${session.speechResult?.isCompleted} | ${session.speechResult?.score}")
 
         setupRiskAssessment(session.overallRisk)
-        setupBEFATestResults(session)
+        setupBEFASTestResults(session)
         setupRecommendation(session.overallRisk)
 
         // BEFA overall % (0..100)
@@ -125,7 +126,7 @@ class ScreeningResultFragment : Fragment() {
         binding.tvRiskDescription.text = session.overallRisk.description
         binding.tvFastOverall.text = "BEFA overall: $befaOverall% (0..100)"
 
-        binding.tvSessionInfo.text = "Sesi: ${session.sessionId}\nWaktu: ${session.completedAtFormatted()}"
+//        binding.tvSessionInfo.text = "Sesi: ${session.sessionId}\nWaktu: ${session.completedAtFormatted()}"
 
         // Tombol default (Finish, Retry, SaveReport, History)
         setupFinalButtons()
@@ -133,18 +134,18 @@ class ScreeningResultFragment : Fragment() {
 
     /** ====== MODE: SCREENING TIDAK LENGKAP (PENDING/ERROR) ====== */
     @SuppressLint("SetTextI18n")
-    private fun displayIncompleteBEFA(session: ScreeningResult, pending: List<String>) {
+    private fun displayIncompleteBEFAS(session: ScreeningResult, pending: List<String>) {
         setupRiskAssessment(RiskLevel.UNKNOWN)
         val pendingLabel = pending.joinToString(", ") { humanizeTestKey(it) }
         binding.tvRiskDescription.text =
             "Screening belum lengkap. Tes belum selesai: $pendingLabel.\nSilakan lanjutkan terlebih dahulu."
 
-        setupBEFATestResults(session)
+        setupBEFASTestResults(session)
 
         binding.tvRecommendation.text =
             "Beberapa tes belum selesai. Tekan \"Lanjutkan Tes\" untuk melanjutkan tanpa menghapus progres yang sudah ada."
 
-        binding.tvSessionInfo.text = "Sesi: ${session.sessionId}\nDimulai: ${session.timestamp}"
+//        binding.tvSessionInfo.text = "Sesi: ${session.sessionId}\nDimulai: ${session.timestamp}"
 
         // Ubah tombol
         binding.btnRetry.text = "Lanjutkan Tes"
@@ -181,9 +182,9 @@ class ScreeningResultFragment : Fragment() {
     }
 
     /**
-     * Render 4 hasil BEFA.
+     * Render 5 hasil BEFAS.
      */
-    private fun setupBEFATestResults(session: ScreeningResult) {
+    private fun setupBEFASTestResults(session: ScreeningResult) {
         // 1) Balance
         setupTestResultItemByNames(
             slot = SlotNames(
@@ -237,6 +238,19 @@ class ScreeningResultFragment : Fragment() {
             ),
             label = "A - Arms Test",
             testResult = session.armsResult
+        )
+
+        // 5) SPEECH
+        setupTestResultItemByNames(
+            slot = SlotNames(
+                layout = "layout_speech_result",
+                name = "tv_speech_test_name",
+                result = "tv_speech_test_result",
+                icon = "iv_speech_test_icon"
+            ),
+            label = "S - Speech Test",
+            testResult = session.speechResult,
+            fallbackIfMissing = null
         )
     }
 
@@ -307,33 +321,78 @@ class ScreeningResultFragment : Fragment() {
             return if (score == null) "(—%)" else "(${(score.coerceIn(0f, 1f) * 100).toInt()}%)"
         }
 
+        // ✅ FUNGSI BARU: Get color berdasarkan score
+        fun getColorForScore(score: Float?): Int {
+            return when {
+                score == null -> R.color.risk_unknown_text // Tidak dilakukan
+                score < 0.3f -> R.color.risk_low_text // Normal (0-30%)
+                score < 0.6f -> R.color.risk_medium_text // Sedang (30-60%)
+                else -> R.color.risk_high_text // Tinggi/Kritis (60-100%)
+            }
+        }
+
+        // ✅ FUNGSI BARU: Get icon color filter berdasarkan score
+        fun getColorFilterForScore(score: Float?): Int {
+            return ContextCompat.getColor(requireContext(), getColorForScore(score))
+        }
+
+        // ✅ FUNGSI BARU: Get background color untuk layout berdasarkan score
+        fun getBackgroundColorForScore(score: Float?): Int {
+            return when {
+                score == null -> R.color.risk_unknown_bg // Tidak dilakukan
+                score < 0.3f -> R.color.risk_low_bg // Normal
+                score < 0.6f -> R.color.risk_medium_bg // Sedang
+                else -> R.color.risk_high_bg // Tinggi/Kritis
+            }
+        }
+
         when {
             testResult == null -> {
                 resultTextView.text = "Tidak Dilakukan ${sevStr(null)}"
-                resultTextView.setTextColor(ContextCompat.getColor(requireContext(), R.color.GrayLight))
+                val textColor = getColorForScore(null)
+                resultTextView.setTextColor(ContextCompat.getColor(requireContext(), textColor))
                 iconImageView.setImageResource(R.drawable.ic_test_skipped)
                 iconImageView.setColorFilter(ContextCompat.getColor(requireContext(), R.color.GrayLight))
+
+                val bgColor = getBackgroundColorForScore(null)
+                layout.setBackgroundColor(ContextCompat.getColor(requireContext(), bgColor))
+
                 layout.visibility = View.VISIBLE
             }
             !testResult.isCompleted -> {
                 resultTextView.text = "Belum Selesai ${sevStr(testResult.score)}"
-                resultTextView.setTextColor(ContextCompat.getColor(requireContext(), R.color.GrayLight))
+                val textColor = getColorForScore(null)
+                resultTextView.setTextColor(ContextCompat.getColor(requireContext(), textColor))
                 iconImageView.setImageResource(R.drawable.ic_test_incomplete)
                 iconImageView.setColorFilter(ContextCompat.getColor(requireContext(), R.color.GrayLight))
+
+                val bgColor = getBackgroundColorForScore(null)
+                layout.setBackgroundColor(ContextCompat.getColor(requireContext(), bgColor))
+
                 layout.visibility = View.VISIBLE
             }
             testResult.isSuccessful -> {
                 resultTextView.text = "Normal ${sevStr(testResult.score)}"
-                resultTextView.setTextColor(ContextCompat.getColor(requireContext(), R.color.success_color))
+                val textColor = getColorForScore(testResult.score)
+                resultTextView.setTextColor(ContextCompat.getColor(requireContext(), textColor))
                 iconImageView.setImageResource(R.drawable.ic_test_success)
                 iconImageView.setColorFilter(ContextCompat.getColor(requireContext(), R.color.success_color))
+
+                val bgColor = getBackgroundColorForScore(null)
+                layout.setBackgroundColor(ContextCompat.getColor(requireContext(), bgColor))
+
                 layout.visibility = View.VISIBLE
             }
             else -> {
                 resultTextView.text = "Abnormal ${sevStr(testResult.score)}"
-                resultTextView.setTextColor(ContextCompat.getColor(requireContext(), R.color.warning_color))
+                val textColor = getColorForScore(testResult.score)
+                resultTextView.setTextColor(ContextCompat.getColor(requireContext(), textColor))
                 iconImageView.setImageResource(R.drawable.ic_test_failed)
                 iconImageView.setColorFilter(ContextCompat.getColor(requireContext(), R.color.warning_color))
+
+                val bgColor = getBackgroundColorForScore(null)
+                layout.setBackgroundColor(ContextCompat.getColor(requireContext(), bgColor))
+
                 layout.visibility = View.VISIBLE
             }
         }
@@ -350,9 +409,6 @@ class ScreeningResultFragment : Fragment() {
         binding.tvRecommendation.text = recommendation
 
         if (riskLevel == RiskLevel.CRITICAL) {
-            binding.cardRecommendation.setCardBackgroundColor(
-                ContextCompat.getColor(requireContext(), R.color.error_light)
-            )
             binding.tvRecommendation.setTextColor(
                 ContextCompat.getColor(requireContext(), R.color.error)
             )
@@ -396,6 +452,7 @@ class ScreeningResultFragment : Fragment() {
             "eyes", "e" -> findNavController().navigate(R.id.action_screeningResult_to_eyesPreview)
             "face", "f" -> findNavController().navigate(R.id.action_screeningResult_to_facePreview)
             "arms", "a" -> findNavController().navigate(R.id.action_screeningResult_to_armPreview)
+            "speech", "s" -> findNavController().navigate(R.id.action_screeningResult_to_speechPreview)
             else -> findNavController().navigate(R.id.action_screeningResult_to_balancePreview)
         }
     }
@@ -431,7 +488,8 @@ class ScreeningResultFragment : Fragment() {
             active.balanceResult,
             active.eyesResult,
             active.faceResult,
-            active.armsResult
+            active.armsResult,
+            active.speechResult
         ).any { it.isCompleted }
 
         if (!anyCompleted) {
@@ -461,7 +519,7 @@ class ScreeningResultFragment : Fragment() {
             }
 
             // ✅ TAMPILKAN HASIL
-            displayBEFAResults(locallyCompleted)
+            displayBEFASResults(locallyCompleted)
             Toast.makeText(requireContext(), "Screening diselesaikan sebagai hasil parsial.", Toast.LENGTH_SHORT).show()
         } else {
             Toast.makeText(requireContext(), "Gagal menyelesaikan sesi.", Toast.LENGTH_SHORT).show()
@@ -520,6 +578,7 @@ class ScreeningResultFragment : Fragment() {
         "eyes", "e" -> "Eyes"
         "face", "f" -> "Face"
         "arms", "a" -> "Arms"
+        "speech", "s" -> "Speech"
         else -> key
     }
 }

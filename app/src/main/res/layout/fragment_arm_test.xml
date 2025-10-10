@@ -38,6 +38,7 @@
         android:layout_marginTop="24dp"
         app:cardCornerRadius="8dp"
         app:cardElevation="4dp"
+        android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/tvInstruction">
@@ -83,28 +84,31 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@+id/tvTimeRemaining" />
 
-            <!--            <ImageView-->
-            <!--                android:id="@+id/ivArmPosition"-->
-            <!--                android:layout_width="match_parent"-->
-            <!--                android:layout_height="150dp"-->
-            <!--                android:src="@drawable/befast_arm_position"-->
-            <!--                android:contentDescription="Illustration of arm test position"-->
-            <!--                android:scaleType="fitCenter"-->
-            <!--                app:layout_constraintTop_toBottomOf="@+id/tvResult"-->
-            <!--                app:layout_constraintStart_toStartOf="parent"-->
-            <!--                app:layout_constraintEnd_toEndOf="parent" />-->
+                        <ImageView
+                            android:id="@+id/ivArmPosition"
+                            android:layout_width="match_parent"
+                            android:layout_height="150dp"
+                            android:src="@drawable/placeholder"
+                            android:contentDescription="Illustration of arm test position"
+                            android:scaleType="fitCenter"
+                            android:visibility="gone"
+                            app:layout_constraintTop_toBottomOf="@+id/tvResult"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintEnd_toEndOf="parent" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 
     </androidx.cardview.widget.CardView>
 
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/btnStartArmTest"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="32dp"
-        android:background="@drawable/bg_history_btn_secondary"
-        android:backgroundTint="@color/BluePrimary"
+        android:backgroundTint="@color/white"
+        android:textColor="@color/BluePrimary"
+        android:textSize="16sp"
+        android:textStyle="bold"
         android:text="Mulai Tes"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -120,49 +124,61 @@
         app:layout_constraintStart_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/btnStartArmTest">
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnCantLiftArms"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:background="@drawable/bg_history_btn_secondary"
-            android:backgroundTint="@color/BluePrimary"
+            android:textSize="14sp"
+            android:textColor="@color/BluePrimary"
+            android:textStyle="bold"
+            android:backgroundTint="@color/white"
             android:text="Tidak Bisa Angkat Kedua Tangan" />
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnOneHandOnly"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginStart="6dp"
             android:layout_weight="1"
-            android:background="@drawable/bg_history_btn_secondary"
-            android:backgroundTint="@color/BluePrimary"
+            android:textSize="14sp"
+            android:textColor="@color/BluePrimary"
+            android:textStyle="bold"
+            android:backgroundTint="@color/white"
             android:text="Hanya Satu Tangan Bisa Diangkat" />
     </LinearLayout>
 
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/btnConfirmResult"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
         android:text="Konfirmasi Hasil"
         android:visibility="gone"
+        android:textSize="16sp"
+        android:textColor="@color/BluePrimary"
+        android:textStyle="bold"
+        android:backgroundTint="@color/white"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/contBtnHand" />
 
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/btnRetryArmOnly"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:text="Ulangi Tes Arm"
         android:visibility="gone"
+        android:textSize="16sp"
+        android:textColor="@color/BluePrimary"
+        android:textStyle="bold"
+        android:backgroundTint="@color/white"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/btnConfirmResult" />
 
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/btnRetryTest"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -170,11 +186,15 @@
         android:layout_marginEnd="4dp"
         android:text="Reset Semua"
         android:visibility="gone"
+        android:textSize="14sp"
+        android:textColor="@color/BluePrimary"
+        android:textStyle="bold"
+        android:backgroundTint="@color/white"
         app:layout_constraintEnd_toStartOf="@+id/btnSkipTest"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/btnRetryArmOnly" />
 
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/btnSkipTest"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -182,6 +202,10 @@
         android:layout_marginTop="8dp"
         android:text="Lewati"
         android:visibility="gone"
+        android:textSize="14sp"
+        android:textColor="@color/BluePrimary"
+        android:textStyle="bold"
+        android:backgroundTint="@color/white"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toEndOf="@+id/btnRetryTest"
         app:layout_constraintTop_toBottomOf="@+id/btnRetryArmOnly" />

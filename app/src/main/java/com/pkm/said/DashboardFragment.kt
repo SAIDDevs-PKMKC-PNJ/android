@@ -10,11 +10,13 @@ import android.view.ViewGroup
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
 import android.graphics.Rect
+import android.util.Log
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.PagerSnapHelper
@@ -33,6 +35,7 @@ import kotlinx.coroutines.launch
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
+import java.util.Locale
 
 class DashboardFragment : Fragment() {
 
@@ -103,7 +106,7 @@ class DashboardFragment : Fragment() {
         }
 
         binding.ivAvatar.setOnClickListener {
-            (requireActivity() as? MainActivity)?.selectBottomTab(R.id.navigation_history)
+            (requireActivity() as MainActivity).navigateToTopLevel(R.id.navigation_profile)
         }
         binding.tvWelcome.text = getString(R.string.welcome_text, finalName)
     }
@@ -209,7 +212,7 @@ class DashboardFragment : Fragment() {
                 ScreeningActivity.start(requireContext(), userId = null)
             }
             binding.tvHistoryLink.setOnClickListener {
-                (requireActivity() as? MainActivity)?.selectBottomTab(R.id.navigation_profile)
+                (requireActivity() as MainActivity).navigateToTopLevel(R.id.navigation_history)
             }
         }
     }
@@ -293,36 +296,99 @@ class DashboardFragment : Fragment() {
             adapter = featureAdapter
             layoutManager = GridLayoutManager(requireContext(), 4)
             setHasFixedSize(true)
+
+            addItemDecoration(object : RecyclerView.ItemDecoration() {
+                override fun getItemOffsets(
+                    outRect: Rect,
+                    view: View,
+                    parent: RecyclerView,
+                    state: RecyclerView.State
+                ) {
+                    val space = resources.getDimensionPixelSize(R.dimen.spacing_4) // atau 16dp
+                    val position = parent.getChildAdapterPosition(view)
+
+                    // Beri jarak kanan untuk semua item kecuali yang terakhir
+                    if (position % 4 != 3) {
+                        outRect.right = space
+                    }
+
+                    // Optional: tambahkan jarak bawah untuk baris
+                    outRect.bottom = space
+                }
+            })
+
         }
     }
 
     private fun setupNewsSection() {
         val apiKey = BuildConfig.NEWS_API_KEY
-        val q = "kesehatan AND (perawatan OR pencegahan OR prevention OR treatment)"
+        val q = "stroke (health OR symptoms OR prevention) -\"heat stroke\" -\"The Strokes\""
+
+        val searchIn = "title,description"
+        val deviceLang = Locale.getDefault().language
+        val apiLang = if (deviceLang == "id") "id" else "en"
+
+        Log.d("Dashboard", "🔍 Query: '$q'")
+        Log.d("Dashboard", "🔍 Language: '$apiLang'")
 
         // Panggil API top-headlines untuk Indonesia
         NewsRetrofit.api.searchEverything(
             q = q,
-            language = "id",
+            language = apiLang,
+            searchIn = searchIn,
             sortBy = "publishedAt",
             page = 1,
-            pageSize = 20,
+            pageSize = 30,
             apiKey = apiKey
         )
             .enqueue(object : Callback<NewsResponse> {
                 override fun onResponse(call: Call<NewsResponse>, response: Response<NewsResponse>) {
                     if (!response.isSuccessful) {
                         Toast.makeText(requireContext(), "Gagal: ${response.code()}", Toast.LENGTH_SHORT).show()
+                        showFallbackNews()
                         return
                     }
 
                     // Map ke ArticleItem
-                    val articles: List<ArticleItem> =
-                        response.body()?.articles.orEmpty().map { it.toArticleItem() }
+                    val articles = response.body()?.articles ?: emptyList()
+                    Log.d("Dashboard", "📰 Raw articles received: ${articles.size}")
+
+                    // ✅ DEBUG: Tampilkan semua judul artikel
+                    articles.forEachIndexed { index, article ->
+                        Log.d("Dashboard", "📄 Article $index: ${article.title ?: "No Title"}")
+                        Log.d("Dashboard", "   Source: ${article.source?.name ?: "Unknown"}")
+                    }
+
+                    if (articles.isEmpty()) {
+                        Log.w("Dashboard", "⚠️ No articles in response")
+                        showFallbackNews()
+                        return
+                    }
+
+                    // ✅ GUNAKAN EXACT SAME LOGIC dengan NewsActivity
+                    val relevantArticles = articles.getRelevantStrokeArticles()
+                    Log.d("Dashboard", "🔧 Relevant articles after filtering: ${relevantArticles.size}")
+
+                    // ✅ DEBUG: Tampilkan artikel yang lolos filter
+                    relevantArticles.forEachIndexed { index, article ->
+                        Log.d("Dashboard", "✅ Relevant $index: ${article.title ?: "No Title"}")
+                    }
+
+                    if (relevantArticles.isEmpty()) {
+                        Log.w("Dashboard", "⚠️ No relevant articles after filtering")
+                        showFallbackNews()
+                        return
+                    }
+
+                    val articleItems = relevantArticles.map { it.toCommonArticleItem() }
+                    val headlines = articleItems.take(5)
+
+                    Log.d("Dashboard", "🎯 Final headlines for dashboard: ${headlines.size}")
+
 
                     // Adapter pakai ArticleItem
                     val adapter = NewsAdapter(
-                        data = articles,
+                        data = headlines,
                         onClick = { article -> openDetail(article) }
                     )
 
@@ -345,7 +411,7 @@ class DashboardFragment : Fragment() {
                                     parent: RecyclerView,
                                     state: RecyclerView.State
                                 ) {
-                                        val space = resources.getDimensionPixelSize(R.dimen.spacing_12)
+                                    val space = resources.getDimensionPixelSize(R.dimen.spacing_12)
                                     val pos = parent.getChildAdapterPosition(view)
                                     outRect.right = space
                                     if (pos == 0) outRect.left = space
@@ -353,8 +419,8 @@ class DashboardFragment : Fragment() {
                             })
                         }
                     }
+                    binding.rvNews.visibility = View.VISIBLE
                 }
-
                 override fun onFailure(call: Call<NewsResponse>, t: Throwable) {
                     Toast.makeText(requireContext(), "Error: ${t.message}", Toast.LENGTH_SHORT).show()
                 }
@@ -364,6 +430,41 @@ class DashboardFragment : Fragment() {
             val intent = Intent(requireContext(), NewsActivity::class.java)
             startActivity(intent)
         }
+    }
+
+    private fun showFallbackNews() {
+        val fallbackArticles = generatePlaceholderArticles(3, "Headline")
+
+        val adapter = NewsAdapter(
+            data = fallbackArticles,
+            onClick = { article -> openDetail(article) }
+        )
+
+        binding.rvNews.apply {
+            layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
+            this.adapter = adapter
+
+            if (onFlingListener == null) {
+                PagerSnapHelper().attachToRecyclerView(this)
+            }
+
+            if (itemDecorationCount == 0) {
+                addItemDecoration(object : RecyclerView.ItemDecoration() {
+                    override fun getItemOffsets(
+                        outRect: Rect,
+                        view: View,
+                        parent: RecyclerView,
+                        state: RecyclerView.State
+                    ) {
+                        val space = resources.getDimensionPixelSize(R.dimen.spacing_12)
+                        val pos = parent.getChildAdapterPosition(view)
+                        outRect.right = space
+                        if (pos == 0) outRect.left = space
+                    }
+                })
+            }
+        }
+        binding.rvNews.visibility = View.VISIBLE
     }
 
     private fun openDetail(item: ArticleItem) {

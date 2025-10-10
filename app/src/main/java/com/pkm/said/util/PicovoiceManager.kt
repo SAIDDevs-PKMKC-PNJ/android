@@ -1,5 +1,6 @@
 package com.pkm.said.util
 
+import ai.picovoice.porcupine.Porcupine.BuiltInKeyword
 import ai.picovoice.porcupine.PorcupineManager
 import ai.picovoice.porcupine.PorcupineManagerCallback
 import ai.picovoice.rhino.RhinoInference
@@ -12,10 +13,12 @@ import com.pkm.said.BuildConfig
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.File
+import java.io.FileNotFoundException
 
 class PicovoiceManager(
     private val context: Context,
-    private val onIntentDetected: (RhinoInference) -> Unit
+    private val onIntentDetected: (RhinoInference) -> Unit,
+    private val onListeningStatusChange: (Boolean) -> Unit
 ) {
     private var porcupineManager: PorcupineManager? = null
     private var rhinoManager: RhinoManager? = null
@@ -57,17 +60,21 @@ class PicovoiceManager(
             val keywordPath = copyAssetToFiles("hi-said_en_android_v3_0_0.ppn")
             val contextPath = copyAssetToFiles("said-activation_en_android_v3_0_0.rhn")
 
-            porcupineManager = PorcupineManager.Builder()
+            val porcupinebuilder = PorcupineManager.Builder()
                 .setAccessKey(ACCESS_KEY)
                 .setKeywordPath(keywordPath)
                 .setSensitivity(0.7f)
-                .build(context, porcupineCallback)
 
-            rhinoManager = RhinoManager.Builder()
+            porcupineManager = porcupinebuilder.build(context, porcupineCallback)
+            Log.d(TAG, "Porcupine initialized successfully")
+
+            val rhinoBuilder = RhinoManager.Builder()
                 .setAccessKey(ACCESS_KEY)
                 .setContextPath(contextPath)
                 .setSensitivity(0.5f)
-                .build(context, rhinoCallback)
+
+            rhinoManager = rhinoBuilder.build(context, rhinoCallback)
+            Log.d(TAG, "Rhino initialized successfully")
 
             Log.i(TAG, "Picovoice initialized successfully")
             true
@@ -84,6 +91,8 @@ class PicovoiceManager(
             setState(VoiceState.INTENT_PROCESSING)
 
             porcupineManager?.stop()
+            rhinoManager?.process()
+
             showListeningUI(true)
             broadcastWakeWordDetected()
         } catch (e: Exception) {
@@ -131,6 +140,10 @@ class PicovoiceManager(
 
     private fun showListeningUI(show: Boolean) {
         try {
+            // KIRIM CALLBACK KE SERVICE
+            onListeningStatusChange(show)
+
+            // JANGAN HAPUS BROADCAST: Broadcast tetap penting untuk UI Activity yang terbuka
             val intent = Intent("VOICE_LISTENING_STATE").apply {
                 putExtra("is_listening", show)
             }
@@ -172,16 +185,31 @@ class PicovoiceManager(
         }
     }
 
-    private fun copyAssetToFiles(assetName: String): String {
+    public fun copyAssetToFiles(assetName: String): String {
         return try {
-            val assetFile = context.assets.open(assetName)
+            // Periksa apakah file sudah ada
             val internalFile = File(context.filesDir, assetName)
+            if (internalFile.exists()) {
+                Log.d(TAG, "File already exists: $assetName")
+                return internalFile.absolutePath
+            }
 
-            BufferedInputStream(assetFile).use { input ->
-                BufferedOutputStream(internalFile.outputStream()).use { output ->
-                    input.copyTo(output)
+            // Periksa apakah asset ada
+            val assetList = context.assets.list("")
+            assetList?.contains(assetName)?.let {
+                if (!it) {
+                    throw FileNotFoundException("Asset $assetName not found in assets folder")
                 }
             }
+
+            // Salin file
+            context.assets.open(assetName).use { inputStream ->
+                internalFile.outputStream().use { outputStream ->
+                    inputStream.copyTo(outputStream)
+                }
+            }
+
+            Log.d(TAG, "Successfully copied asset: $assetName to ${internalFile.absolutePath}")
             internalFile.absolutePath
         } catch (e: Exception) {
             Log.e(TAG, "Failed to copy asset: $assetName", e)

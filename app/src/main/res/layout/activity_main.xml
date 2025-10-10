@@ -7,6 +7,7 @@
     android:fitsSystemWindows="true"
     tools:context=".MainActivity">
 
+    <!-- AppBar Layout (Toolbar) -->
     <com.google.android.material.appbar.AppBarLayout
         android:id="@+id/appBarLayout"
         android:layout_width="match_parent"
@@ -18,43 +19,46 @@
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize" />
-
     </com.google.android.material.appbar.AppBarLayout>
 
-    <!-- Fragment Container yang akan menyesuaikan dengan keyboard -->
+    <!-- KONTEN UTAMA / NAV HOST FRAGMENT -->
+    <!-- Kita akan langsung include NavHost disini. Ubah NavHost di content_main menjadi FrameLayout
+         atau biarkan NavHost Fragment menyesuaikan layout ConstraintLayout-nya. -->
+
     <FrameLayout
-        android:id="@+id/fragment_container"
+        android:id="@+id/main_content_frame"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginBottom="8dp">
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
+        <!-- NavHost Fragment dari content_main harus ada di sini -->
         <include layout="@layout/content_main" />
 
     </FrameLayout>
 
-    <!-- Bottom Navigation dengan ukuran tetap -->
+
+    <!-- Bottom Navigation Card -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/nav_view_container"
         android:layout_width="match_parent"
         android:layout_height="80dp"
         android:layout_gravity="bottom"
         android:layout_margin="16dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:cardCornerRadius="24dp"
         app:cardBackgroundColor="@android:color/transparent"
+        app:cardCornerRadius="24dp"
         app:cardPreventCornerOverlap="false"
         app:cardUseCompatPadding="false">
 
         <com.google.android.material.bottomnavigation.BottomNavigationView
             android:id="@+id/bottom_nav_view"
+            style="@style/BottomNavNoRippleStyle"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:background="@drawable/rounded_bottom_nav"
-            app:menu="@menu/nav_bar"
-            app:labelVisibilityMode="unlabeled"/>
-
+            app:itemIconTint="@color/bottom_nav_icon_color_selector"
+            app:itemRippleColor="@color/bottom_nav_ripple_transparent"
+            app:labelVisibilityMode="unlabeled"
+            app:menu="@menu/nav_bar" />
     </com.google.android.material.card.MaterialCardView>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

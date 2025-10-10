@@ -2,5 +2,7 @@
 <resources>
     <dimen name="slider_page_margin">12dp</dimen>
     <dimen name="slider_page_offset">24dp</dimen>\
+    <dimen name="spacing_4">4dp</dimen>
     <dimen name="spacing_12">12dp</dimen>
+    <dimen name="spacing_16">16dp</dimen>
 </resources>

@@ -7,6 +7,7 @@ import android.media.MediaRecorder
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -14,13 +15,11 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.pkm.said.databinding.FragmentSpeechTestBinding
-import kotlin.math.absoluteValue
-import kotlin.math.sin
-import kotlin.math.PI
 import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.math.sin
 
 class SpeechTestFragment : Fragment() {
 
@@ -36,7 +35,7 @@ class SpeechTestFragment : Fragment() {
     private var updateWave = true
 
     private val recordDurationMs = 10000L // 10 detik
-    private val progressIntervalMs = 50L
+    private val progressIntervalMs = 100L
     private var recordStartTime = 0L
     private var recordProgressHandler: Handler? = Handler(Looper.getMainLooper())
     private var recordProgressRunnable: Runnable? = null
@@ -55,27 +54,38 @@ class SpeechTestFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        setupUI()
+        ensureActiveSession()
+    }
+
+    private fun setupUI() {
         binding.btnRecord.setOnClickListener { startRecording() }
         binding.btnPlay.setOnClickListener { playRecording() }
         binding.btnHeard.setOnClickListener { finishWithResult(true) }
         binding.btnNotHeard.setOnClickListener { finishWithResult(false) }
         binding.btnRetryMic.setOnClickListener { retryRecording() }
 
-        binding.progressBarRecord.max = (recordDurationMs / progressIntervalMs).toInt()
+        // Set initial visibility sesuai layout
         binding.progressBarRecord.visibility = View.GONE
         binding.tvCountdown.visibility = View.GONE
+        binding.tvAfterRecord.visibility = View.GONE
+        binding.btnPlay.visibility = View.GONE
         binding.btnRetryMic.visibility = View.GONE
+        binding.llHearButtons.visibility = View.GONE
+        binding.progressBarPlay.visibility = View.GONE
 
-        // Pastikan ada sesi aktif
-        ensureActiveSession()
+        // Set instruction text sesuai layout
+        binding.tvInstruction.text = "Katakan\nSaya mau pulang untuk minum"
     }
 
     private fun ensureActiveSession() {
         viewLifecycleOwner.lifecycleScope.launch {
-            // Jika tidak ada sesi aktif, buat sesi baru
             if (ScreeningDataManager.getCurrentSession(requireContext()) == null) {
                 val userId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: "unknown"
                 ScreeningDataManager.startNewSession(requireContext(), userId)
+                Log.d("SpeechTest", "Sesi baru dibuat untuk speech test")
+            } else {
+                Log.d("SpeechTest", "Menggunakan sesi yang sudah ada")
             }
         }
     }
@@ -87,6 +97,7 @@ class SpeechTestFragment : Fragment() {
             startRecording()
         } else {
             Toast.makeText(requireContext(), "Izin mikrofon diperlukan untuk tes ini", Toast.LENGTH_SHORT).show()
+            resetToReadyState()
         }
     }
 
@@ -99,45 +110,47 @@ class SpeechTestFragment : Fragment() {
         }
 
         audioFile = File(requireContext().cacheDir, "speech_test_${System.currentTimeMillis()}.3gp")
-        recorder = MediaRecorder().apply {
-            setAudioSource(MediaRecorder.AudioSource.MIC)
-            setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
-            setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
-            setOutputFile(audioFile?.absolutePath)
-            prepare()
-            start()
+
+        try {
+            recorder = MediaRecorder().apply {
+                setAudioSource(MediaRecorder.AudioSource.MIC)
+                setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
+                setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
+                setOutputFile(audioFile?.absolutePath)
+                prepare()
+                start()
+            }
+
+            isRecording = true
+            recordStartTime = System.currentTimeMillis()
+
+            // Update UI untuk recording state
+            updateUIForRecording()
+            startProgressTimer()
+            startWaveAnimation()
+
+            Toast.makeText(requireContext(), "Merekam suara...", Toast.LENGTH_SHORT).show()
+
+        } catch (e: Exception) {
+            Toast.makeText(requireContext(), "Gagal memulai rekaman: ${e.message}", Toast.LENGTH_SHORT).show()
+            resetToReadyState()
         }
-
-        isRecording = true
-        binding.btnRecord.isEnabled = false
-        binding.progressBarRecord.progress = 0
-        binding.progressBarRecord.max = (recordDurationMs / progressIntervalMs).toInt()
-        binding.progressBarRecord.visibility = View.VISIBLE
-        binding.tvCountdown.visibility = View.VISIBLE
-        binding.tvCountdown.text = "10.0 detik"
-
-        recordStartTime = System.currentTimeMillis()
-        startSmoothProgressBar()
-
-        waveHandler.post(waveRunnable)
-        Toast.makeText(requireContext(), "Merekam suara selama 10 detik...", Toast.LENGTH_SHORT).show()
     }
 
-    private fun startSmoothProgressBar() {
+    private fun startProgressTimer() {
         recordProgressHandler = Handler(Looper.getMainLooper())
         recordProgressRunnable = object : Runnable {
             override fun run() {
                 val elapsed = System.currentTimeMillis() - recordStartTime
-                val progress = (elapsed / progressIntervalMs).toInt()
+                val progress = (elapsed.toFloat() / recordDurationMs * 10).toInt() // max=10 sesuai layout
                 binding.progressBarRecord.progress = progress
-                val remaining = ((recordDurationMs - elapsed).coerceAtLeast(0)).toFloat() / 1000f
-                binding.tvCountdown.text = String.format("%.1f detik", remaining)
+
+                val remainingSeconds = ((recordDurationMs - elapsed).coerceAtLeast(0)) / 1000
+                binding.tvCountdown.text = "Sisa waktu: $remainingSeconds"
 
                 if (elapsed < recordDurationMs) {
                     recordProgressHandler?.postDelayed(this, progressIntervalMs)
                 } else {
-                    binding.progressBarRecord.progress = binding.progressBarRecord.max
-                    binding.tvCountdown.text = "Selesai!"
                     stopRecording()
                 }
             }
@@ -152,27 +165,12 @@ class SpeechTestFragment : Fragment() {
                 release()
             }
         } catch (e: Exception) {
-            Toast.makeText(requireContext(), "Error saat merekam: ${e.message}", Toast.LENGTH_SHORT).show()
+            Log.e("SpeechTest", "Error stopping recorder: ${e.message}")
         } finally {
             recorder = null
             isRecording = false
-            updateWave = false
-
-            waveHandler.removeCallbacksAndMessages(null)
             recordProgressHandler?.removeCallbacks(recordProgressRunnable ?: Runnable {})
-
-            binding.bottomWaveView.setVoiceAmplitudes(List(128) { 0f })
-
-            binding.btnRecord.isEnabled = true
-            binding.btnRecord.visibility = View.GONE
-            binding.progressBarRecord.visibility = View.GONE
-            binding.tvCountdown.visibility = View.GONE
-
-            binding.tvAfterRecord.visibility = View.VISIBLE
-            binding.btnPlay.visibility = View.VISIBLE
-            binding.llHearButtons.visibility = View.VISIBLE
-            binding.btnRetryMic.visibility = View.VISIBLE
-
+            updateUIForRecorded()
             Toast.makeText(requireContext(), "Rekaman selesai", Toast.LENGTH_SHORT).show()
         }
     }
@@ -182,68 +180,28 @@ class SpeechTestFragment : Fragment() {
             Toast.makeText(requireContext(), "File rekaman tidak ditemukan", Toast.LENGTH_SHORT).show()
             return
         }
-        if (player?.isPlaying == true) return
 
-        binding.btnPlay.isEnabled = false
-        binding.progressBarPlay.progress = 0
-        binding.progressBarPlay.visibility = View.VISIBLE
-
-        player = MediaPlayer().apply {
-            setDataSource(audioFile!!.absolutePath)
-            prepare()
-            start()
-            setOnCompletionListener {
-                binding.btnPlay.isEnabled = true
-                binding.progressBarPlay.visibility = View.GONE
-                binding.bottomWaveView.setVoiceAmplitudes(List(128) { 0f })
-                progressHandler?.removeCallbacks(progressRunnable ?: Runnable {})
-            }
-        }
-
-        updateWave = true
-        waveHandler.post(waveRunnable)
-
-        val duration = player?.duration ?: 1
-        binding.progressBarPlay.max = duration
-        progressHandler = Handler(Looper.getMainLooper())
-        progressRunnable = object : Runnable {
-            override fun run() {
-                if (player != null && player!!.isPlaying) {
-                    binding.progressBarPlay.progress = player!!.currentPosition
-                    progressHandler?.postDelayed(this, 100)
+        try {
+            player = MediaPlayer().apply {
+                setDataSource(audioFile!!.absolutePath)
+                prepare()
+                start()
+                setOnCompletionListener {
+                    binding.btnPlay.text = "Putar"
+                    binding.btnPlay.isEnabled = true
+                    binding.progressBarPlay.visibility = View.GONE
+                    stopWaveAnimation()
                 }
             }
-        }
-        progressHandler?.post(progressRunnable!!)
-    }
 
-    private val waveRunnable = object : Runnable {
-        override fun run() {
-            val amps: List<Float> = if (isRecording) {
-                val amp = try { recorder?.maxAmplitude ?: 0 } catch (_: Exception) { 0 }
-                List(128) { i ->
-                    when {
-                        i in 60..68 -> amp.toFloat()
-                        i in 50..78 -> amp * (0.6f + 0.4f * Math.random()).toFloat()
-                        i in 40..88 -> amp * (0.3f + 0.3f * Math.random()).toFloat()
-                        else -> amp * (0.1f * Math.random()).toFloat()
-                    }
-                }
-            } else if (player?.isPlaying == true) {
-                List(128) { i ->
-                    val freq = i.toFloat() / 128f
-                    val base = sin(freq * PI * 4).toFloat().absoluteValue
-                    (base * (2000..8000).random())
-                }
-            } else {
-                List(128) { 0f }
-            }
+            binding.btnPlay.isEnabled = false
+            binding.progressBarPlay.visibility = View.VISIBLE
+            startWaveAnimation()
+            Toast.makeText(requireContext(), "Memutar rekaman...", Toast.LENGTH_SHORT).show()
 
-            binding.bottomWaveView.setVoiceAmplitudes(amps)
-
-            if ((isRecording || player?.isPlaying == true) && updateWave) {
-                waveHandler.postDelayed(this, 50)
-            }
+        } catch (e: Exception) {
+            Toast.makeText(requireContext(), "Gagal memutar rekaman: ${e.message}", Toast.LENGTH_SHORT).show()
+            binding.progressBarPlay.visibility = View.GONE
         }
     }
 
@@ -252,14 +210,14 @@ class SpeechTestFragment : Fragment() {
         binding.btnNotHeard.isEnabled = false
 
         val isSuccessful = success
-        val severity = if (success) 0f else 1f
+        val severity = if (success) 0.0f else 1.0f
         val note = if (success)
             "Tes suara: Rekaman terdengar jelas (normal)"
         else
             "Tes suara: Rekaman tidak terdengar/tidak jelas (abnormal)"
 
         val result = TestResult(
-            testName = "speech_test",
+            testName = "befast_speech",
             isCompleted = true,
             isSuccessful = isSuccessful,
             score = severity,
@@ -270,54 +228,139 @@ class SpeechTestFragment : Fragment() {
                 "audio_file" to (audioFile?.absolutePath ?: ""),
                 "file_size" to (audioFile?.length() ?: 0L),
                 "test_type" to "speech_clarity",
-                "simulation" to true
+                "phrase" to "Saya mau pulang untuk minum"
             )
         )
 
-        // 1. Simpan ke ScreeningDataManager (local)
+        // Simpan ke ScreeningDataManager (local)
         ScreeningDataManager.updateTestResult(requireContext(), result)
 
-        // 2. Kirim ke Firestore via ScreeningRepository
+        // Kirim ke Firestore via ScreeningRepository
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                // Dapatkan sesi saat ini
-                val currentSession = ScreeningDataManager.getCurrentSession(requireContext())
-                if (currentSession != null) {
-                    // Simpan ke Firestore
-                    ScreeningRepository.saveCompleteScreeningSession(currentSession)
-                    Toast.makeText(
-                        requireContext(),
-                        "Hasil tes suara tersimpan",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
+                // ✅ CEK PROGRESS dulu sebelum complete session
+                val progress = ScreeningDataManager.getSessionProgress(requireContext())
+                val completedTests = ScreeningDataManager.getAllResults(requireContext()).count { it.isCompleted }
+                val totalTests = 5 // Balance, Eyes, Face, Arms, Speech
+
+                Toast.makeText(
+                    requireContext(),
+                    "✅ Hasil tes suara disimpan\nProgress: $completedTests/$totalTests tes",
+                    Toast.LENGTH_LONG
+                ).show()
+
+                // ✅ JANGAN langsung complete session, tunggu semua test selesai
+                // Hanya navigate back saja
+                parentFragmentManager.popBackStack()
+
             } catch (e: Exception) {
                 Toast.makeText(
                     requireContext(),
-                    "Data tersimpan lokal, sync nanti",
+                    "✅ Data tersimpan lokal",
                     Toast.LENGTH_SHORT
                 ).show()
+                parentFragmentManager.popBackStack()
             }
-
-            // Navigasi ke hasil
-//            findNavController().navigate(com.pkm.said.R.id.action_speechTest_to_screeningResult)
         }
     }
 
     private fun retryRecording() {
-        audioFile?.delete()
+        cleanupRecording()
         audioFile = null
-        binding.bottomWaveView.setVoiceAmplitudes(List(128) { 0f })
-        binding.btnRecord.visibility = View.VISIBLE
-        binding.btnRecord.isEnabled = true
-        binding.btnPlay.visibility = View.GONE
+        resetToReadyState()
+        Toast.makeText(requireContext(), "Silakan rekam ulang suara Anda", Toast.LENGTH_SHORT).show()
+    }
+
+    // ===================== UI STATE MANAGEMENT =====================
+    private fun updateUIForRecording() {
+        binding.btnRecord.visibility = View.GONE
+        binding.progressBarRecord.visibility = View.VISIBLE
+        binding.tvCountdown.visibility = View.VISIBLE
         binding.tvAfterRecord.visibility = View.GONE
-        binding.llHearButtons.visibility = View.GONE
+        binding.btnPlay.visibility = View.GONE
         binding.btnRetryMic.visibility = View.GONE
-        binding.progressBarRecord.progress = 0
+        binding.llHearButtons.visibility = View.GONE
+        binding.progressBarPlay.visibility = View.GONE
+    }
+
+    private fun updateUIForRecorded() {
+        binding.btnRecord.visibility = View.GONE
         binding.progressBarRecord.visibility = View.GONE
         binding.tvCountdown.visibility = View.GONE
-        Toast.makeText(requireContext(), "Silakan rekam ulang suara Anda", Toast.LENGTH_SHORT).show()
+        binding.tvAfterRecord.visibility = View.VISIBLE
+        binding.btnPlay.visibility = View.VISIBLE
+        binding.btnRetryMic.visibility = View.VISIBLE
+        binding.llHearButtons.visibility = View.VISIBLE
+        binding.progressBarPlay.visibility = View.GONE
+
+        // Reset progress bar untuk playback
+        binding.progressBarPlay.progress = 0
+    }
+
+    private fun resetToReadyState() {
+        binding.btnRecord.visibility = View.VISIBLE
+        binding.progressBarRecord.visibility = View.GONE
+        binding.tvCountdown.visibility = View.GONE
+        binding.tvAfterRecord.visibility = View.GONE
+        binding.btnPlay.visibility = View.GONE
+        binding.btnRetryMic.visibility = View.GONE
+        binding.llHearButtons.visibility = View.GONE
+        binding.progressBarPlay.visibility = View.GONE
+
+        // Reset progress bars
+        binding.progressBarRecord.progress = 0
+        binding.progressBarPlay.progress = 0
+    }
+
+    // ===================== WAVE ANIMATION =====================
+    private fun startWaveAnimation() {
+        updateWave = true
+        waveHandler.post(waveRunnable)
+    }
+
+    private fun stopWaveAnimation() {
+        updateWave = false
+        waveHandler.removeCallbacks(waveRunnable)
+        binding.bottomWaveView.setVoiceAmplitudes(List(128) { 0f })
+    }
+
+    private val waveRunnable = object : Runnable {
+        override fun run() {
+            val amps: List<Float> = if (isRecording) {
+                // Untuk recording - gunakan amplitude real
+                val amp = try {
+                    (recorder?.maxAmplitude ?: 0).toFloat()
+                } catch (_: Exception) {
+                    0f
+                }
+                List(128) { i ->
+                    // Create wave pattern based on amplitude
+                    val baseAmp = amp * 0.01f // Scale down
+                    when {
+                        i in 60..68 -> baseAmp * 1.0f
+                        i in 50..58 -> baseAmp * 0.8f
+                        i in 40..48 -> baseAmp * 0.6f
+                        i in 30..38 -> baseAmp * 0.4f
+                        else -> baseAmp * 0.2f
+                    }
+                }
+            } else if (player?.isPlaying == true) {
+                // Untuk playback - simulated wave
+                List(128) { i ->
+                    val time = System.currentTimeMillis() * 0.01f
+                    val frequency = i * 0.1f
+                    (sin(time + frequency) * 5000 + 5000).toFloat()
+                }
+            } else {
+                List(128) { 0f }
+            }
+
+            binding.bottomWaveView.setVoiceAmplitudes(amps)
+
+            if (updateWave) {
+                waveHandler.postDelayed(this, 50)
+            }
+        }
     }
 
     private fun getCurrentTimestamp(): String {
@@ -325,6 +368,7 @@ class SpeechTestFragment : Fragment() {
         return sdf.format(Date())
     }
 
+    // ===================== LIFECYCLE =====================
     override fun onPause() {
         super.onPause()
         cleanupResources()
@@ -337,18 +381,36 @@ class SpeechTestFragment : Fragment() {
     }
 
     private fun cleanupResources() {
+        // Cleanup recording
         try {
-            recorder?.stop()
+            if (isRecording) {
+                recorder?.stop()
+            }
         } catch (_: Exception) {}
-
         recorder?.release()
         recorder = null
 
+        // Cleanup playback
         player?.release()
         player = null
 
+        // Cleanup handlers
         waveHandler.removeCallbacksAndMessages(null)
         recordProgressHandler?.removeCallbacks(recordProgressRunnable ?: Runnable {})
         progressHandler?.removeCallbacks(progressRunnable ?: Runnable {})
+
+        isRecording = false
+        updateWave = false
+    }
+
+    private fun cleanupRecording() {
+        try {
+            if (isRecording) {
+                recorder?.stop()
+            }
+        } catch (_: Exception) {}
+        recorder?.release()
+        recorder = null
+        isRecording = false
     }
 }

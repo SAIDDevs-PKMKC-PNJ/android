@@ -160,11 +160,11 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="10dp"
                     android:text="Tanggal Lahir"
                     android:textColor="@color/white"
                     android:textSize="16sp"
-                    android:paddingStart="12dp"
-                    android:paddingEnd="10dp"
                     android:textStyle="bold" />
             </LinearLayout>
 
@@ -173,15 +173,15 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:textColor="@color/white"
-                android:textSize="16sp"
-                android:background="@android:color/transparent"
-                android:inputType="none"
-                android:focusable="false"
-                android:hint="Pilih tanggal lahir"
-                android:paddingBottom="4dp"
                 android:layout_marginBottom="2dp"
-                android:fontFamily="sans-serif" />
+                android:background="@android:color/transparent"
+                android:focusable="false"
+                android:fontFamily="sans-serif"
+                android:hint="Pilih tanggal lahir"
+                android:inputType="none"
+                android:paddingBottom="4dp"
+                android:textColor="@color/white"
+                android:textSize="16sp" />
 
             <View
                 android:layout_width="match_parent"
@@ -284,49 +284,50 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
+            android:background="@drawable/bg_menu_item"
+            android:gravity="center"
+            android:padding="8dp"
             android:text="Mode Edit - Isi data lalu tekan 'Simpan Perubahan'"
             android:textColor="@color/warning_color"
-            android:background="@color/warning_light"
-            android:padding="8dp"
-            android:visibility="gone"
-            android:gravity="center" />
+            android:visibility="gone" />
 
         <!-- Save & Edit Buttons -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginStart="56dp"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="12dp"
             android:layout_marginEnd="56dp"
             android:gravity="center"
             android:orientation="horizontal">
 
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_edit_save"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:background="@drawable/bg_history_btn_secondary"
-                android:backgroundTint="@color/lightBlue"
-                android:fontFamily="sans-serif-medium"
                 android:text="Edit"
-                android:textColor="@android:color/white"
-                android:textStyle="bold" />
+                android:textColor="@color/white"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                app:backgroundTint="@color/lightBlue" />
         </LinearLayout>
 
     </LinearLayout>
+
     <FrameLayout
         android:id="@+id/progressBar"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="#80000000"
-        android:visibility="gone"
         android:clickable="true"
+        android:elevation="10dp"
         android:focusable="true"
-        android:elevation="10dp">
+        android:visibility="gone">
 
         <ProgressBar
             android:layout_width="56dp"
             android:layout_height="56dp"
-            android:layout_gravity="center"/>
+            android:layout_gravity="center" />
     </FrameLayout>
 </RelativeLayout>

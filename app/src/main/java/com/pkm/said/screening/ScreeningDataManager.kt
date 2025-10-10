@@ -19,6 +19,7 @@ data class ScreeningResult(
     val eyesResult: TestResult? = null,         // E - Eyes
     val faceResult: TestResult? = null,         // F - Face
     val armsResult: TestResult? = null,         // A - Arms
+    val speechResult: TestResult? = null,
     val overallRisk: RiskLevel = RiskLevel.UNKNOWN,
     val isCompleted: Boolean = false,
     val completedAt: Timestamp? = null,
@@ -59,6 +60,7 @@ private data class ScreeningResultCache(
     val eyesResult: TestResult? = null,
     val faceResult: TestResult? = null,
     val armsResult: TestResult? = null,
+    val speechResult: TestResult? = null,
     val overallRisk: RiskLevel = RiskLevel.UNKNOWN,
     val isCompleted: Boolean = false,
     val completedAtText: String? = null
@@ -72,6 +74,7 @@ private fun ScreeningResult.toCache() = ScreeningResultCache(
     eyesResult = eyesResult,
     faceResult = faceResult,
     armsResult = armsResult,
+    speechResult =  speechResult,
     overallRisk = overallRisk,
     isCompleted = isCompleted,
     completedAtText = completedAtText ?: completedAt?.toDate()?.let {
@@ -87,6 +90,7 @@ private fun ScreeningResultCache.toDomain() = ScreeningResult(
     eyesResult = eyesResult,
     faceResult = faceResult,
     armsResult = armsResult,
+    speechResult =  speechResult,
     overallRisk = overallRisk,
     isCompleted = isCompleted,
     completedAt = null,
@@ -100,7 +104,7 @@ object ScreeningDataManager {
     private const val KEY_CURRENT_SESSION = "current_session"
     private const val KEY_SESSIONS_HISTORY = "sessions_history"
 
-    private const val TOTAL_BEFAST_TESTS = 4  // Balance, Eyes, Face, Arms
+    private const val TOTAL_BEFAST_TESTS = 5  // Balance, Eyes, Face, Arms
 
     private var currentSession: ScreeningResult? = null
 
@@ -127,6 +131,7 @@ object ScreeningDataManager {
                 "eyes_test", "eyes", "e" -> testResult.copy(testName = "befast_eyes")
                 "face_test", "face", "f" -> testResult.copy(testName = "befast_face")
                 "arms_test", "arms", "a" -> testResult.copy(testName = "befast_arms")
+                "speech_test", "speech", "s" -> testResult.copy(testName = "befast_speech")
                 else -> testResult
             }
 
@@ -136,6 +141,7 @@ object ScreeningDataManager {
                 "eyes" in name -> session.copy(eyesResult = standardizedTest)
                 "face" in name -> session.copy(faceResult = standardizedTest)
                 "arms" in name -> session.copy(armsResult = standardizedTest)
+                "speech" in name -> session.copy(speechResult = standardizedTest)
                 else -> {
                     Log.w(TAG, "Unknown test name: ${testResult.testName}")
                     session
@@ -182,7 +188,8 @@ object ScreeningDataManager {
             session.balanceResult,
             session.eyesResult,
             session.faceResult,
-            session.armsResult
+            session.armsResult,
+            session.speechResult
         )
         return tests.all { it != null && it.isCompleted }
     }
@@ -194,7 +201,8 @@ object ScreeningDataManager {
             session.balanceResult,
             session.eyesResult,
             session.faceResult,
-            session.armsResult
+            session.armsResult,
+            session.speechResult
         )
         val completedTests = tests.count { it?.isCompleted == true }
         return completedTests / TOTAL_BEFAST_TESTS.toFloat()
@@ -213,7 +221,8 @@ object ScreeningDataManager {
             session.balanceResult,
             session.eyesResult,
             session.faceResult,
-            session.armsResult
+            session.armsResult,
+            session.speechResult
         )
     }
 
@@ -225,6 +234,7 @@ object ScreeningDataManager {
         if (session.eyesResult?.isCompleted != true) pending.add("eyes")
         if (session.faceResult?.isCompleted != true) pending.add("face")
         if (session.armsResult?.isCompleted != true) pending.add("arms")
+        if (session.speechResult?.isCompleted != true) pending.add("speech")
         return pending
     }
 
@@ -250,7 +260,8 @@ object ScreeningDataManager {
             session.balanceResult,
             session.eyesResult,
             session.faceResult,
-            session.armsResult
+            session.armsResult,
+            session.speechResult
         )
             .filter { it.isCompleted }
             .map { it.score.coerceIn(0f, 1f) }
@@ -265,14 +276,15 @@ object ScreeningDataManager {
             session.balanceResult,
             session.eyesResult,
             session.faceResult,
-            session.armsResult
+            session.armsResult,
+            session.speechResult
         ).count { it.isCompleted && !it.isSuccessful }
 
         val percent = calculateBEFASTOverallPercent(session)
 
         return when {
-            percent >= 60 || failed >= 3 -> RiskLevel.CRITICAL
-            percent >= 40 || failed >= 2 -> RiskLevel.HIGH
+            percent >= 60 || failed >= 4 -> RiskLevel.CRITICAL
+            percent >= 40 || failed >= 3 -> RiskLevel.HIGH
             percent >= 20 || failed >= 1 -> RiskLevel.MEDIUM
             else -> RiskLevel.LOW
         }

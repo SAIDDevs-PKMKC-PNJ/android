@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -12,13 +11,13 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_centerInParent="true"
-        android:layout_marginTop="24dp"
         android:layout_marginStart="24dp"
+        android:layout_marginTop="24dp"
         android:layout_marginEnd="24dp"
-        android:orientation="vertical"
         android:background="@drawable/bg_card_container_primary"
-        android:padding="24dp"
-        android:elevation="6dp">
+        android:elevation="6dp"
+        android:orientation="vertical"
+        android:padding="24dp">
 
         <!-- Profile Image -->
         <ImageView
@@ -26,18 +25,18 @@
             android:layout_width="120dp"
             android:layout_height="120dp"
             android:layout_gravity="center_horizontal"
-            android:scaleType="centerCrop"
-            android:src="@drawable/ic_avatar_default"
             android:background="@drawable/bg_circle_light"
-            android:contentDescription="Profile" />
+            android:contentDescription="Profile"
+            android:scaleType="centerCrop"
+            android:src="@drawable/ic_avatar_default" />
 
         <!-- User Name -->
         <TextView
             android:id="@+id/tv_profile_name"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
             android:layout_gravity="center_horizontal"
+            android:layout_marginTop="16dp"
             android:text="@string/username"
             android:textColor="@android:color/white"
             android:textSize="22sp"
@@ -49,62 +48,64 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
+            android:layout_marginTop="4dp"
+            android:alpha="0.7"
             android:text="@string/createdDate"
             android:textColor="@android:color/white"
-            android:textSize="14sp"
-            android:layout_marginTop="4dp"
-            android:alpha="0.7" />
+            android:textSize="14sp" />
 
         <TextView
             android:id="@+id/tv_join_date"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="16dp"
             android:text="@string/createdDate_desc"
             android:textColor="@color/lightBlue"
             android:textSize="14sp"
-            android:textStyle="bold"
-            android:layout_marginBottom="16dp" />
+            android:textStyle="bold" />
 
         <!-- Menu Buttons -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:layout_marginTop="8dp">
+            android:layout_marginTop="8dp"
+            android:orientation="vertical">
 
-            <include layout="@layout/item_profile_menu"
+            <include
                 android:id="@+id/menu_informasi"
-                android:tag="Informasi Pribadi"
-                />
+                layout="@layout/item_profile_menu"
+                android:tag="Informasi Pribadi" />
 
-            <include layout="@layout/item_profile_menu"
+            <include
                 android:id="@+id/menu_history"
-                android:tag="Posisi Geologi"
-                />
+                layout="@layout/item_profile_menu"
+                android:tag="Posisi Geologi" />
 
-            <include layout="@layout/item_profile_menu"
+            <include
                 android:id="@+id/menu_settings"
-                android:tag="Settings"
-                />
+                layout="@layout/item_profile_menu"
+                android:tag="Settings" />
 
-            <include layout="@layout/item_profile_menu"
+            <include
                 android:id="@+id/menu_hapus"
-                android:tag="Donasi"
-                />
+                layout="@layout/item_profile_menu"
+                android:tag="Donasi" />
         </LinearLayout>
 
         <!-- Logout Button -->
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_logout"
             android:layout_width="match_parent"
-            android:layout_height="48dp"
+            android:layout_height="match_parent"
             android:layout_marginTop="24dp"
-            android:backgroundTint="#F35252"
+            android:layout_marginStart="80dp"
+            android:layout_marginEnd="80dp"
+            android:background="@drawable/bg_logout_rounded"
             android:text="Logout"
-            android:textColor="@android:color/white"
+            android:textColor="@color/white"
             android:textStyle="bold"
-            android:background="@drawable/bg_logout_rounded"/>
+            app:backgroundTint="@color/warning_color"/>
     </LinearLayout>
 
     <FrameLayout
@@ -112,15 +113,15 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="#80000000"
-        android:visibility="gone"
         android:clickable="true"
+        android:elevation="10dp"
         android:focusable="true"
-        android:elevation="10dp">
+        android:visibility="gone">
 
         <ProgressBar
             android:layout_width="56dp"
             android:layout_height="56dp"
-            android:layout_gravity="center"/>
+            android:layout_gravity="center" />
     </FrameLayout>
 
 

@@ -10,48 +10,29 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
-        <!-- Header -->
-        <TextView
-            style="@style/TextAppearance.Material3.TitleLarge"
-            android:id="@+id/tv_header"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:layout_marginEnd="24dp"
-            android:layout_marginStart="24dp"
-            android:layout_marginBottom="8dp"
-            android:gravity="center"
-            android:text="Hasil Screening FAST"
-            android:textColor="@color/white"
-            android:textSize="28sp"
-            android:textStyle="bold"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
-
         <!-- Session Info -->
-        <TextView
-            style="@style/TextAppearance.Material3.BodySmall"
-            android:id="@+id/tv_session_info"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="24dp"
-            android:layout_marginStart="24dp"
-            android:layout_marginBottom="24dp"
-            android:gravity="center"
-            android:text="Sesi: • Waktu: "
-            android:textStyle="bold"
-            android:textColor="@color/white_alpha_80"
-            android:textSize="14sp"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/tv_header" />
+<!--        <TextView-->
+<!--            android:id="@+id/tv_session_info"-->
+<!--            android:layout_width="0dp"-->
+<!--            android:layout_height="wrap_content"-->
+<!--            android:layout_marginEnd="24dp"-->
+<!--            android:layout_marginStart="24dp"-->
+<!--            android:layout_marginBottom="24dp"-->
+<!--            android:gravity="center"-->
+<!--            android:text="Sesi: • Waktu: "-->
+<!--            android:textStyle="bold"-->
+<!--            android:textColor="@color/white_alpha_80"-->
+<!--            android:textSize="14sp"-->
+<!--            app:layout_constraintEnd_toEndOf="parent"-->
+<!--            app:layout_constraintStart_toStartOf="parent"-->
+<!--            app:layout_constraintTop_toBottomOf="@+id/tv_header" />-->
 
         <!-- Risk Assessment Card -->
         <androidx.cardview.widget.CardView
             android:id="@+id/card_risk_assessment"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
             android:layout_marginEnd="24dp"
             android:layout_marginStart="24dp"
             android:layout_marginBottom="12dp"
@@ -59,7 +40,7 @@
             app:cardElevation="8dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/tv_session_info">
+            app:layout_constraintTop_toTopOf="parent">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -287,7 +268,7 @@
                     android:layout_marginBottom="12dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal"
-                    android:visibility="gone">
+                    android:visibility="visible">
 
                     <ImageView
                         android:id="@+id/iv_speech_test_icon"
@@ -432,8 +413,7 @@
                     android:layout_height="48dp"
                     android:layout_marginEnd="8dp"
                     android:layout_weight="1"
-                    android:background="@drawable/bg_history_btn_secondary"
-                    android:backgroundTint="@color/BluePrimary"
+                    android:backgroundTint="@color/lightBlue"
                     android:text="Ulangi Test"
                     android:textColor="@color/white"
                     android:textSize="14sp"
@@ -447,8 +427,7 @@
                     android:layout_height="48dp"
                     android:layout_marginStart="8dp"
                     android:layout_weight="1"
-                    android:background="@drawable/bg_history_btn_secondary"
-                    android:backgroundTint="@color/BluePrimary"
+                    android:backgroundTint="@color/lightBlue"
                     android:text="Lihat Riwayat"
                     android:textColor="@color/white"
                     android:textSize="14sp"

@@ -1,5 +1,6 @@
 package com.pkm.said
 
+import android.content.Context.INPUT_METHOD_SERVICE
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -7,6 +8,7 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
 import android.widget.*
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
@@ -100,7 +102,10 @@ class ForgotPasswordBottomSheet : BottomSheetDialogFragment() {
 
             if (validateEmail(email)) {
                 sendPasswordResetEmail(email)
-            }
+            } else {
+            showShortToast("Please enter your email address")
+            Log.d(tag, "⚠️ Email validation failed - showing user feedback")
+        }
         }
 
         // Cancel button - dismiss bottom sheet
@@ -113,6 +118,15 @@ class ForgotPasswordBottomSheet : BottomSheetDialogFragment() {
         closeButton.setOnClickListener {
             Log.d(tag, "✖️ Close clicked - returning to LoginActivity")
             dismiss()
+        }
+
+        emailInput.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus) {
+                val email = emailInput.text.toString().trim()
+                if (email.isNotEmpty()) {
+                    validateEmail(email) // Show error immediately when user leaves field
+                }
+            }
         }
     }
 
@@ -130,11 +144,13 @@ class ForgotPasswordBottomSheet : BottomSheetDialogFragment() {
         return when {
             email.isEmpty() -> {
                 emailInputLayout.error = "Email is required"
+                emailInputLayout.requestFocus()
                 Log.d(tag, "⚠️ Validation failed: Email is empty")
                 false
             }
             !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches() -> {
                 emailInputLayout.error = "Please enter a valid email address"
+                emailInputLayout.requestFocus()
                 Log.d(tag, "⚠️ Validation failed: Invalid email format")
                 false
             }
@@ -150,7 +166,7 @@ class ForgotPasswordBottomSheet : BottomSheetDialogFragment() {
     private fun sendPasswordResetEmail(email: String) {
         Log.d(tag, "📧 Sending password reset email to: ${email.take(5)}...")
 
-        // Show loading state
+        hideKeyboard()
         setLoadingState(true)
 
         // Firebase send email
@@ -165,6 +181,10 @@ class ForgotPasswordBottomSheet : BottomSheetDialogFragment() {
                 } else {
                     Log.e(tag, "❌ Failed to send password reset email", task.exception)
                     showErrorMessage(task.exception)
+
+                    if (isNetworkError(task.exception)) {
+                        showShortToast("Network error. Periksa koneksi internet")
+                    }
                 }
             }
     }
@@ -181,6 +201,17 @@ class ForgotPasswordBottomSheet : BottomSheetDialogFragment() {
             sendButton.text = "Send Reset Email"
             progressBar.visibility = View.GONE
             Log.d(tag, "⏳ Loading state: OFF")
+        }
+    }
+
+    private fun hideKeyboard() {
+        val inputMethodManager = context?.getSystemService(INPUT_METHOD_SERVICE) as? InputMethodManager
+        inputMethodManager?.hideSoftInputFromWindow(emailInput.windowToken, 0)
+    }
+
+    private fun showShortToast(message: String) {
+        context?.let { ctx ->
+            Toast.makeText(ctx, message, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -222,6 +253,12 @@ class ForgotPasswordBottomSheet : BottomSheetDialogFragment() {
         Log.d(tag, "❌ Error displayed: $errorMessage")
 
         // Bottom sheet stays open for user to retry
+    }
+
+    private fun isNetworkError(exception: Exception?): Boolean {
+        return exception?.message?.contains("network", ignoreCase = true) == true ||
+                exception?.message?.contains("connection", ignoreCase = true) == true ||
+                exception?.message?.contains("timeout", ignoreCase = true) == true
     }
 
     // ✅ STEP 4M: Companion object for creating instances

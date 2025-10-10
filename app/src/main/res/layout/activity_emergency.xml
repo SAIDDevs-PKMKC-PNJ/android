@@ -1,18 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/root_emergency"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/emergencyPrimaryDark"
-    android:orientation="vertical"
     android:gravity="center"
+    android:orientation="vertical"
     android:padding="16dp">
 
     <!-- Status / Title -->
     <TextView
-        style="@style/TextAppearance.Material3.TitleLarge"
         android:id="@+id/tv_status"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -59,29 +57,29 @@
                 android:id="@+id/slide_to_cancel"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:text="@string/slider_label"
-                app:animation_duration="250"
                 app:animate_completion="true"
+                app:animation_duration="250"
                 app:border_radius="28dp"
-                app:slider_icon="@drawable/ic_arrow_forward"
-                app:slider_icon_color="@color/emergencyPrimaryDark"
                 app:inner_color="@android:color/white"
-                app:slider_locked="false"
                 app:outer_color="@color/emergencyPrimary"
                 app:slider_height="56dp"
+                app:slider_icon="@drawable/ic_arrow_forward"
+                app:slider_icon_color="@color/emergencyPrimaryDark"
+                app:slider_locked="false"
+                app:text="@string/slider_label"
                 app:text_appearance="@style/TextAppearance.Material3.BodyMedium"
                 app:text_color="@color/emergencyPrimaryDark" />
 
             <!-- Hint singkat -->
             <TextView
                 android:id="@+id/tv_hint"
-                style="@style/TextAppearance.Material3.BodySmall"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
                 android:text="Jika tidak ada respons, aplikasi akan menghubungi kontak darurat dan mengirim lokasi Anda."
                 android:textAlignment="center"
-                android:textColor="@color/white" />
+                android:textColor="@color/white"
+                android:textStyle="bold" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 

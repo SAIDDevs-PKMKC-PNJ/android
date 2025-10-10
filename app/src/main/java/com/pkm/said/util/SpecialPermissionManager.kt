@@ -89,7 +89,7 @@ class SpecialPermissionManager(private val context: Context) {
         permissions.add(PermissionStatus(
             "AUTOSTART",
             isAutoStartEnabled(),
-            true,
+            false,
             "Auto-start setelah device restart (manufacturer specific)",
             getAutoStartIntent().action
         ))
@@ -97,7 +97,7 @@ class SpecialPermissionManager(private val context: Context) {
         permissions.add(PermissionStatus(
             "BACKGROUND_ACTIVITY",
             isBackgroundActivityAllowed(),
-            true,
+            false,
             "Akses background activity untuk voice service",
             Settings.ACTION_APPLICATION_DETAILS_SETTINGS
         ))

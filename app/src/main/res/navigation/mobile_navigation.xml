@@ -14,15 +14,11 @@
         <!-- Actions untuk navigasi dari Home -->
         <action
             android:id="@+id/action_dashboard_to_profile"
-            app:destination="@id/navigation_profile"
-            app:enterAnim="@android:anim/slide_in_left"
-            app:exitAnim="@android:anim/slide_out_right" />
+            app:destination="@id/navigation_profile" />
 
         <action
             android:id="@+id/action_dashboard_to_history"
-            app:destination="@id/navigation_history"
-            app:enterAnim="@android:anim/slide_in_left"
-            app:exitAnim="@android:anim/slide_out_right" />
+            app:destination="@id/navigation_history" />
     </fragment>
 
     <fragment
@@ -34,21 +30,15 @@
         <!-- Actions untuk navigasi dari Chatbot -->
         <action
             android:id="@+id/action_history_to_dashboard"
-            app:destination="@id/navigation_dashboard"
-            app:enterAnim="@android:anim/slide_out_right"
-            app:exitAnim="@android:anim/slide_in_left" />
+            app:destination="@id/navigation_dashboard" />
 
         <action
             android:id="@+id/action_history_to_historyDetail"
-            app:destination="@+id/navigation_historyDetail"
-            app:enterAnim="@android:anim/slide_in_left"
-            app:exitAnim="@android:anim/slide_out_right" />
+            app:destination="@+id/navigation_historyDetail" />
 
         <action
             android:id="@+id/action_history_to_profile"
-            app:destination="@id/navigation_profile"
-            app:enterAnim="@android:anim/slide_in_left"
-            app:exitAnim="@android:anim/slide_out_right" />
+            app:destination="@id/navigation_profile" />
     </fragment>
 
     <fragment
@@ -57,9 +47,7 @@
         android:label="History Detail Fragment">
         <action
             android:id="@+id/action_historyDetail_to_history"
-            app:destination="@+id/navigation_history"
-            app:enterAnim="@android:anim/slide_in_left"
-            app:exitAnim="@android:anim/slide_out_right" />
+            app:destination="@+id/navigation_history" />
 
         <argument
             android:name="sessionId"
@@ -74,9 +62,7 @@
 
         <action
             android:id="@+id/action_editProfile_to_profile"
-            app:destination="@+id/navigation_news"
-            app:enterAnim="@android:anim/slide_in_left"
-            app:exitAnim="@android:anim/slide_out_right" />
+            app:destination="@+id/navigation_profile" />
     </fragment>
 
     <fragment
@@ -88,48 +74,16 @@
         <!-- Actions untuk navigasi dari News -->
         <action
             android:id="@+id/action_profile_to_dashboard"
-            app:destination="@id/navigation_dashboard"
-            app:enterAnim="@android:anim/slide_out_right"
-            app:exitAnim="@android:anim/slide_in_left" />
+            app:destination="@id/navigation_dashboard" />
 
         <action
             android:id="@+id/action_profile_to_editProfile"
-            app:destination="@+id/navigation_profileForm"
-            app:enterAnim="@android:anim/slide_in_left"
-            app:exitAnim="@android:anim/slide_out_right" />
+            app:destination="@+id/navigation_profileForm" />
 
         <action
             android:id="@+id/action_profile_to_history"
-            app:destination="@id/navigation_history"
-            app:enterAnim="@android:anim/slide_out_right"
-            app:exitAnim="@android:anim/slide_in_left" />
+            app:destination="@id/navigation_history" />
 
     </fragment>
-
-    <!-- Action untuk navigasi ke detail artikel -->
-    <!--        <action-->
-    <!--            android:id="@+id/action_news_to_article_detail"-->
-    <!--            app:destination="@id/navigation_article_detail"-->
-    <!--            app:enterAnim="@android:anim/slide_in_left"-->
-    <!--            app:exitAnim="@android:anim/slide_out_right" />-->
-
-    <!-- Fragment tambahan untuk detail artikel -->
-    <!--    <fragment-->
-    <!--        android:id="@+id/navigation_article_detail"-->
-    <!--        android:name="com.pkm.said.ui.news.ArticleDetailFragment"-->
-    <!--        android:label="@string/title_article_detail"-->
-    <!--        tools:layout="@layout/fragment_article_detail">-->
-
-    <!--        &lt;!&ndash; Argument untuk menerima data artikel &ndash;&gt;-->
-    <!--        <argument-->
-    <!--            android:name="articleId"-->
-    <!--            app:argType="string"-->
-    <!--            app:nullable="false" />-->
-
-    <!--        <argument-->
-    <!--            android:name="articleTitle"-->
-    <!--            app:argType="string"-->
-    <!--            app:nullable="true" />-->
-    <!--    </fragment>-->
 
 </navigation>

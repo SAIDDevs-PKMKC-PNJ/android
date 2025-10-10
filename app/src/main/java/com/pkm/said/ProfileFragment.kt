@@ -28,6 +28,7 @@ import com.pkm.said.service.VoiceActivationService
 import com.pkm.said.util.AuthManager
 import com.pkm.said.util.SessionManager
 import androidx.core.content.edit
+import androidx.navigation.NavOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -197,8 +198,7 @@ class ProfileFragment : Fragment() {
                 findNavController().navigate(R.id.action_profile_to_editProfile)
             }
             binding.menuHistory.root.setOnClickListener {
-                Log.d(TAG, "Menu: Riwayat Screening clicked")
-                findNavController().navigate(R.id.action_profile_to_history)
+                (requireActivity() as MainActivity).navigateToTopLevel(R.id.navigation_history)
             }
             binding.menuSettings.root.setOnClickListener {
                 Log.d(TAG, "Menu: Settings clicked")

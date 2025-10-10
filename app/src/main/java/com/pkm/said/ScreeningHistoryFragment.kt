@@ -48,7 +48,7 @@ class ScreeningHistoryFragment : Fragment() {
     }
 
     private fun setupToolbar() {
-        binding.btnBack.setOnClickListener { requireActivity().onBackPressedDispatcher.onBackPressed() }
+        binding.btnBack.setOnClickListener { findNavController().navigateUp() }
         val title = "Riwayat Screening"
         val span = SpannableString(title).apply {
             setSpan(StyleSpan(android.graphics.Typeface.BOLD), 0, title.length, 0)

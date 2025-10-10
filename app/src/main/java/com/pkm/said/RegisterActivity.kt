@@ -3,10 +3,12 @@ package com.pkm.said
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.credentials.CredentialManager
 import androidx.credentials.CredentialOption
+import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.GetCredentialResponse
 import androidx.credentials.exceptions.GetCredentialException
@@ -58,7 +60,8 @@ class RegisterActivity : AppCompatActivity() {
         val nameEditText: EditText = findViewById(R.id.fullNameEditText) // Updated ID
         val emailEditText: EditText = findViewById(R.id.emailEditText)
         val passwordEditText: EditText = findViewById(R.id.passwordEditText)
-        val confirmPasswordEditText: EditText = findViewById(R.id.confirmPasswordEditText) // New field
+        val confirmPasswordEditText: EditText =
+            findViewById(R.id.confirmPasswordEditText) // New field
         val registerButton: Button = findViewById(R.id.registerButton)
         val toLoginButton: TextView = findViewById(R.id.toLoginButton) // Changed to TextView
 
@@ -92,7 +95,8 @@ class RegisterActivity : AppCompatActivity() {
 
                     if (task.isSuccessful) {
                         Log.d(TAG, "✅ Registration successful for user: $email")
-                        Toast.makeText(this, "Account created successfully!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, "Account created successfully!", Toast.LENGTH_SHORT)
+                            .show()
 
                         // Set display name
                         val user = auth.currentUser
@@ -104,14 +108,22 @@ class RegisterActivity : AppCompatActivity() {
                                 if (updateTask.isSuccessful) {
                                     Log.d(TAG, "✅ User profile updated with name: $name")
                                 } else {
-                                    Log.e(TAG, "❌ Failed to update user profile", updateTask.exception)
+                                    Log.e(
+                                        TAG,
+                                        "❌ Failed to update user profile",
+                                        updateTask.exception
+                                    )
                                 }
                                 // Lanjut ke MainActivity
                                 redirectToMainActivity()
                             }
                     } else {
                         Log.e(TAG, "❌ Registration failed", task.exception)
-                        Toast.makeText(this, "Registrasi gagal: ${task.exception?.message}", Toast.LENGTH_LONG).show()
+                        Toast.makeText(
+                            this,
+                            "Registrasi gagal: ${task.exception?.message}",
+                            Toast.LENGTH_LONG
+                        ).show()
                     }
                 }
         }
@@ -140,6 +152,8 @@ class RegisterActivity : AppCompatActivity() {
         folder: String
     ): CloudinaryUploadResp? = withContext(Dispatchers.IO) {
         try {
+            Log.d(TAG, "📤 Uploading with Cloudinary auto-unique naming...")
+
             val body = MultipartBody.Builder().setType(MultipartBody.FORM)
                 .addFormDataPart("file", fileUrl)
                 .addFormDataPart("upload_preset", uploadPreset)
@@ -152,46 +166,88 @@ class RegisterActivity : AppCompatActivity() {
                 .build()
 
             http.newCall(req).execute().use { res ->
-                if (!res.isSuccessful) return@use null
-                val txt = res.body?.string().orEmpty()
-                cldAdapter.fromJson(txt)
+                if (!res.isSuccessful) {
+                    Log.e(TAG, "❌ Upload failed: ${res.code}")
+                    return@use null
+                }
+
+                val responseText = res.body?.string().orEmpty()
+                val result = cldAdapter.fromJson(responseText)
+
+                if (result != null) {
+                    Log.d(TAG, "✅ Upload Success!")
+                    Log.d(TAG, "   - Public ID: ${result.public_id}")
+                    Log.d(TAG, "   - Secure URL: ${result.secure_url?.take(50)}...")
+
+                    // Safe logging untuk optional fields:
+                    result::class.java.declaredFields.forEach { field ->
+                        field.isAccessible = true
+                        try {
+                            val value = field.get(result)
+                            if (value != null) {
+                                Log.d(TAG, "   - ${field.name}: $value")
+                            } else {
+                                Log.d(TAG, "   - ${field.name}: null")
+                            }
+                        } catch (e: Exception) {
+                            Log.d(TAG, "   - ${field.name}: [cannot access]")
+                        }
+                    }
+                } else {
+                    Log.e(TAG, "❌ Failed to parse Cloudinary response")
+                }
+
+                return@use result
             }
         } catch (e: Exception) {
-            Log.e(TAG, "uploadUrlToCloudinary error", e); null
+            Log.e(TAG, "❌ Upload error", e)
+            null
         }
     }
 
     // ✅ ENHANCED VALIDATION
-    private fun validateRegistrationInputs(name: String, email: String, password: String, confirmPassword: String): Boolean {
+    private fun validateRegistrationInputs(
+        name: String,
+        email: String,
+        password: String,
+        confirmPassword: String
+    ): Boolean {
         when {
             name.isEmpty() -> {
                 showValidationError("Full name is required")
                 return false
             }
+
             name.length < 2 -> {
                 showValidationError("Full name must be at least 2 characters")
                 return false
             }
+
             email.isEmpty() -> {
                 showValidationError("Email is required")
                 return false
             }
+
             !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches() -> {
                 showValidationError("Please enter a valid email address")
                 return false
             }
+
             password.isEmpty() -> {
                 showValidationError("Password is required")
                 return false
             }
+
             password.length < 6 -> {
                 showValidationError("Password must be at least 6 characters")
                 return false
             }
+
             confirmPassword.isEmpty() -> {
                 showValidationError("Please confirm your password")
                 return false
             }
+
             password != confirmPassword -> {
                 showValidationError("Passwords do not match")
                 return false
@@ -208,6 +264,8 @@ class RegisterActivity : AppCompatActivity() {
     // ✅ GOOGLE SIGN IN FOR REGISTRATION
     private fun performGoogleSignInForRegister() {
         Log.d(TAG, "🔄 Starting Google Sign In for registration...")
+
+        showLoading("Preparing Google Sign In...")
 
         // Show loading state
         val googleSignInButton: Button = findViewById(R.id.googleSignInButton)
@@ -246,9 +304,11 @@ class RegisterActivity : AppCompatActivity() {
 
             } catch (e: GetCredentialException) {
                 Log.e(TAG, "❌ Credential Manager error", e)
+                hideLoading()
                 handleCredentialError(e)
             } catch (e: Exception) {
                 Log.e(TAG, "❌ Unexpected error in Google Sign In", e)
+                hideLoading()
                 handleUnexpectedError(e)
             }
         }
@@ -259,28 +319,65 @@ class RegisterActivity : AppCompatActivity() {
         try {
             Log.d(TAG, "✅ Google credential received, processing...")
 
+            showLoading("Authenticating with Google...")
+
             when (val credential = result.credential) {
                 is GoogleIdTokenCredential -> {
                     Log.d(TAG, "Google ID Token credential received")
-
                     val googleIdToken = credential.idToken
                     Log.d(TAG, "Google ID Token length: ${googleIdToken.length}")
 
-                    // Authenticate with Firebase
+                    showLoading("Connecting to Firebase...")
                     firebaseAuthWithGoogleForRegister(googleIdToken)
                 }
+
+                is CustomCredential -> {
+                    Log.d(TAG, "CustomCredential received, checking type...")
+
+                    if (credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                        try {
+                            Log.d(TAG, "Converting CustomCredential to GoogleIdTokenCredential")
+                            showLoading("Processing Google account...")
+
+                            val googleIdTokenCredential = GoogleIdTokenCredential
+                                .createFrom(credential.data)
+
+                            val googleIdToken = googleIdTokenCredential.idToken
+                            Log.d(TAG, "Google ID Token: ${googleIdToken.take(20)}...")
+
+                            showLoading("Connecting to Firebase...")
+                            firebaseAuthWithGoogleForRegister(googleIdToken)
+                        } catch (e: GoogleIdTokenParsingException) {
+                            Log.e(TAG, "❌ Google ID Token parsing error", e)
+                            hideLoading()
+                            resetGoogleButtonState()
+                            Toast.makeText(this, "Invalid Google credential", Toast.LENGTH_SHORT)
+                                .show()
+                        }
+                    } else {
+                        Log.e(TAG, "❌ Unexpected CustomCredential type: ${credential.type}")
+                        hideLoading()
+                        resetGoogleButtonState()
+                        Toast.makeText(this, "Unexpected credential type", Toast.LENGTH_SHORT)
+                            .show()
+                    }
+                }
+
                 else -> {
                     Log.e(TAG, "❌ Unexpected credential type: ${credential::class.java}")
+                    hideLoading()
                     resetGoogleButtonState()
                     Toast.makeText(this, "Unexpected credential type", Toast.LENGTH_SHORT).show()
                 }
             }
         } catch (e: GoogleIdTokenParsingException) {
             Log.e(TAG, "❌ Google ID Token parsing error", e)
+            hideLoading()
             resetGoogleButtonState()
             Toast.makeText(this, "Invalid Google credential", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error handling credential result", e)
+            hideLoading()
             resetGoogleButtonState()
             Toast.makeText(this, "Authentication error", Toast.LENGTH_SHORT).show()
         }
@@ -291,20 +388,31 @@ class RegisterActivity : AppCompatActivity() {
         try {
             Log.d(TAG, "🔐 Authenticating with Firebase using Google ID Token...")
 
+            showLoading("Finalizing authentication...")
+
             val credential = GoogleAuthProvider.getCredential(idToken, null)
 
             auth.signInWithCredential(credential)
                 .addOnCompleteListener(this) { task ->
+                    hideLoading()
                     resetGoogleButtonState()
 
                     if (task.isSuccessful) {
                         val user = auth.currentUser
                         resetGoogleButtonState()
 
-                        if (user == null) { redirectToMainActivity(); return@addOnCompleteListener }
+                        if (user == null) {
+                            redirectToMainActivity(); return@addOnCompleteListener
+                        }
 
                         val isNewUser = task.result?.additionalUserInfo?.isNewUser ?: false
-                        Toast.makeText(this, if (isNewUser) "Account created!" else "Welcome back!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            this,
+                            if (isNewUser) "Account created!" else "Welcome back!",
+                            Toast.LENGTH_SHORT
+                        ).show()
+
+                        showLoading("Setting up your profile...")
 
                         lifecycleScope.launch {
                             val googlePhoto = user.photoUrl?.toString()
@@ -345,17 +453,23 @@ class RegisterActivity : AppCompatActivity() {
                                 .set(data, SetOptions.merge())
                                 .addOnCompleteListener {
                                     // teruskan ke form melengkapi profil
+                                    hideLoading()
                                     redirectToMainActivity()
                                 }
                         }
                     } else {
                         Log.e(TAG, "❌ Firebase Google authentication failed", task.exception)
-                        Toast.makeText(this, "Authentication failed: ${task.exception?.message}", Toast.LENGTH_LONG).show()
+                        Toast.makeText(
+                            this,
+                            "Authentication failed: ${task.exception?.message}",
+                            Toast.LENGTH_LONG
+                        ).show()
                     }
                 }
 
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error in Firebase Google authentication", e)
+            hideLoading()
             resetGoogleButtonState()
             Toast.makeText(this, "Authentication error: ${e.message}", Toast.LENGTH_LONG).show()
         }
@@ -370,17 +484,25 @@ class RegisterActivity : AppCompatActivity() {
                 Log.d(TAG, "⚠️ User cancelled Google Sign In")
                 Toast.makeText(this, "Sign up cancelled", Toast.LENGTH_SHORT).show()
             }
+
             "GetCredentialInterruptedException" -> {
                 Log.e(TAG, "❌ Google Sign In interrupted", e)
                 Toast.makeText(this, "Sign up interrupted", Toast.LENGTH_SHORT).show()
             }
+
             "NoCredentialException" -> {
                 Log.e(TAG, "❌ No Google credentials available", e)
-                Toast.makeText(this, "No Google account found. Please add a Google account.", Toast.LENGTH_LONG).show()
+                Toast.makeText(
+                    this,
+                    "No Google account found. Please add a Google account.",
+                    Toast.LENGTH_LONG
+                ).show()
             }
+
             else -> {
                 Log.e(TAG, "❌ Unknown credential error: ${e::class.java.simpleName}", e)
-                Toast.makeText(this, "Google Sign In failed: ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Google Sign In failed: ${e.message}", Toast.LENGTH_LONG)
+                    .show()
             }
         }
     }
@@ -449,7 +571,10 @@ class RegisterActivity : AppCompatActivity() {
                 intent.putExtra("user_email", user.email)
                 intent.putExtra("user_name", user.displayName)
                 intent.putExtra("user_photo_url", user.photoUrl?.toString())
-                intent.putExtra("login_method", if (user.providerData.any { it.providerId == "google.com" }) "google" else "email")
+                intent.putExtra(
+                    "login_method",
+                    if (user.providerData.any { it.providerId == "google.com" }) "google" else "email"
+                )
                 intent.putExtra("email_verified", user.isEmailVerified)
                 intent.putExtra("from_registration", true)
             }
@@ -460,6 +585,35 @@ class RegisterActivity : AppCompatActivity() {
             Log.d(TAG, "✅ Redirected to MainActivity")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error redirecting to MainActivity", e)
+        }
+    }
+
+    private fun showLoading(message: String = "Signing in with Google...") {
+        try {
+            val loadingOverlay: FrameLayout = findViewById(R.id.loadingOverlay)
+            val loadingText: TextView = findViewById(R.id.loadingText)
+
+            loadingText.text = message
+            loadingOverlay.visibility = View.VISIBLE
+            loadingOverlay.isClickable = true
+            loadingOverlay.isFocusable = true
+
+            Log.d(TAG, "⏳ Loading shown: $message")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error showing loading", e)
+        }
+    }
+
+    private fun hideLoading() {
+        try {
+            val loadingOverlay: FrameLayout = findViewById(R.id.loadingOverlay)
+            loadingOverlay.visibility = View.GONE
+            loadingOverlay.isClickable = false
+            loadingOverlay.isFocusable = false
+
+            Log.d(TAG, "⏳ Loading hidden")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error hiding loading", e)
         }
     }
 }

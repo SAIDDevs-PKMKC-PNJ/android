@@ -5,4 +5,7 @@
         <item name="cornerSize">12dp</item>
     </style>
 
+    <style name="PhoneInputLayoutStyle" parent="Widget.Material3.TextInputLayout.OutlinedBox">
+        <item name="startIconTint">@null</item>
+    </style>
 </resources>

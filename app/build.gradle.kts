@@ -66,6 +66,7 @@ dependencies {
     implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.firestore.ktx)
     implementation(libs.androidx.credentials)
+    implementation(libs.play.services.auth)
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.libraries.identity.googleid)
     implementation(libs.porcupine.android)

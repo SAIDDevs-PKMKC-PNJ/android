@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <inset xmlns:android="http://schemas.android.com/apk/res/android"
-    android:insetLeft="1dp"
-    android:insetTop="1dp"
-    android:insetRight="1dp"
-    android:insetBottom="1dp">
+    android:insetLeft="0.5dp"
+    android:insetTop="0.5dp"
+    android:insetRight="0.5dp"
+    android:insetBottom="0.5dp">
 
 
     <shape android:shape="oval">

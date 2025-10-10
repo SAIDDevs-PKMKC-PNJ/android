@@ -17,14 +17,17 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-<!--    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />-->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-<!--    <uses-permission android:name="android.permission.CALL_PHONE" />-->
-<!--    <uses-permission android:name="android.permission.BIND_VOICE_INTERACTION"-->
-<!--        tools:ignore="ProtectedPermissions" />-->
+
+    <!-- ✅ TAMBAHKAN IZIN TELEPON INI -->
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <!-- Untuk Android 12+ -->
+    <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
 
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
@@ -109,7 +112,8 @@
             android:name=".service.VoiceActivationService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="microphone" />
+            android:foregroundServiceType="microphone"
+            android:stopWithTask="false" />
         
         <activity
             android:name=".ScreeningManagementActivity"

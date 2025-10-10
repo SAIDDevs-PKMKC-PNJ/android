@@ -6,6 +6,7 @@
     android:viewportWidth="120"
     android:viewportHeight="120">
     <!-- Outer circle (background) -->
+    <clip-path android:pathData="M60,5a55,55 0,1 1,0 110a55,55 0,1 1,0 -110z"/>
     <path
         android:fillColor="#E6F2F5"
         android:pathData="M60,0A60,60 0,1 1,60 120A60,60 0,1 1,60 0Z"/>

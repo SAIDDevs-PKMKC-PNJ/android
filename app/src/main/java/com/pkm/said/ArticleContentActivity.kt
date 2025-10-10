@@ -91,10 +91,6 @@ class ArticleContentActivity : AppCompatActivity() {
             onBackPressedDispatcher.onBackPressed()
         }
 
-        binding.fabBookmark.setOnClickListener {
-            showToast(getString(R.string.bookmarked_msg))
-        }
-
         binding.fabShare.setOnClickListener {
             shareArticle(article)
         }

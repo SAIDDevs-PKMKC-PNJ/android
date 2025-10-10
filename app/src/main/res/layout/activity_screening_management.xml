@@ -96,13 +96,12 @@
             android:orientation="vertical">
 
             <TextView
-                style="@style/TextAppearance.Material3.BodyMedium"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/mulai_scanning"
                 android:textAlignment="center"
                 android:textColor="@android:color/white"
-                android:textSize="16sp"
+                android:textSize="20sp"
                 android:textStyle="bold" />
         </LinearLayout>
     </androidx.cardview.widget.CardView>

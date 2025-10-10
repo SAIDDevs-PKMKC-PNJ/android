@@ -22,6 +22,7 @@ import com.google.android.material.switchmaterial.SwitchMaterial
 import com.pkm.said.util.ScreeningReminderReceiver
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.core.content.edit
 
 class NotificationSettingsActivity : AppCompatActivity() {
 
@@ -64,6 +65,7 @@ class NotificationSettingsActivity : AppCompatActivity() {
         initViews()
         setupViews()
         loadSettings()
+        checkExactAlarmPermission()
         createNotificationChannel()
     }
 
@@ -109,11 +111,27 @@ class NotificationSettingsActivity : AppCompatActivity() {
         Log.d(TAG, "Settings loaded - Enabled: $isEnabled, Time: $selectedHour:$selectedMinute")
     }
 
+    private fun checkExactAlarmPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val alarmManager = getSystemService(ALARM_SERVICE) as AlarmManager
+            val hasPermission = alarmManager.canScheduleExactAlarms()
+
+            Log.d(TAG, "Exact alarm permission granted: $hasPermission")
+
+            if (!hasPermission && switchReminder.isChecked) {
+                // Show warning if reminder is enabled but no permission
+                Toast.makeText(this,
+                    "Exact alarm permission needed for reliable reminders",
+                    Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     private fun handleReminderToggle(enabled: Boolean) {
         // Save to preferences
-        sharedPrefs.edit()
-            .putBoolean(KEY_REMINDER_ENABLED, enabled)
-            .apply()
+        sharedPrefs.edit {
+            putBoolean(KEY_REMINDER_ENABLED, enabled)
+        }
 
         updateUI(enabled)
 
@@ -150,10 +168,10 @@ class NotificationSettingsActivity : AppCompatActivity() {
                 selectedMinute = minute
 
                 // Save to preferences
-                sharedPrefs.edit()
-                    .putInt(KEY_REMINDER_HOUR, selectedHour)
-                    .putInt(KEY_REMINDER_MINUTE, selectedMinute)
-                    .apply()
+                sharedPrefs.edit {
+                    putInt(KEY_REMINDER_HOUR, selectedHour)
+                        .putInt(KEY_REMINDER_MINUTE, selectedMinute)
+                }
 
                 updateTimeDisplay()
                 updateUI(true)
@@ -184,6 +202,14 @@ class NotificationSettingsActivity : AppCompatActivity() {
         Log.d(TAG, "Scheduling notification for $selectedHour:$selectedMinute")
 
         val alarmManager = getSystemService(ALARM_SERVICE) as AlarmManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (!alarmManager.canScheduleExactAlarms()) {
+                Log.w(TAG, "❌ Cannot schedule exact alarms - permission needed")
+                showExactAlarmPermissionDialog()
+                return
+            }
+        }
+
         val intent = Intent(this, ScreeningReminderReceiver::class.java)
         val pendingIntent = PendingIntent.getBroadcast(
             this,
@@ -201,23 +227,34 @@ class NotificationSettingsActivity : AppCompatActivity() {
             // If time has passed today, schedule for tomorrow
             if (timeInMillis <= System.currentTimeMillis()) {
                 add(Calendar.DAY_OF_YEAR, 1)
+                Log.d(TAG, "Time passed, scheduling for tomorrow")
             }
         }
 
         try {
             // Schedule repeating alarm
-            alarmManager.setRepeating(
-                AlarmManager.RTC_WAKEUP,
-                calendar.timeInMillis,
-                AlarmManager.INTERVAL_DAY,
-                pendingIntent
-            )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    calendar.timeInMillis,
+                    pendingIntent
+                )
+            } else {
+                alarmManager.setExact(
+                    AlarmManager.RTC_WAKEUP,
+                    calendar.timeInMillis,
+                    pendingIntent
+                )
+            }
 
             Log.d(TAG, "✅ Notification scheduled successfully for ${calendar.time}")
 
+        } catch (securityException: SecurityException) {
+            Log.e(TAG, "❌ SecurityException - No exact alarm permission", securityException)
+            handleExactAlarmSecurityException()
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error scheduling notification", e)
-            Toast.makeText(this, "Error setting reminder", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -252,5 +289,63 @@ class NotificationSettingsActivity : AppCompatActivity() {
 
             Log.d(TAG, "✅ Notification channel created")
         }
+    }
+
+    private fun showExactAlarmPermissionDialog() {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Permission Needed")
+            .setMessage("This app needs permission to schedule exact alarms for reliable reminders. Please grant the permission in settings.")
+            .setPositiveButton("Open Settings") { _, _ ->
+                requestExactAlarmPermission()
+            }
+            .setNegativeButton("Cancel") { _, _ ->
+                Toast.makeText(this, "Reminder may not work reliably", Toast.LENGTH_LONG).show()
+            }
+            .show()
+    }
+
+    private fun requestExactAlarmPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                val intent = Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                startActivity(intent)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to open exact alarm settings", e)
+                Toast.makeText(this, "Please enable exact alarms in system settings", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun handleExactAlarmSecurityException() {
+        Log.w(TAG, "Falling back to inexact alarm due to security exception")
+
+        val alarmManager = getSystemService(ALARM_SERVICE) as AlarmManager
+        val intent = Intent(this, ScreeningReminderReceiver::class.java)
+        val pendingIntent = PendingIntent.getBroadcast(
+            this,
+            NOTIFICATION_ID,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val calendar = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, selectedHour)
+            set(Calendar.MINUTE, selectedMinute)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+
+            if (timeInMillis <= System.currentTimeMillis()) {
+                add(Calendar.DAY_OF_YEAR, 1)
+            }
+        }
+
+        // Fallback to inexact alarm
+        alarmManager.setAndAllowWhileIdle(
+            AlarmManager.RTC_WAKEUP,
+            calendar.timeInMillis,
+            pendingIntent
+        )
+
+        Toast.makeText(this, "Reminder set (may not be exact)", Toast.LENGTH_SHORT).show()
     }
 }

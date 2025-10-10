@@ -60,8 +60,8 @@
                     android:text="@string/HeadlineTemplate"
                     android:textAllCaps="true"
                     android:textStyle="bold"
-                    android:textColor="@color/warning_color"
-                    android:textSize="16sp" />
+                    android:textColor="@color/BluePrimary"
+                    android:textSize="20sp" />
 
                 <TextView
                     android:id="@+id/tvTitle"
@@ -114,23 +114,6 @@
                     android:layout_margin="12dp"
                     android:orientation="horizontal"
                     android:gravity="center_vertical">
-
-                    <ImageButton
-                        android:id="@+id/fabBookmark"
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:src="@drawable/ic_bookmark"
-                        android:scaleType="centerInside"
-                        android:contentDescription="@string/bookmark"
-                        android:background="@drawable/bg_circle_light"
-                        android:backgroundTint="@color/BluePrimary"
-                        android:elevation="6dp"
-                        android:stateListAnimator="@null"
-                        app:tint="@android:color/white" />
-
-                    <Space
-                        android:layout_width="8dp"
-                        android:layout_height="0dp" />
 
                     <ImageButton
                         android:id="@+id/fabShare"

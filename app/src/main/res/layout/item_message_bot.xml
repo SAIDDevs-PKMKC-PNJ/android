@@ -1,22 +1,98 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginStart="16dp"
-    android:layout_marginEnd="80dp"
-    android:layout_marginBottom="8dp"
-    android:orientation="horizontal">
+    android:orientation="vertical"
+    android:padding="8dp">
 
-
-    <TextView
-        android:id="@+id/tv_bot_message"
-        android:layout_width="0dp"
+    <!-- Bot Message Bubble -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:background="@drawable/bg_message_bot"
-        android:padding="12dp"
-        android:text="Hello! How can I help you today?"
-        android:textColor="@color/black"
-        android:textSize="14sp" />
+        android:layout_marginEnd="80dp"
+        app:cardCornerRadius="16dp"
+        app:cardBackgroundColor="@color/lightBlue"
+        app:cardElevation="2dp">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- Message Text -->
+            <TextView
+                android:id="@+id/tv_bot_message"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Bot message here"
+                android:textColor="@color/white"
+                android:textSize="16sp" />
+
+            <!-- Loading Indicator -->
+            <LinearLayout
+                android:id="@+id/loading_indicator"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:paddingTop="8dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Bot sedang mengetik"
+                    android:textColor="@color/white"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/tv_typing_dots"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="..."
+                    android:textColor="@color/GrayLight"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Bot Message Footer dengan Reload Button -->
+    <LinearLayout
+        android:id="@+id/bot_message_footer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingTop="4dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Butuh jawaban lain?"
+            android:textColor="@color/GrayLight"
+            android:textSize="12sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_reload_response"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="Ulangi"
+            android:textColor="@color/BluePrimary"
+            android:textSize="12sp"
+            app:icon="@drawable/ic_repeat"
+            app:iconGravity="textStart"
+            app:iconPadding="4dp"
+            app:iconTint="@color/BluePrimary"
+            style="@style/Widget.Material3.Button.TextButton" />
+
+    </LinearLayout>
 
 </LinearLayout>

@@ -3,10 +3,11 @@ package com.pkm.said
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.credentials.CredentialManager
-import androidx.credentials.CredentialOption
+import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.GetCredentialResponse
 import androidx.credentials.exceptions.GetCredentialException
@@ -18,18 +19,16 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
 import com.pkm.said.util.SessionManager
-import com.pkm.said.CloudinaryUploadResp
 import kotlinx.coroutines.launch
 import java.security.MessageDigest
-import java.util.UUID
 import okhttp3.OkHttpClient
 import okhttp3.MultipartBody
-import okhttp3.RequestBody
 import okhttp3.Request
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.security.SecureRandom
 
 class LoginActivity : AppCompatActivity() {
     private lateinit var auth: FirebaseAuth
@@ -97,7 +96,7 @@ class LoginActivity : AppCompatActivity() {
 
     private fun setupUIElements() {
         try {
-            val emailEditText: EditText = findViewById(R.id.emailEditText)
+            val emailEditText: EditText = findViewById(R.id.fullNameEditText)
             val passwordEditText: EditText = findViewById(R.id.passwordEditText)
             val forgetPasswordText: TextView = findViewById(R.id.forgetPasswordText)
             val loginButton: Button = findViewById(R.id.loginButton)
@@ -141,29 +140,57 @@ class LoginActivity : AppCompatActivity() {
         cloudName: String,
         uploadPreset: String,
         folder: String
-    ): CloudinaryUploadResp? = withContext(kotlinx.coroutines.Dispatchers.IO) {
+    ): CloudinaryUploadResp? = withContext(Dispatchers.IO) {
         try {
-            val body = okhttp3.MultipartBody.Builder().setType(okhttp3.MultipartBody.FORM)
+            Log.d(tag, "📤 Uploading with Cloudinary auto-unique naming...")
+
+            val body = MultipartBody.Builder().setType(MultipartBody.FORM)
                 .addFormDataPart("file", fileUrl)
                 .addFormDataPart("upload_preset", uploadPreset)
                 .addFormDataPart("folder", folder)
                 .build()
 
-            val req = okhttp3.Request.Builder()
+            val req = Request.Builder()
                 .url("https://api.cloudinary.com/v1_1/$cloudName/image/upload")
                 .post(body)
                 .build()
 
             http.newCall(req).execute().use { res ->
                 if (!res.isSuccessful) {
-                    Log.e(tag, "Cloudinary upload failed code=${res.code} body=${res.body?.string()}")
+                    Log.e(tag, "❌ Upload failed: ${res.code}")
                     return@use null
                 }
-                val txt = res.body?.string().orEmpty()
-                cldAdapter.fromJson(txt)
+
+                val responseText = res.body?.string().orEmpty()
+                val result = cldAdapter.fromJson(responseText)
+
+                if (result != null) {
+                    Log.d(tag, "✅ Upload Success!")
+                    Log.d(tag, "   - Public ID: ${result.public_id}")
+                    Log.d(tag, "   - Secure URL: ${result.secure_url?.take(50)}...")
+
+                    // Safe logging untuk optional fields:
+                    result::class.java.declaredFields.forEach { field ->
+                        field.isAccessible = true
+                        try {
+                            val value = field.get(result)
+                            if (value != null) {
+                                Log.d(tag, "   - ${field.name}: $value")
+                            } else {
+                                Log.d(tag, "   - ${field.name}: null")
+                            }
+                        } catch (e: Exception) {
+                            Log.d(tag, "   - ${field.name}: [cannot access]")
+                        }
+                    }
+                } else {
+                    Log.e(tag, "❌ Failed to parse Cloudinary response")
+                }
+
+                return@use result
             }
         } catch (e: Exception) {
-            Log.e(tag, "uploadUrlToCloudinary() error", e)
+            Log.e(tag, "❌ Upload error", e)
             null
         }
     }
@@ -195,11 +222,25 @@ class LoginActivity : AppCompatActivity() {
                 if (task.isSuccessful) {
                     Log.d(tag, "✅ Email/Password login successful: ${auth.currentUser?.email}")
                     Toast.makeText(this, "Login Berhasil!", Toast.LENGTH_SHORT).show()
-
                     redirectToMainActivity()
                 } else {
                     Log.e(tag, "❌ Email/Password login failed", task.exception)
-                    Toast.makeText(this, "Login gagal: ${task.exception?.message}", Toast.LENGTH_LONG).show()
+
+                    // CLEAR PASSWORD FIELD - Ini yang utama
+                    passwordEditText.text.clear()
+
+                    // SHOW ERROR MESSAGES
+                    emailEditText.error = "Email atau password salah"
+                    passwordEditText.error = "Email atau password salah"
+
+                    // FOCUS BACK TO EMAIL
+                    emailEditText.requestFocus()
+
+                    Toast.makeText(
+                        this,
+                        "Login gagal: Email atau password salah",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             }
     }
@@ -208,23 +249,25 @@ class LoginActivity : AppCompatActivity() {
     private fun showForgotPasswordBottomSheet() {
         try {
             // Get current email from login form (if user already typed something)
-            val emailEditText: EditText = findViewById(R.id.emailEditText)
+            val emailEditText: EditText = findViewById(R.id.fullNameEditText)
             val currentEmail = emailEditText.text.toString().trim()
+            Log.d(tag, "🔑 Forgot password triggered - Current email: ${currentEmail.take(5)}...")
 
-            // Create bottom sheet instance
             val bottomSheet = ForgotPasswordBottomSheet.newInstance(
-                // Only pass email if it's valid, otherwise null
-                if (currentEmail.isNotEmpty() && android.util.Patterns.EMAIL_ADDRESS.matcher(currentEmail).matches())
+                if (currentEmail.isNotEmpty() && android.util.Patterns.EMAIL_ADDRESS.matcher(
+                        currentEmail
+                    ).matches()
+                ) {
+                    Log.d(tag, "✅ Pre-filling valid email from login form")
                     currentEmail
-                else
+                } else {
+                    Log.d(tag, "ℹ️ No valid email to pre-fill")
                     null
+                }
             )
 
-            // ✅ SHOW BOTTOM SHEET - LoginActivity stays in background
             bottomSheet.show(supportFragmentManager, "ForgotPasswordBottomSheet")
-
             Log.d(tag, "✅ Bottom sheet overlay displayed, LoginActivity dimmed in background")
-
         } catch (e: Exception) {
             Log.e(tag, "❌ Error showing forgot password bottom sheet", e)
             Toast.makeText(this, "Error opening reset password form", Toast.LENGTH_SHORT).show()
@@ -234,6 +277,8 @@ class LoginActivity : AppCompatActivity() {
     // ✅ NEW: Google Sign In with Credential Manager
     private fun performGoogleSignInWithCredentialManager() {
         Log.d(tag, "🔄 Starting Google Sign In with Credential Manager...")
+
+        showLoading("Preparing Google Sign In...")
 
         // Show loading state
         val googleSignInButton: Button = findViewById(R.id.googleSignInButton)
@@ -253,10 +298,11 @@ class LoginActivity : AppCompatActivity() {
                     .setFilterByAuthorizedAccounts(false)
                     .setServerClientId(webClientId) // Use securely
                     .setAutoSelectEnabled(false)
+                    .setNonce(generateNonce())
                     .build()
 
                 val request = GetCredentialRequest.Builder()
-                    .addCredentialOption(googleIdOption as CredentialOption)
+                    .addCredentialOption(googleIdOption)
                     .build()
 
                 Log.d(tag, "Credential request created successfully")
@@ -269,12 +315,29 @@ class LoginActivity : AppCompatActivity() {
 
             } catch (e: GetCredentialException) {
                 Log.e(tag, "❌ Credential Manager error", e)
+                hideLoading()
                 handleCredentialError(e)
             } catch (e: Exception) {
                 Log.e(tag, "❌ Unexpected error in Google Sign In", e)
+                hideLoading()
                 handleUnexpectedError(e)
+            } finally {
+                withContext(Dispatchers.Main) {
+                    resetGoogleButtonState()
+                }
             }
         }
+    }
+
+    private fun generateNonce(): String {
+        val random = SecureRandom()
+        val nonceBytes = ByteArray(16)
+        random.nextBytes(nonceBytes)
+
+        val md = MessageDigest.getInstance("SHA-256")
+        val digest = md.digest(nonceBytes)
+
+        return digest.fold("") { str, it -> str + "%02x".format(it) }
     }
 
     // ✅ Handle Credential Result
@@ -282,28 +345,43 @@ class LoginActivity : AppCompatActivity() {
         try {
             Log.d(tag, "✅ Credential received, processing...")
 
-            when (val credential = result.credential) {
-                is GoogleIdTokenCredential -> {
-                    Log.d(tag, "Google ID Token credential received")
+            showLoading("Authenticating with Google...")
 
-                    val googleIdToken = credential.idToken
-                    Log.d(tag, "Google ID Token: ${googleIdToken.take(20)}...")
-
-                    // Authenticate with Firebase
-                    firebaseAuthWithGoogle(googleIdToken)
+            val credential = result.credential
+            val idToken = when {
+                credential is GoogleIdTokenCredential -> {
+                    Log.d(tag, "Direct GoogleIdTokenCredential received")
+                    credential.idToken
                 }
+
+                credential is CustomCredential &&
+                        credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL -> {
+                    Log.d(tag, "CustomCredential with Google ID Token type received")
+                    val googleCred = GoogleIdTokenCredential.createFrom(credential.data)
+                    googleCred.idToken
+                }
+
                 else -> {
-                    Log.e(tag, "❌ Unexpected credential type: ${credential::class.java}")
+                    Log.e(tag, "❌ Unsupported credential type: ${credential::class.java}")
+                    hideLoading()
                     resetGoogleButtonState()
-                    Toast.makeText(this, "Unexpected credential type", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Unsupported credential type", Toast.LENGTH_SHORT).show()
+                    return
                 }
             }
+
+            showLoading("Processing Google account...")
+            Log.d(tag, "Google ID Token extracted: ${idToken.take(20)}...")
+            firebaseAuthWithGoogle(idToken)
+
         } catch (e: GoogleIdTokenParsingException) {
             Log.e(tag, "❌ Google ID Token parsing error", e)
+            hideLoading()
             resetGoogleButtonState()
             Toast.makeText(this, "Invalid Google credential", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Log.e(tag, "❌ Error handling credential result", e)
+            hideLoading()
             resetGoogleButtonState()
             Toast.makeText(this, "Authentication error", Toast.LENGTH_SHORT).show()
         }
@@ -311,24 +389,30 @@ class LoginActivity : AppCompatActivity() {
 
     // ✅ Handle Credential Errors
     private fun handleCredentialError(e: GetCredentialException) {
-        resetGoogleButtonState()
-
         when (e::class.java.simpleName) {
             "GetCredentialCancellationException" -> {
                 Log.d(tag, "⚠️ User cancelled Google Sign In")
                 Toast.makeText(this, "Sign in cancelled", Toast.LENGTH_SHORT).show()
             }
+
             "GetCredentialInterruptedException" -> {
                 Log.e(tag, "❌ Google Sign In interrupted", e)
                 Toast.makeText(this, "Sign in interrupted", Toast.LENGTH_SHORT).show()
             }
+
             "NoCredentialException" -> {
                 Log.e(tag, "❌ No Google credentials available", e)
-                Toast.makeText(this, "No Google account found. Please add a Google account.", Toast.LENGTH_LONG).show()
+                Toast.makeText(
+                    this,
+                    "No Google account found. Please add a Google account.",
+                    Toast.LENGTH_LONG
+                ).show()
             }
+
             else -> {
                 Log.e(tag, "❌ Unknown credential error: ${e::class.java.simpleName}", e)
-                Toast.makeText(this, "Google Sign In failed: ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Google Sign In failed: ${e.message}", Toast.LENGTH_LONG)
+                    .show()
             }
         }
     }
@@ -359,6 +443,8 @@ class LoginActivity : AppCompatActivity() {
                 val isGoogle = user.providerData.any { it.providerId == "google.com" }
                 val loginMethod = if (isGoogle) "google" else "email"
                 val googlePhotoUrl = user.photoUrl?.toString()
+
+                Log.d(tag, "User login method: $loginMethod (isGoogle: $isGoogle)")
 
                 if (doc.exists()) {
                     // ---- Dokumen SUDAH ada ----
@@ -403,7 +489,7 @@ class LoginActivity : AppCompatActivity() {
                                     phone = phone,
                                     address = address,
                                     emergency = emergency,
-                                    loginMethod = doc.getString("loginMethod") ?: loginMethod,
+                                    loginMethod = loginMethod,
                                     emailVerified = user.isEmailVerified
                                 )
                                 redirectToMainActivity()
@@ -416,8 +502,11 @@ class LoginActivity : AppCompatActivity() {
                                     name = name,
                                     email = user.email,
                                     photoUrl = googlePhotoUrl,
-                                    birthdate = birthdate, phone = phone, address = address, emergency = emergency,
-                                    loginMethod = doc.getString("loginMethod") ?: loginMethod,
+                                    birthdate = birthdate,
+                                    phone = phone,
+                                    address = address,
+                                    emergency = emergency,
+                                    loginMethod = loginMethod,
                                     emailVerified = user.isEmailVerified
                                 )
                                 redirectToMainActivity()
@@ -437,7 +526,7 @@ class LoginActivity : AppCompatActivity() {
                         phone = phone,
                         address = address,
                         emergency = emergency,
-                        loginMethod = doc.getString("loginMethod") ?: loginMethod,
+                        loginMethod = loginMethod,
                         emailVerified = user.isEmailVerified
                     )
                     Log.d(tag, "✅ Profil ditemukan & disimpan ke SessionManager → ke MainActivity")
@@ -445,7 +534,10 @@ class LoginActivity : AppCompatActivity() {
 
                 } else {
                     // ---- Dokumen BELUM ada ----
-                    Log.d(tag, "ℹ️ Doc belum ada. Inisialisasi data + arahkan ke UserInformationActivity.")
+                    Log.d(
+                        tag,
+                        "ℹ️ Doc belum ada. Inisialisasi data + arahkan ke UserInformationActivity."
+                    )
 
                     lifecycleScope.launch {
                         var finalPhotoUrl: String? = null
@@ -491,14 +583,18 @@ class LoginActivity : AppCompatActivity() {
                                 )
 
                                 // Lanjut ke form melengkapi profil (bawa photo url yg sudah disalin)
-                                val intent = Intent(this@LoginActivity, UserInformationActivity::class.java).apply {
+                                val intent = Intent(
+                                    this@LoginActivity,
+                                    UserInformationActivity::class.java
+                                ).apply {
                                     putExtra("user_email", user.email)
                                     putExtra("user_name", user.displayName)
                                     putExtra("user_photo_url", finalPhotoUrl ?: googlePhotoUrl)
                                     putExtra("login_method", loginMethod)
                                     putExtra("email_verified", user.isEmailVerified)
                                     putExtra("from_registration", isFromRegistration)
-                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                    flags =
+                                        Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                                 }
                                 startActivity(intent)
                                 finish()
@@ -524,24 +620,36 @@ class LoginActivity : AppCompatActivity() {
             Log.d(tag, "🔐 Authenticating with Firebase using Google ID Token...")
             val credential = GoogleAuthProvider.getCredential(idToken, null)
 
+            showLoading("Finalizing authentication...")
+
             auth.signInWithCredential(credential)
                 .addOnCompleteListener(this) { task ->
+                    hideLoading()
                     resetGoogleButtonState()
 
                     if (task.isSuccessful) {
                         val user = auth.currentUser
                         Log.d(tag, "✅ Firebase Google authentication successful user=${user?.uid}")
-                        Toast.makeText(this, "Welcome ${user?.displayName ?: user?.email}!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            this,
+                            "Welcome ${user?.displayName ?: user?.email}!",
+                            Toast.LENGTH_SHORT
+                        ).show()
                         // Karena Google Sign-In bisa berarti user baru → set isFromRegistration = true
                         handlePostAuthFlow(isFromRegistration = true)
                     } else {
                         Log.e(tag, "❌ Firebase Google authentication failed", task.exception)
-                        Toast.makeText(this, "Authentication failed: ${task.exception?.message}", Toast.LENGTH_LONG).show()
+                        Toast.makeText(
+                            this,
+                            "Authentication failed: ${task.exception?.message}",
+                            Toast.LENGTH_LONG
+                        ).show()
                     }
                 }
 
         } catch (e: Exception) {
             Log.e(tag, "❌ Error in Firebase Google authentication", e)
+            hideLoading()
             resetGoogleButtonState()
             Toast.makeText(this, "Authentication error: ${e.message}", Toast.LENGTH_LONG).show()
         }
@@ -554,14 +662,36 @@ class LoginActivity : AppCompatActivity() {
         googleSignInButton.text = "Sign in with Google"
     }
 
-    // ✅ Generate Nonce for Security
-//    private fun generateNonce(): String {
-//        val rawNonce = UUID.randomUUID().toString()
-//        val bytes = rawNonce.toByteArray()
-//        val md = MessageDigest.getInstance("SHA-256")
-//        val digest = md.digest(bytes)
-//        return digest.fold("") { str, it -> str + "%02x".format(it) }
-//    }
+    // Method showLoading dan hideLoading tetap sama seperti sebelumnya
+    private fun showLoading(message: String = "Signing in with Google...") {
+        try {
+            val loadingOverlay: FrameLayout = findViewById(R.id.loadingOverlay)
+            val loadingText: TextView =
+                findViewById(R.id.loadingText) // Pastikan ada TextView di layout
+
+            loadingText.text = message
+            loadingOverlay.visibility = View.VISIBLE
+            loadingOverlay.isClickable = true
+            loadingOverlay.isFocusable = true
+
+            Log.d(tag, "⏳ Loading shown: $message")
+        } catch (e: Exception) {
+            Log.e(tag, "❌ Error showing loading", e)
+        }
+    }
+
+    private fun hideLoading() {
+        try {
+            val loadingOverlay: FrameLayout = findViewById(R.id.loadingOverlay)
+            loadingOverlay.visibility = View.GONE
+            loadingOverlay.isClickable = false
+            loadingOverlay.isFocusable = false
+
+            Log.d(tag, "⏳ Loading hidden")
+        } catch (e: Exception) {
+            Log.e(tag, "❌ Error hiding loading", e)
+        }
+    }
 
     // ✅ Redirect to Main Activity
     private fun redirectToMainActivity() {

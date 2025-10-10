@@ -10,7 +10,7 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.*
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
@@ -19,23 +19,12 @@ import com.pkm.said.R
 import kotlin.math.abs
 import kotlin.math.sqrt
 import kotlin.math.max
-import java.util.concurrent.Executors
 
 class ArmTestFragment : Fragment(), SensorEventListener {
 
-    // UI
+    // Full View Binding
     private var _binding: FragmentArmTestBinding? = null
     private val binding get() = _binding!!
-    private var tvInstruction: TextView? = null
-    private var tvResult: TextView? = null
-    private var tvTime: TextView? = null
-    private var progress: ProgressBar? = null
-    private var btnStart: Button? = null
-    private var btnConfirm: Button? = null
-    private var btnSkip: Button? = null
-    private var btnCantLiftArms: Button? = null
-    private var btnOneHandOnly: Button? = null
-    private var contBtnHand: View? = null
 
     // Sensor
     private lateinit var sm: SensorManager
@@ -79,22 +68,11 @@ class ArmTestFragment : Fragment(), SensorEventListener {
     private val streakMinN     = 3
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
-        return inflater.inflate(R.layout.fragment_arm_test, container, false)
+        _binding = FragmentArmTestBinding.inflate(inflater, container, false)
+        return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        // Bind UI
-        tvInstruction = view.findViewById(R.id.tvInstruction)
-        tvResult = view.findViewById(R.id.tvResult)
-        tvTime = view.findViewById(R.id.tvTimeRemaining)
-        progress = view.findViewById(R.id.progressBarTest)
-        btnStart = view.findViewById(R.id.btnStartArmTest)
-        btnConfirm = view.findViewById(R.id.btnConfirmResult)
-        btnSkip = view.findViewById(R.id.btnSkipTest)
-        btnCantLiftArms = view.findViewById(R.id.btnCantLiftArms)
-        btnOneHandOnly = view.findViewById(R.id.btnOneHandOnly)
-        contBtnHand = view.findViewById(R.id.contBtnHand)
-
         // Sensors
         sm = requireContext().getSystemService(Context.SENSOR_SERVICE) as SensorManager
         acc = sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
@@ -121,76 +99,78 @@ class ArmTestFragment : Fragment(), SensorEventListener {
         stopSensors()
         timer?.cancel(); timer = null
         preTimer?.cancel(); preTimer = null
-
-        contBtnHand = null
-        tvInstruction = null; tvResult = null; tvTime = null; progress = null
-        btnStart = null; btnConfirm = null; btnSkip = null
-        btnCantLiftArms = null; btnOneHandOnly = null
+        _binding = null
     }
 
     @SuppressLint("SetTextI18n")
     private fun setupInitialView() {
-        tvInstruction?.text = """
+        binding.tvInstruction.text = """
             Instruksi:
             • Pegang HP dengan kedua tangan, julurkan lengan sejajar lantai
             • Tutup mata, tahan posisi stabil selama 10 detik
             • Jika HP miring/turun atau terlepas → tes gagal
         """.trimIndent()
 
-        tvResult?.text = ""
-        tvResult?.visibility = View.GONE
-        progress?.progress = 0
-        progress?.visibility = View.GONE
-        tvTime?.text = (testDurationMs/1000).toString()
-        tvTime?.visibility = View.GONE
+        // Sembunyikan CardView di awal
+        binding.cardTest.visibility = View.GONE
 
-        btnStart?.visibility = View.VISIBLE
-        contBtnHand?.visibility = View.VISIBLE
-        btnCantLiftArms?.visibility = View.VISIBLE
-        btnOneHandOnly?.visibility = View.VISIBLE
+        binding.tvResult.text = ""
+        binding.tvResult.visibility = View.GONE
+        binding.progressBarTest.progress = 0
+        binding.progressBarTest.visibility = View.GONE
+        binding.tvTimeRemaining.text = (testDurationMs/1000).toString()
+        binding.tvTimeRemaining.visibility = View.GONE
 
-        btnConfirm?.visibility = View.GONE
-        btnSkip?.visibility = View.GONE
+        binding.btnStartArmTest.visibility = View.VISIBLE
+        binding.contBtnHand.visibility = View.VISIBLE
+        binding.btnCantLiftArms.visibility = View.VISIBLE
+        binding.btnOneHandOnly.visibility = View.VISIBLE
+
+        binding.btnConfirmResult.visibility = View.GONE
+        binding.btnSkipTest.visibility = View.GONE
 
         manualFailReason = null
         manualFlag = null
     }
 
     private fun setupButtons() {
-        btnStart?.setOnClickListener { if (!isTesting) startTest() }
+        binding.btnStartArmTest.setOnClickListener { if (!isTesting) startTest() }
 
         // Manual: severe / warning
-        btnCantLiftArms?.setOnClickListener {
+        binding.btnCantLiftArms.setOnClickListener {
             manualFailReason = "Tidak bisa mengangkat kedua tangan."
             manualFlag = ManualFlag.BOTH_CANT_LIFT
             showManualResult(text = "GAGAL (severe): $manualFailReason", severe = true)
         }
-        btnOneHandOnly?.setOnClickListener {
+        binding.btnOneHandOnly.setOnClickListener {
             manualFailReason = "Hanya satu tangan dapat diangkat / pegang."
             manualFlag = ManualFlag.ONE_HAND_ONLY
             showManualResult(text = "Peringatan: indikasi satu tangan lemah.", severe = false)
         }
 
-        btnConfirm?.setOnClickListener { onConfirmSaveResult() }
-        btnSkip?.setOnClickListener { skipTest() }
+        binding.btnConfirmResult.setOnClickListener { onConfirmSaveResult() }
+        binding.btnSkipTest.setOnClickListener { skipTest() }
     }
 
     private fun showManualResult(text: String, severe: Boolean) {
         stopSensors()
-        btnStart?.visibility = View.GONE
-        contBtnHand?.visibility = View.GONE
-        btnCantLiftArms?.visibility = View.GONE
-        btnOneHandOnly?.visibility = View.GONE
-        progress?.visibility = View.GONE
-        tvTime?.visibility = View.GONE
+        binding.btnStartArmTest.visibility = View.GONE
+        binding.contBtnHand.visibility = View.GONE
+        binding.btnCantLiftArms.visibility = View.GONE
+        binding.btnOneHandOnly.visibility = View.GONE
+        binding.progressBarTest.visibility = View.GONE
+        binding.tvTimeRemaining.visibility = View.GONE
 
-        tvResult?.text = text
-        tvResult?.setTextColor(ContextCompat.getColor(requireContext(),
+        // Tampilkan CardView untuk hasil manual
+        binding.cardTest.visibility = View.VISIBLE
+
+        binding.tvResult.text = text
+        binding.tvResult.setTextColor(ContextCompat.getColor(requireContext(),
             if (severe) R.color.warning_color else R.color.warning_color))
-        tvResult?.visibility = View.VISIBLE
+        binding.tvResult.visibility = View.VISIBLE
 
-        btnConfirm?.visibility = View.VISIBLE
-        btnSkip?.visibility = View.VISIBLE
+        binding.btnConfirmResult.visibility = View.VISIBLE
+        binding.btnSkipTest.visibility = View.VISIBLE
     }
 
     private fun startTest() {
@@ -203,19 +183,20 @@ class ArmTestFragment : Fragment(), SensorEventListener {
         pitchSeries.clear(); rollSeries.clear()
         accMagSeries.clear(); gyroMagSeries.clear()
 
-        btnStart?.visibility = View.GONE
-        contBtnHand?.visibility = View.GONE
-        btnCantLiftArms?.visibility = View.GONE
-        btnOneHandOnly?.visibility = View.GONE
-        btnConfirm?.visibility = View.GONE
-        btnSkip?.visibility = View.GONE
-        tvResult?.visibility = View.GONE
+        binding.btnStartArmTest.visibility = View.GONE
+        binding.contBtnHand.visibility = View.GONE
+        binding.btnCantLiftArms.visibility = View.GONE
+        binding.btnOneHandOnly.visibility = View.GONE
+        binding.btnConfirmResult.visibility = View.GONE
+        binding.btnSkipTest.visibility = View.GONE
+        binding.tvResult.visibility = View.GONE
 
-        progress?.visibility = View.GONE
-        progress?.progress = 0
-        tvTime?.visibility = View.VISIBLE
-        tvTime?.text = "3"
-        tvInstruction?.text = "Bersiap... Posisikan lengan sejajar lantai"
+        binding.cardTest.visibility = View.VISIBLE
+        binding.progressBarTest.visibility = View.GONE
+        binding.progressBarTest.progress = 0
+        binding.tvTimeRemaining.visibility = View.VISIBLE
+        binding.tvTimeRemaining.text = "3"
+        binding.tvInstruction.text = "Bersiap... Posisikan lengan sejajar lantai"
 
         timer?.cancel(); timer = null
         preTimer?.cancel(); preTimer = null
@@ -224,7 +205,7 @@ class ArmTestFragment : Fragment(), SensorEventListener {
         preTimer = object : CountDownTimer(3_000L, 1_000L) {
             override fun onTick(ms: Long) {
                 val sec = (ms / 1_000L + 1).toInt()
-                tvTime?.text = sec.toString()
+                binding.tvTimeRemaining.text = sec.toString()
             }
             override fun onFinish() { beginMeasurementPhase() }
         }.start()
@@ -232,10 +213,14 @@ class ArmTestFragment : Fragment(), SensorEventListener {
 
     private fun beginMeasurementPhase() {
         isTesting = true
-        tvInstruction?.text = "Tahan posisi stabil selama 10 detik..."
-        progress?.visibility = View.VISIBLE
-        progress?.progress = 0
-        tvTime?.text = (testDurationMs/1000).toString()
+
+        // TAMPILKAN CardView saat tes dimulai
+        binding.cardTest.visibility = View.VISIBLE
+
+        binding.tvInstruction.text = "Tahan posisi stabil selama 10 detik..."
+        binding.progressBarTest.visibility = View.VISIBLE
+        binding.progressBarTest.progress = 0
+        binding.tvTimeRemaining.text = (testDurationMs/1000).toString()
 
         acc?.let { sm.registerListener(this, it, samplingUs) }
         gyro?.let { sm.registerListener(this, it, samplingUs) }
@@ -243,8 +228,8 @@ class ArmTestFragment : Fragment(), SensorEventListener {
 
         timer = object : CountDownTimer(testDurationMs, 1_000L) {
             override fun onTick(ms: Long) {
-                tvTime?.text = (ms / 1_000L).toString()
-                progress?.progress = (((testDurationMs - ms) * 100) / testDurationMs).toInt()
+                binding.tvTimeRemaining.text = (ms / 1_000L).toString()
+                binding.progressBarTest.progress = (((testDurationMs - ms) * 100) / testDurationMs).toInt()
             }
             override fun onFinish() { completeTestAfterFullDuration() }
         }.start()
@@ -253,25 +238,26 @@ class ArmTestFragment : Fragment(), SensorEventListener {
     private fun completeTestAfterFullDuration() {
         isTesting = false
         stopSensors()
-        progress?.progress = 100
-        tvTime?.text = "0"
+        binding.cardTest.visibility = View.VISIBLE
+        binding.progressBarTest.progress = 100
+        binding.tvTimeRemaining.text = "0"
 
         vibrateDouble()
         beep()
 
         val failed = detectImbalance()
         if (failed) {
-            tvResult?.text = "Gagal: Terdeteksi ketidakstabilan lengan"
-            tvResult?.setTextColor(ContextCompat.getColor(requireContext(), R.color.warning_color))
+            binding.tvResult.text = "Gagal: Terdeteksi ketidakstabilan lengan"
+            binding.tvResult.setTextColor(ContextCompat.getColor(requireContext(), R.color.warning_color))
         } else {
-            tvResult?.text = "Berhasil: Posisi lengan stabil"
-            tvResult?.setTextColor(ContextCompat.getColor(requireContext(), R.color.success_color))
+            binding.tvResult.text = "Berhasil: Posisi lengan stabil"
+            binding.tvResult.setTextColor(ContextCompat.getColor(requireContext(), R.color.success_color))
         }
-        tvResult?.visibility = View.VISIBLE
-        tvInstruction?.text = "Konfirmasi hasil tes"
+        binding.tvResult.visibility = View.VISIBLE
+        binding.tvInstruction.text = "Konfirmasi hasil tes"
 
-        btnConfirm?.visibility = View.VISIBLE
-        btnSkip?.visibility = View.VISIBLE
+        binding.btnConfirmResult.visibility = View.VISIBLE
+        binding.btnSkipTest.visibility = View.VISIBLE
     }
 
     /** === KONFIRM & SIMPAN === */
@@ -325,8 +311,8 @@ class ArmTestFragment : Fragment(), SensorEventListener {
     }
 
     private fun setButtonsEnabled(enabled: Boolean) {
-        btnConfirm?.isEnabled = enabled
-        btnSkip?.isEnabled = enabled
+        binding.btnConfirmResult.isEnabled = enabled
+        binding.btnSkipTest.isEnabled = enabled
     }
 
     private fun skipTest() {
@@ -364,7 +350,7 @@ class ArmTestFragment : Fragment(), SensorEventListener {
         Log.d("ArmTest", "✅ Saved arms test: completed=${armsResult?.isCompleted}, successful=${armsResult?.isSuccessful}")
 
         // ✅ Navigasi dengan delay lebih aman
-        view?.postDelayed({
+        binding.root.postDelayed({
             navigateToNextTest()
         }, 500) // Delay lebih pendek tapi aman
     }
@@ -387,8 +373,7 @@ class ArmTestFragment : Fragment(), SensorEventListener {
                 ScreeningDataManager.updateTestResult(requireContext(), fallbackResult)
             }
 
-            // ✅ Navigasi ke result
-            findNavController().navigate(R.id.action_armsTest_to_result)
+            findNavController().navigate(R.id.action_armsTest_to_speechPreview)
 
         } catch (e: Exception) {
             Log.e("ArmTest", "Navigation failed: ${e.message}")

@@ -19,14 +19,9 @@ import com.pkm.said.databinding.FragmentScreeningHistoryDetailBinding
 import com.pkm.said.screening.RiskLevel
 import com.pkm.said.screening.ScreeningDataManager
 import com.pkm.said.screening.ScreeningResult
-import com.google.firebase.Firebase
-import com.google.firebase.auth.auth
-import com.google.firebase.firestore.firestore
-import com.google.firebase.firestore.toObject
 import com.pkm.said.screening.ScreeningRepository
 import com.pkm.said.screening.completedAtFormatted
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 
 class ScreeningDetailFragment : Fragment() {
 
@@ -125,11 +120,11 @@ class ScreeningDetailFragment : Fragment() {
         binding.groupContent.isVisible = true
 
         // FAST overall % (0..80)
-        val fastPercent = ScreeningDataManager.calculateBEFASTOverallPercent(result)
+        val befastPercent = ScreeningDataManager.calculateBEFASTOverallPercent(result)
 
         // Header
         binding.tvRiskTitle.text = result.overallRisk.displayName
-        binding.tvBeFastCount.text = "FAST: ${completedTestCount(result)}/4"
+        binding.tvBeFastCount.text = "FAST: ${completedTestCount(result)}/5"
         applyRiskHeader(result.overallRisk)
 
         // Waktu: utamakan completedAt (server) → fallback ke timestamp awal sesi
@@ -142,14 +137,14 @@ class ScreeningDetailFragment : Fragment() {
         binding.tvLocation.text = "Jakarta"
 
         // Body
-        binding.progressBar.max = 80
-        binding.tvPercent.text = "$fastPercent%"
-        binding.progressBar.progress = fastPercent
+        binding.progressBar.max = 100
+        binding.tvPercent.text = "$befastPercent%"
+        binding.progressBar.progress = befastPercent
         binding.tvRiskDescription.text = result.overallRisk.description
 
         // Footer
         binding.tvStatusValue.text = if (result.isCompleted) "Completed" else "In Progress"
-        binding.tvRiskProbability.text = "$fastPercent% dari maks 80%"
+        binding.tvRiskProbability.text = "$befastPercent% dari maks 100%"
         binding.tvStatusValue.setTextColor(
             ContextCompat.getColor(
                 requireContext(),
@@ -163,6 +158,7 @@ class ScreeningDetailFragment : Fragment() {
             result.eyesResult?.let { add(it) }
             result.faceResult?.let { add(it) }
             result.armsResult?.let { add(it) }
+            result.speechResult?.let { add(it) }
         }
         testAdapter.submitList(testList)
     }
@@ -185,6 +181,7 @@ class ScreeningDetailFragment : Fragment() {
         binding.tvPercent.setTextColor(accentColor)
         binding.tvRiskProbability.setTextColor(accentColor)
         binding.progressBar.progressDrawable.setTint(accentColor)
+        binding.progressBar.max = 100
     }
 
     private fun setupActions() {
@@ -222,7 +219,7 @@ class ScreeningDetailFragment : Fragment() {
     }
 
     private fun completedTestCount(result: ScreeningResult): Int {
-        val tests = listOfNotNull(result.balanceResult, result.eyesResult, result.faceResult, result.armsResult)
+        val tests = listOfNotNull(result.balanceResult, result.eyesResult, result.faceResult, result.armsResult, result.speechResult)
         return tests.count { it.isCompleted }
     }
 

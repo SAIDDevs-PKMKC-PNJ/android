@@ -16,7 +16,6 @@ import kotlin.math.roundToInt
 class ScreeningDetailAdapter :
     ListAdapter<TestResult, ScreeningDetailAdapter.VH>(DIFF) {
 
-
     companion object {
         private val DIFF = object : DiffUtil.ItemCallback<TestResult>() {
             override fun areItemsTheSame(oldItem: TestResult, newItem: TestResult): Boolean =
@@ -27,47 +26,82 @@ class ScreeningDetailAdapter :
         }
     }
 
-    // helper kecil buat destructuring 4 nilai
-    private data class Quad<A,B,C,D>(val first: A, val second: B, val third: C, val fourth: D)
-
     inner class VH(private val binding: ItemScreeningDetailBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
         fun bind(item: TestResult) {
-            val ctx = binding.root.context
+            val ctx = binding.root.context // ✅ PERBAIKI: gunakan ctx bukan context
 
             // Nama tes
-            binding.tvTestName.text = mapName(item.testName)
+            binding.tvTestName.text = getDisplayName(item.testName)
 
-            // Persentase severity 0..100 dari score 0..1 (clamp aman)
-            val pct = (item.score.coerceIn(0f, 1f) * 100f).roundToInt().coerceIn(0, 100)
+            when {
+                !item.isCompleted -> {
+                    // Tes belum selesai
+                    binding.tvPercent.text = "—%"
+                    binding.tvTestName.setTextColor(ContextCompat.getColor(ctx, R.color.GrayLight)) // ✅ PERBAIKI: ctx
+                    setDotIndicatorColor(R.color.GrayLight)
+                }
+                item.isSuccessful -> {
+                    // Tes selesai dan normal
+                    val percent = (item.score.coerceIn(0f, 1f) * 100f).roundToInt()
+                    binding.tvPercent.text = "$percent%"
 
-            val (percentText, tintRes, nameColorRes, cd) = when {
-                !item.isCompleted -> Triple("—", R.color.GrayLight, R.color.GrayLight) to "Pending"
-                item.isSuccessful -> Triple("$pct%", R.color.success_color, R.color.BluePrimary) to "Normal"
-                else              -> Triple("$pct%", R.color.warning_color, R.color.BluePrimary) to "Abnormal"
-            }.let { (triple, label) -> Quad(triple.first, triple.second, triple.third, label) }
+                    // ✅ Warna berdasarkan score meski successful
+                    val (textColor, dotColor) = getColorsForScore(item.score) // ✅ PERBAIKI: hapus parameter isSuccessful
+                    binding.tvTestName.setTextColor(ContextCompat.getColor(ctx, textColor)) // ✅ PERBAIKI: ctx
+                    binding.tvPercent.setTextColor(ContextCompat.getColor(ctx, textColor)) // ✅ PERBAIKI: ctx
+                    setDotIndicatorColor(dotColor)
+                }
+                else -> {
+                    // Tes selesai dan abnormal
+                    val percent = (item.score.coerceIn(0f, 1f) * 100f).roundToInt()
+                    binding.tvPercent.text = "$percent%"
 
-            binding.tvPercent.text = percentText
-            binding.tvTestName.setTextColor(ContextCompat.getColor(ctx, nameColorRes))
-
-            // Tint indikator bulat
-            ImageViewCompat.setImageTintList(
-                binding.dotIndicator,
-                ColorStateList.valueOf(ContextCompat.getColor(ctx, tintRes))
-            )
-            binding.dotIndicator.contentDescription = "Status $cd"
-
-            // (opsional) jika kamu punya TextView notes/time di layout, bisa isi di sini
-            // binding.tvNote?.text = item.notes
-            // binding.tvTime?.text = item.timestamp
+                    // ✅ Warna berdasarkan score untuk abnormal
+                    val (textColor, dotColor) = getColorsForScore(item.score) // ✅ PERBAIKI: hapus parameter isSuccessful
+                    binding.tvTestName.setTextColor(ContextCompat.getColor(ctx, textColor)) // ✅ PERBAIKI: ctx
+                    binding.tvPercent.setTextColor(ContextCompat.getColor(ctx, textColor)) // ✅ PERBAIKI: ctx
+                    setDotIndicatorColor(dotColor)
+                }
+            }
         }
 
-        private fun mapName(raw: String): String = when (raw.lowercase()) {
-            "face_test", "face", "befast_face" -> "Face Test"
-            "arms_test", "arms", "arm_test", "arm", "befast_arm" -> "Arms Test"
-            "speech_test", "speech", "befast_speech" -> "Speech Test"
-            else -> raw.replace('_', ' ').replaceFirstChar { it.uppercase() }
+        private fun setDotIndicatorColor(colorRes: Int) {
+            ImageViewCompat.setImageTintList(
+                binding.dotIndicator,
+                ColorStateList.valueOf(ContextCompat.getColor(binding.root.context, colorRes))
+            )
+        }
+
+        // ✅ PERBAIKI: Hanya return 2 values (Pair) bukan Triple
+        private fun getColorsForScore(score: Float): Pair<Int, Int> {
+            return when {
+                score < 0.3f -> Pair(
+                    R.color.risk_low_text,      // Text color - Hijau
+                    R.color.risk_low_text       // Dot color - Hijau
+                )
+                score < 0.6f -> Pair(
+                    R.color.risk_medium_text,   // Text color - Orange
+                    R.color.risk_medium_text    // Dot color - Orange
+                )
+                else -> Pair(
+                    R.color.risk_high_text,     // Text color - Merah
+                    R.color.risk_high_text      // Dot color - Merah
+                )
+            }
+        }
+
+        // ✅ Mapping nama test yang konsisten dengan ScreeningDataManager
+        private fun getDisplayName(testName: String): String {
+            return when (testName.lowercase()) {
+                "balance_test", "balance", "befast_balance", "b" -> "B - Balance Test"
+                "eyes_test", "eyes", "befast_eyes", "e" -> "E - Eyes Test"
+                "face_test", "face", "befast_face", "f" -> "F - Face Test"
+                "arms_test", "arms", "arm_test", "arm", "befast_arms", "a" -> "A - Arms Test"
+                "speech_test", "speech", "voice", "befast_speech", "s" -> "S - Speech Test"
+                else -> testName.replace('_', ' ').replaceFirstChar { it.uppercase() }
+            }
         }
     }
 

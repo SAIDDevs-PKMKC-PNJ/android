@@ -105,15 +105,15 @@
             app:destination="@id/screeningResultFragment"
             app:enterAnim="@anim/slide_in_right"
             app:exitAnim="@anim/slide_out_left" />
-        <!-- Kalau mau ID baru, aktifkan ini dan update kode:
+
         <action
-            android:id="@+id/action_armsTest_to_screeningResult"
-            app:destination="@id/screeningResultFragment"
+            android:id="@+id/action_armsTest_to_speechPreview"
+            app:destination="@id/speechTestPreviewFragment"
             app:enterAnim="@anim/slide_in_right"
-            app:exitAnim="@anim/slide_out_left" /> -->
+            app:exitAnim="@anim/slide_out_left"/>
     </fragment>
 
-    <!-- (OPSIONAL) BLOK SPEECH — boleh dihapus kalau sudah pasti tidak dipakai
+    <!-- (OPSIONAL) BLOK SPEECH — boleh dihapus kalau sudah pasti tidak dipakai -->
     <fragment
         android:id="@+id/speechTestPreviewFragment"
         android:name="com.pkm.said.screening.SpeechPreviewFragment"
@@ -137,7 +137,6 @@
             app:enterAnim="@anim/slide_in_right"
             app:exitAnim="@anim/slide_out_left" />
     </fragment>
-    -->
 
     <!-- SCREENING RESULT -->
     <fragment
@@ -166,12 +165,12 @@
             app:destination="@id/armsTestPreviewFragment"
             app:enterAnim="@anim/slide_in_right"
             app:exitAnim="@anim/slide_out_left" />
-        <!-- Lama (speech): boleh dihapus kalau tidak dipakai
+
         <action
             android:id="@+id/action_screeningResult_to_speechPreview"
             app:destination="@id/speechTestPreviewFragment"
             app:enterAnim="@anim/slide_in_right"
-            app:exitAnim="@anim/slide_out_left" /> -->
+            app:exitAnim="@anim/slide_out_left"/>
     </fragment>
 
 </navigation>

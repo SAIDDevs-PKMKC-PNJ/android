@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -22,12 +23,16 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.navigation.NavController
 import androidx.navigation.findNavController
+import androidx.navigation.fragment.NavHostFragment
+import androidx.navigation.ui.NavigationUI
 import androidx.navigation.ui.setupWithNavController
+import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.firebase.auth.FirebaseAuth
 import com.pkm.said.databinding.ActivityMainBinding
 import com.pkm.said.screening.ScreeningActivity
 import com.pkm.said.util.SessionManager
 import com.pkm.said.service.VoiceActivationService
+import com.pkm.said.util.PicovoiceManager
 import com.pkm.said.util.SpecialPermissionManager
 
 class MainActivity : AppCompatActivity() {
@@ -41,6 +46,12 @@ class MainActivity : AppCompatActivity() {
     private var isBound = false
     private var isUserLoggedIn = false
     private var currentUsername: String = ""
+
+    private val topLevelDestinations = setOf(
+        R.id.navigation_dashboard,
+        R.id.navigation_history,
+        R.id.navigation_profile
+    )
 
     // Bottom nav destinations to hide
     private val hideBottomNavDestinations = setOf(
@@ -97,21 +108,38 @@ class MainActivity : AppCompatActivity() {
             permissionManager = SpecialPermissionManager(this)
             Log.d(TAG, "✅ Permission manager initialized")
 
+            debugPicovoiceAssets()
+
             // Navigation setup
-            navController = findNavController(R.id.nav_host_fragment)
-            binding.bottomNavView.setupWithNavController(navController)
+            val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
+            this.navController = navHostFragment.navController
+
+            val bottomNav: BottomNavigationView = findViewById(R.id.bottom_nav_view)
+            bottomNav.setupWithNavController(this.navController)
 
             navController.addOnDestinationChangedListener { _, destination, _ ->
+
+                // 1. Logika sembunyikan Navbar untuk detail
                 val shouldHide = destination.id in hideBottomNavDestinations
                 binding.navViewContainer.isVisible = !shouldHide
+
+                // 2. Logika SINKRONISASI SOROTAN (HIGHLIGHT)
+                if (topLevelDestinations.contains(destination.id)) {
+                    // Panggil selectBottomTab dengan ID destinasi yang baru
+                    selectBottomTab(destination.id)
+                    Log.d(TAG, "✅ Nav sync: Highlight set to ${resources.getResourceEntryName(destination.id)}")
+                }
             }
 
             val navigateTo = intent.getStringExtra("navigate_to")
             if (navigateTo == "history") {
-                navController.navigate(R.id.navigation_history)
+                // Gunakan fungsi baru untuk memastikan sinkronisasi jika dipanggil dari intent
+                navigateToTopLevel(R.id.navigation_history)
+            } else if (navigateTo == "profile") {
+                navigateToTopLevel(R.id.navigation_profile)
             }
 
-            setupNavigation()
+
             setupBackPressedHandler()
 
             // ✅ CEK SERVICE YANG SUDAH JALAN
@@ -130,6 +158,13 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Log.e(TAG, "❌ CRITICAL ERROR in onCreate", e)
             e.printStackTrace()
+        }
+    }
+
+    fun selectBottomTab(@IdRes menuId: Int) {
+        // Cek apakah ID menu berbeda dari yang sedang dipilih untuk menghindari flicker/loop
+        if (binding.bottomNavView.selectedItemId != menuId) {
+            binding.bottomNavView.selectedItemId = menuId
         }
     }
 
@@ -163,16 +198,11 @@ class MainActivity : AppCompatActivity() {
         super.onPostResume()
 
         // ✅ PERBAIKI: Hanya check permissions sekali saat pertama kali
-        if (shouldRequestCriticalPermissions && !criticalPermissionsRequestedOnce && !isFinishing && !isDestroyed) {
-            try {
-                Log.d(TAG, "🔄 Checking permissions on post resume...")
-                checkPermissions()
-                criticalPermissionsRequestedOnce = true
-            } catch (e: Exception) {
-                Log.e(TAG, "❌ Error checking permissions", e)
-            } finally {
-                shouldRequestCriticalPermissions = false
-            }
+        if (!isFinishing && !isDestroyed) {
+            Log.d(TAG, "🔄 MainActivity onPostResume - Re-checking permissions for UI update.")
+            checkPermissionStatus() // Cek status izin lagi
+
+            permissionManager.checkAndRequestAllPermissions(this)
         }
     }
 
@@ -181,6 +211,27 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG, "🔄 onNewIntent called!")
         setIntent(intent)
         handleVoiceIntent(intent)
+    }
+
+    private fun debugPicovoiceAssets() {
+        val picovoiceManager = PicovoiceManager(
+            context = this,
+            onIntentDetected = { /* dummy */ },
+            onListeningStatusChange = { /* dummy */ }
+        )
+
+        Log.d(TAG, "Starting asset copy debug...")
+
+        try {
+            // Coba copy HANYA file PPN
+            val keywordPath = picovoiceManager.copyAssetToFiles("hi-said_en_android_v3_0_0.ppn")
+            Log.d(TAG, "SUCCESS: Keyword file path: $keywordPath")
+
+        } catch (e: Exception) {
+            // Log error copy aset secara terpisah dan eksplisit
+            Log.e(TAG, "❌ FATAL ASSET ERROR: Asset copy failed during debug", e)
+            Toast.makeText(this, "FATAL ERROR: Asset Copy Failed! Check Logcat", Toast.LENGTH_LONG).show()
+        }
     }
 
     // ✅ VOICE INTENT HANDLING
@@ -270,6 +321,25 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    fun navigateToTopLevel(@IdRes destinationId: Int) {
+        if (!topLevelDestinations.contains(destinationId)) {
+            Log.e(TAG, "❌ Destination ID $destinationId is not a top-level destination. Aborting navigation.")
+            return
+        }
+
+        try {
+            // Navigasi menggunakan ID destinasi
+            navController.navigate(destinationId)
+
+            // Sinkronkan sorotan Navbar secara eksplisit (Ini menyelesaikan masalah utama Anda!)
+            selectBottomTab(destinationId)
+
+            Log.d(TAG, "✅ Top-Level Nav: Moved to ${resources.getResourceEntryName(destinationId)} and synchronized tab.")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error during top-level navigation to $destinationId", e)
+        }
+    }
+
     private fun navigateToDashboard() {
         try {
             navController.navigate(R.id.navigation_dashboard)
@@ -326,19 +396,6 @@ class MainActivity : AppCompatActivity() {
         return anonymousUser
     }
 
-    private fun setupNavigation() {
-        try {
-            Log.d(TAG, "🔧 Starting navigation setup...")
-            if (navController.currentDestination?.id != R.id.navigation_dashboard) {
-                navController.navigate(R.id.navigation_dashboard)
-            }
-            Log.d(TAG, "✅ Navigation setup completed")
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ NAVIGATION SETUP FAILED!", e)
-            finish()
-        }
-    }
-
     private fun setupBackPressedHandler() {
         try {
             onBackPressedCallback = object : OnBackPressedCallback(true) {
@@ -354,30 +411,44 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun selectBottomTab(@IdRes menuId: Int) {
-        binding.bottomNavView.selectedItemId = menuId
-    }
-
     private fun handleCustomBackPressed() {
         try {
             val currentDestId = navController.currentDestination?.id
-            when (currentDestId) {
-                R.id.navigation_dashboard -> {
-                    Log.d(TAG, "At HOME - minimizing app (Voice Assistant stays active)")
-                    minimizeApp()
-                }
+            val startDestId = navController.graph.startDestinationId // Atau navController.graph.startDestinationId
+
+            // ID dari semua destinasi level teratas Anda
+            val topLevelDestinations = setOf(
+                R.id.navigation_dashboard,
                 R.id.navigation_history,
-                R.id.navigation_profile -> {
-                    Log.d(TAG, "At other fragment - navigating to HOME")
-                    navController.navigate(R.id.navigation_dashboard)
-                }
-                else -> {
-                    if (!navController.navigateUp()) {
+                R.id.navigation_profile
+            )
+
+            if (topLevelDestinations.contains(currentDestId)) {
+                // Jika sedang di tab utama
+                if (currentDestId == startDestId) {
+                    // Jika di Dashboard (Root), minimalkan aplikasi
+                    Log.d(TAG, "At Dashboard (Start) - minimizing app.")
+                    minimizeApp()
+                } else {
+                    // Jika di tab lain, coba pop backstack ke Dashboard.
+                    if (!navController.popBackStack(startDestId, false)) {
+                        Log.d(TAG, "Failed to pop back to Dashboard, minimizing.")
                         minimizeApp()
+                    } else {
+                        Log.d(TAG, "Popped back to Dashboard successfully.")
                     }
+                }
+            } else {
+                // Jika sedang di Fragment Detail:
+                if (!navController.navigateUp()) {
+                    Log.d(TAG, "Navigate up failed, minimizing.")
+                    minimizeApp()
+                } else {
+                    Log.d(TAG, "Navigated up successfully.")
                 }
             }
         } catch (e: Exception) {
+            // Ini menangkap UninitializedPropertyAccessException jika masih ada (tapi seharusnya sudah beres)
             Log.e(TAG, "❌ Error in back press handling", e)
             minimizeApp()
         }
@@ -418,9 +489,150 @@ class MainActivity : AppCompatActivity() {
     }
 
     // ✅ PERMISSION CHECKING METHOD
+    private val emergencyPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        Log.d(TAG, "📞 Emergency permission results:")
+        permissions.entries.forEach { (permission, isGranted) ->
+            Log.d(TAG, "  - $permission: ${if (isGranted) "GRANTED" else "DENIED"}")
+        }
+
+        val allGranted = permissions.all { it.value }
+        if (allGranted) {
+            Log.d(TAG, "✅ All emergency permissions granted!")
+            Toast.makeText(this, "Izin darurat telah diberikan", Toast.LENGTH_SHORT).show()
+        } else {
+            Log.w(TAG, "⚠️ Some emergency permissions denied")
+            // Tidak perlu finish(), biarkan user tetap bisa menggunakan app
+        }
+    }
+
+    // ✅ CHECK PERMISSIONS - TAMBAHKAN IZIN DARURAT
     private fun checkPermissions() {
         Log.d(TAG, "🔐 Checking all permissions...")
+
+        // Izin dasar untuk voice assistant
         permissionManager.checkAndRequestAllPermissions(this)
+
+        // Izin tambahan untuk fitur darurat (telepon)
+        checkEmergencyPermissions()
+    }
+
+    private fun checkEmergencyPermissions() {
+        val emergencyPermissions = arrayOf(
+            Manifest.permission.CALL_PHONE,
+            Manifest.permission.READ_PHONE_STATE
+        )
+
+        val missingEmergencyPermissions = emergencyPermissions.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }
+
+        Log.d(TAG, "📞 Missing emergency permissions: $missingEmergencyPermissions")
+
+        if (missingEmergencyPermissions.isNotEmpty()) {
+            // Tampilkan dialog penjelasan sebelum meminta izin
+            showEmergencyPermissionExplanation(missingEmergencyPermissions)
+        } else {
+            Log.d(TAG, "✅ All emergency permissions already granted")
+        }
+    }
+
+    // ✅ DIALOG PENJELASAN UNTUK IZIN DARURAT
+    private fun showEmergencyPermissionExplanation(missingPermissions: List<String>) {
+        val permissionMessages = buildString {
+            append("Untuk fitur darurat memanggil ambulans, aplikasi membutuhkan izin:\n\n")
+
+            missingPermissions.forEach { permission ->
+                when (permission) {
+                    Manifest.permission.CALL_PHONE ->
+                        append("• 📞 Menelepon - untuk menghubungi nomor darurat\n")
+                    Manifest.permission.READ_PHONE_STATE ->
+                        append("• 📱 Status Telepon - untuk mendeteksi panggilan diangkat\n")
+                    Manifest.permission.ACCESS_FINE_LOCATION ->
+                        append("• 📍 Lokasi - untuk membagikan lokasi ke petugas\n")
+                }
+            }
+
+            append("\nIzin ini HANYA digunakan saat keadaan darurat.")
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Izin Fitur Darurat")
+            .setMessage(permissionMessages)
+            .setPositiveButton("Berikan Izin") { dialog, which ->
+                requestEmergencyPermissions(missingPermissions)
+            }
+            .setNegativeButton("Nanti Saja") { dialog, which ->
+                Log.d(TAG, "User menunda izin darurat")
+                Toast.makeText(this, "Anda bisa berikan izin nanti di pengaturan", Toast.LENGTH_LONG).show()
+            }
+            .setCancelable(false)
+            .show()
+    }
+
+    // ✅ REQUEST IZIN DARURAT
+    private fun requestEmergencyPermissions(missingPermissions: List<String>) {
+        Log.d(TAG, "📞 Requesting emergency permissions: $missingPermissions")
+        emergencyPermissionLauncher.launch(missingPermissions.toTypedArray())
+    }
+
+    private fun showManualPermissionGuide() {
+        AlertDialog.Builder(this)
+            .setTitle("Izin Diperlukan")
+            .setMessage("Beberapa izin darurat ditolak. Anda masih bisa memberikan izin nanti melalui:\n\n" +
+                    "1. Buka Pengaturan Android\n" +
+                    "2. Pilih 'Aplikasi' → 'Said'\n" +
+                    "3. Pilih 'Izin'\n" +
+                    "4. Berikan izin Menelepon dan Status Telepon\n\n" +
+                    "Fitur darurat akan aktif setelah izin diberikan.")
+            .setPositiveButton("Buka Pengaturan") { dialog, which ->
+                openAppSettings()
+            }
+            .setNegativeButton("Nanti") { dialog, which -> }
+            .show()
+    }
+
+    // ✅ BUKA PENGATURAN APLIKASI
+    private fun openAppSettings() {
+        try {
+            val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+            intent.data = Uri.parse("package:$packageName")
+            startActivity(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error opening app settings", e)
+        }
+    }
+
+    // ✅ METHOD UNTUK CEK STATUS IZIN DARURAT (bisa dipanggil dari EmergencyActivity)
+    fun areEmergencyPermissionsGranted(): Boolean {
+        val emergencyPermissions = arrayOf(
+            Manifest.permission.CALL_PHONE,
+            Manifest.permission.READ_PHONE_STATE
+        )
+
+        return emergencyPermissions.all {
+            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    // ✅ METHOD UNTUK DAPATKAN REPORT IZIN DARURAT
+    fun getEmergencyPermissionStatus(): String {
+        val status = buildString {
+            append("Emergency Permissions Status:\n")
+            append("• CALL_PHONE: ${getPermissionStatus(Manifest.permission.CALL_PHONE)}\n")
+            append("• READ_PHONE_STATE: ${getPermissionStatus(Manifest.permission.READ_PHONE_STATE)}\n")
+            append("• ACCESS_FINE_LOCATION: ${getPermissionStatus(Manifest.permission.ACCESS_FINE_LOCATION)}\n")
+        }
+        return status
+    }
+
+    private fun getPermissionStatus(permission: String): String {
+        return if (ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED) {
+            "GRANTED"
+        } else {
+            "DENIED"
+        }
     }
 
     // ✅ ENHANCED LOGIN SUCCESS
@@ -454,8 +666,12 @@ class MainActivity : AppCompatActivity() {
 
         if (criticalMissing > 0) {
             Log.w(TAG, "⚠️ $criticalMissing critical permissions missing")
-            // Biarkan SpecialPermissionManager menangani dialog
-            // Tidak perlu showPermissionDialog() lagi
+            if (!criticalPermissionsRequestedOnce) {
+                // Ini akan memicu dialog permission (termasuk basic dan special)
+                permissionManager.checkAndRequestAllPermissions(this)
+            } else {
+                Toast.makeText(this, "Izin Kritis belum lengkap. Buka Pengaturan Izin di Profil.", Toast.LENGTH_LONG).show()
+            }
         } else {
             startVoiceAssistant()
         }
@@ -507,6 +723,35 @@ class MainActivity : AppCompatActivity() {
 
         // Forward ke Permission Manager
         permissionManager.onRequestPermissionsResult(requestCode, permissions, grantResults, this)
+
+        // Check jika permissions sudah granted dan start service
+        if (requestCode != SpecialPermissionManager.REQUEST_CODE_BASIC_PERMISSIONS) {
+            // Cek jika ini izin darurat
+            val hasEmergencyPermissions = permissions.any {
+                it == Manifest.permission.CALL_PHONE || it == Manifest.permission.READ_PHONE_STATE
+            }
+
+            if (hasEmergencyPermissions) {
+                val allGranted = grantResults.all { it == PackageManager.PERMISSION_GRANTED }
+                if (allGranted) {
+                    val specialMissing = permissionManager.getAllPermissionStatus()
+                        .count { it.isRequired && !it.isGranted }
+
+                    if (specialMissing == 0) {
+                        // Jika tidak ada special permission yang hilang, LANGSUNG START.
+                        startVoiceAssistant()
+                    } else {
+                        // Biarkan SpecialPermissionManager memproses sisanya (Autostart, Battery)
+                        // Manager akan memanggil processNextPermissionRequest() secara internal
+                        Toast.makeText(
+                            this,
+                            "Lanjutkan ke pengaturan khusus perangkat.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            }
+        }
 
         // Check jika permissions sudah granted dan start service
         if (requestCode == SpecialPermissionManager.REQUEST_CODE_BASIC_PERMISSIONS) {

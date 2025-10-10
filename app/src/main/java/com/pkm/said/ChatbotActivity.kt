@@ -23,6 +23,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.pkm.said.adapter.MessageAdapter
 import com.pkm.said.databinding.ActivityChatbotBinding
 import com.pkm.said.util.AuthManager
@@ -53,7 +54,7 @@ class ChatbotActivity : AppCompatActivity() {
     // State & UI
     private var inputMode: InputMode = InputMode.KEYBOARD
     private lateinit var messageAdapter: MessageAdapter
-    private val messageList = mutableListOf<String>()
+    private val messageList = mutableListOf<MessageAdapter.ChatMessage>()
 
     // STT
     private var speechRecognizer: SpeechRecognizer? = null
@@ -162,15 +163,84 @@ class ChatbotActivity : AppCompatActivity() {
         }
     }
 
+    // ✅ Chip listeners dengan auto-hide
+    private fun setupChipListeners() {
+        Log.d(TAG, "Setting up chip listeners...")
+
+        try {
+            val chips = mapOf(
+                binding.chipStroke to "Apa itu stroke?",
+                binding.chipPenyebab to "Penyebab stroke?",
+                binding.chipDeteksi to "Bagaimana metode deteksi stroke?",
+                binding.chipGejala1 to "Apa saja gejala stroke?",
+                binding.chipGejala2 to "Bagaimana pengobatan stroke?",
+                binding.chipGejala3 to "Cara pencegahan stroke?"
+            )
+
+            chips.forEach { (chip, text) ->
+                chip.setOnClickListener {
+                    Log.d(TAG, "Chip clicked: $text")
+
+                    // ✅ Sembunyikan chips setelah diklik
+                    hideSuggestionChips()
+
+                    sendMessage(text, isUser = true)
+                    simulateBotResponse(text)
+                }
+            }
+
+            Log.d(TAG, "✅ Chip listeners setup completed")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error setting up chip listeners", e)
+        }
+    }
+
+    // ✅ Hide dengan animation
+    private fun hideSuggestionChips() {
+        binding.suggestionCard.animate()
+            .translationY(-binding.suggestionCard.height.toFloat())
+            .alpha(0f)
+            .setDuration(300)
+            .withEndAction {
+                binding.suggestionCard.visibility = View.GONE
+            }
+            .start()
+    }
+
+    // ✅ Show dengan animation
+    private fun showSuggestionChips() {
+        binding.suggestionCard.visibility = View.VISIBLE
+        binding.suggestionCard.animate()
+            .translationY(0f)
+            .alpha(1f)
+            .setDuration(300)
+            .start()
+    }
+
     // ---------------------------
     // RecyclerView (chat)
     // ---------------------------
     private fun setupRecyclerView() {
-        messageAdapter = MessageAdapter(messageList)
+        messageAdapter = MessageAdapter(messageList) { position ->
+            onReloadResponse(position)
+        }
         binding.rvMessages.apply {
-            layoutManager = LinearLayoutManager(this@ChatbotActivity).apply { stackFromEnd = true }
+            layoutManager = LinearLayoutManager(this@ChatbotActivity).apply {
+                stackFromEnd = true
+            }
             adapter = messageAdapter
             setHasFixedSize(true)
+
+            // ✅ Hide chips ketika scroll
+            addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                    if (dy > 5) { // Scroll down
+                        hideSuggestionChips()
+                    } else if (dy < -5) { // Scroll up
+                        showSuggestionChips()
+                    }
+                }
+            })
         }
     }
 
@@ -225,33 +295,6 @@ class ChatbotActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ Chip listeners
-    private fun setupChipListeners() {
-        Log.d(TAG, "Setting up chip listeners...")
-
-        try {
-            val chips = mapOf(
-                binding.chipStroke to "Apa itu stroke?",
-                binding.chipPenyebab to "Penyebab stroke?",
-                binding.chipDeteksi to "Bagaimana metode deteksi stroke?",
-                binding.chipGejala1 to "Apa saja gejala stroke?",
-                binding.chipGejala2 to "Bagaimana pengobatan stroke?",
-                binding.chipGejala3 to "Cara pencegahan stroke?"
-            )
-
-            chips.forEach { (chip, text) ->
-                chip.setOnClickListener {
-                    Log.d(TAG, "Chip clicked: $text")
-                    sendMessage(text, isUser = true)
-                    simulateBotResponse(text)
-                }
-            }
-
-            Log.d(TAG, "✅ Chip listeners setup completed")
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error setting up chip listeners", e)
-        }
-    }
 
     // ✅ Back navigation
     private fun handleBackNavigation() {
@@ -283,44 +326,111 @@ class ChatbotActivity : AppCompatActivity() {
         }
     }
 
-    private fun sendMessage(text: String, isUser: Boolean) {
+    // ✅ Update clear messages function
+    fun clearMessagesAndShowChips() {
+        messageList.clear()
+        messageAdapter.notifyDataSetChanged()
+        showSuggestionChips()
+    }
+
+    // ✅ Update di tempat yang memanggil clear messages
+    private fun handleClearChat() {
+        clearMessagesAndShowChips()
+        addInitialMessage() // Tambah pesan welcome kembali
+    }
+
+    // ✅ Atau sembunyikan chips hanya ketika ada cukup banyak pesan
+    private fun shouldShowChips(): Boolean {
+        return messageList.size <= 2 // Hanya tampilkan chips jika <= 2 pesan
+    }
+
+    private fun updateChipsVisibility() {
+        if (shouldShowChips()) {
+            showSuggestionChips()
+        } else {
+            hideSuggestionChips()
+        }
+    }
+
+    // ✅ Panggil update visibility setiap kali ada perubahan message
+    private fun sendMessage(text: String, isUser: Boolean, isVoice: Boolean = false) {
         try {
-            val prefix = if (isUser) "Anda: " else "Bot: "
-            val message = prefix + text
+            val message = MessageAdapter.ChatMessage(
+                text = if (isUser) {
+                    if (isVoice) "Anda (via suara): $text" else "Anda: $text"
+                } else {
+                    "Bot: $text"
+                },
+                isUser = isUser,
+                isVoice = isVoice
+            )
 
             messageList.add(message)
             messageAdapter.notifyItemInserted(messageList.size - 1)
 
+            // ✅ Update chips visibility setelah kirim pesan
+            updateChipsVisibility()
+
             binding.rvMessages.post {
                 binding.rvMessages.smoothScrollToPosition(messageList.size - 1)
             }
-
-            Log.d(TAG, "✅ Message added: ${if (isUser) "User" else "Bot"} - $text")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error adding message", e)
             showError("Gagal menambah pesan")
         }
     }
-
     private fun addInitialMessage() {
         try {
-            sendMessage("Hello! Saya Said bot. Ada yang bisa saya bantu tentang stroke?", isUser = false)
-            Log.d(TAG, "✅ Initial message added")
+            val welcomeMessage = MessageAdapter.ChatMessage(
+                text = "Bot: Hello! Saya Said bot. Ada yang bisa saya bantu tentang stroke?",
+                isUser = false
+            )
+            messageList.add(welcomeMessage)
+            messageAdapter.notifyItemInserted(messageList.size - 1)
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error adding initial message", e)
         }
     }
 
     private fun simulateBotResponse(userMessage: String) {
+        messageAdapter.addLoadingMessage()
+
         binding.rvMessages.postDelayed({
             try {
                 val botResponse = generateBotResponse(userMessage)
-                sendMessage(botResponse, isUser = false)
+                val botMessage = MessageAdapter.ChatMessage(
+                    text = "Bot: $botResponse",
+                    isUser = false
+                )
+                messageAdapter.updateLoadingToMessage(botMessage)
             } catch (e: Exception) {
                 Log.e(TAG, "❌ Error in bot response", e)
-                sendMessage("Maaf, terjadi kesalahan. Coba lagi nanti.", isUser = false)
+                val errorMessage = MessageAdapter.ChatMessage(
+                    text = "Bot: Maaf, terjadi kesalahan. Coba lagi nanti.",
+                    isUser = false
+                )
+                messageAdapter.updateLoadingToMessage(errorMessage)
             }
-        }, 1000)
+        }, 2000)
+    }
+
+    private fun onReloadResponse(position: Int) {
+        if (position > 0 && position < messageList.size) {
+            val userMessage = messageList[position - 1].text
+                .removePrefix("Anda: ")
+                .removePrefix("Anda (via suara):")
+
+            // Ganti message dengan loading
+            messageList[position] = MessageAdapter.ChatMessage("",
+                isUser = false,
+                isVoice = false,
+                isLoading = true
+            )
+            messageAdapter.notifyItemChanged(position)
+
+            // Generate response baru
+            simulateBotResponse(userMessage)
+        }
     }
 
     private fun generateBotResponse(userMessage: String): String {
@@ -426,7 +536,10 @@ class ChatbotActivity : AppCompatActivity() {
                 val texts = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 val text = texts?.firstOrNull().orEmpty()
                 if (text.isNotBlank()) {
-                    sendMessage(text, isUser = true)
+                    // ✅ Sembunyikan chips ketika voice input berhasil
+                    hideSuggestionChips()
+
+                    sendMessage(text, isUser = true, isVoice = true)
                     val reply = generateBotResponse(text)
                     sendMessage(reply, isUser = false)
                 } else {
@@ -491,6 +604,8 @@ class ChatbotActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (!AuthManager.ensureUserLoggedIn(this)) return
+
+        updateChipsVisibility()
     }
 
     override fun onDestroy() {
@@ -501,6 +616,9 @@ class ChatbotActivity : AppCompatActivity() {
             stopWaveAnimation()
             speechRecognizer?.destroy()
             binding.rvMessages.removeCallbacks(null)
+            if (isFinishing){
+                clearMessagesAndShowChips()
+            }
             Log.d(TAG, "✅ ChatbotActivity cleaned up")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error in cleanup", e)

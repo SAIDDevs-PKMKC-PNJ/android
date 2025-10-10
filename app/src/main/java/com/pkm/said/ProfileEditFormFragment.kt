@@ -12,6 +12,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.MimeTypeMap
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
@@ -145,7 +146,6 @@ class ProfileFormFragment : Fragment() {
 
         binding.etBirthdate.setOnClickListener {
             if (!isEditing) {
-                // ✅ JIKA TIDAK DALAM MODE EDIT, TAMPILKAN PESAN
                 Toast.makeText(requireContext(), "Tekan 'Edit Profil' untuk mengubah data", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
@@ -178,6 +178,7 @@ class ProfileFormFragment : Fragment() {
         setEditable(true)
         binding.btnEditSave.text = "Simpan Perubahan"
         binding.btnEditSave.isEnabled = true
+        binding.btnEditSave.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.success_color))
 
         // ✅ TAMPILKAN INDIKATOR SEDANG EDIT
         showEditModeIndicator(true)
@@ -190,6 +191,7 @@ class ProfileFormFragment : Fragment() {
         setEditable(false)
         binding.btnEditSave.text = "Edit Profil"
         binding.btnEditSave.isEnabled = true
+        binding.btnEditSave.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.lightBlue))
 
         // ✅ SEMBUNYIKAN INDIKATOR EDIT
         showEditModeIndicator(false)
@@ -295,10 +297,20 @@ class ProfileFormFragment : Fragment() {
         val month = calendar.get(Calendar.MONTH)
         val day = calendar.get(Calendar.DAY_OF_MONTH)
 
-        DatePickerDialog(requireContext(), { _, y, m, d ->
-            val dateString = "%02d/%02d/%04d".format(d, m + 1, y)
+        val datePicker = DatePickerDialog(requireContext(), { _, selectedYear, selectedMonth, selectedDay ->
+            // ✅ FORMAT YANG LEBIH USER FRIENDLY
+            val months = arrayOf(
+                "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+                "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+            )
+            val dateString = "$selectedDay ${months[selectedMonth]} $selectedYear"
             binding.etBirthdate.setText(dateString)
-        }, year, month, day).show()
+
+            Log.d(TAG, "Tanggal lahir dipilih: $dateString")
+        }, year, month, day)
+
+        datePicker.datePicker.maxDate = calendar.timeInMillis
+        datePicker.show()
     }
 
     @Suppress("DEPRECATION")
