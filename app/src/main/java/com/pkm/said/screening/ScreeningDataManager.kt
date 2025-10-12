@@ -6,6 +6,8 @@ import androidx.core.content.edit
 import com.google.firebase.Timestamp
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
+import com.pkm.said.util.FaceLandmarkerHelper
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt
@@ -120,6 +122,38 @@ object ScreeningDataManager {
         saveCurrentSession(context)
         Log.d(TAG, "📝 Sesi screening baru dimulai: $sessionId")
         return session
+    }
+
+    fun updateEyesRawData(context: Context, capturedDataList: List<FaceLandmarkerHelper.CapturedExpressionData>) {
+        currentSession?.let { session ->
+            val existingEyesResult = session.eyesResult
+
+            if (existingEyesResult == null) {
+                Log.w(TAG, "Tidak dapat menyimpan data mentah mata: TestResult 'eyes' belum dibuat.")
+                return
+            }
+
+            // 1. Serialize data mentah menjadi JSON String agar aman disimpan di Map<String, Any>
+            val rawDataJson = Gson().toJson(capturedDataList)
+
+            // 2. Buat TestResult baru dengan data mentah ditambahkan
+            val updatedTestData = existingEyesResult.testData.toMutableMap()
+
+            // Simpan data mentah di bawah kunci spesifik (misalnya: "eyes_raw_captures_json")
+            updatedTestData["eyes_raw_captures_json"] = rawDataJson
+            updatedTestData["total_captures"] = capturedDataList.size
+
+            val updatedEyesResult = existingEyesResult.copy(
+                testData = updatedTestData
+            )
+
+            // 3. Update sesi dan simpan ke SharedPreferences
+            val updatedSession = session.copy(eyesResult = updatedEyesResult)
+            currentSession = updatedSession
+            saveCurrentSession(context)
+            Log.d(TAG, "✅ Data mentah mata (${capturedDataList.size} captures) disimpan lokal.")
+
+        } ?: Log.e(TAG, "❌ Tidak ada sesi aktif untuk menyimpan data mentah mata.")
     }
 
     /** Update hasil test - HANYA LOKAL */

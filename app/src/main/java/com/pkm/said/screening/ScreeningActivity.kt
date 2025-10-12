@@ -121,6 +121,7 @@ class ScreeningActivity : AppCompatActivity() {
             "eyes" in pendingTests -> "eyes"
             "face" in pendingTests -> "face"
             "arms" in pendingTests -> "arms"
+            "speech" in pendingTests -> "speech"
             else -> {
                 // Jika tidak ada pending, cek apakah semua selesai
                 if (ScreeningDataManager.areAllTestsCompleted(this@ScreeningActivity)) {

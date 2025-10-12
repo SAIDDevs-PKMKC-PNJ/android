@@ -129,13 +129,13 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Instruksi Test"
+                        android:text="Instruksi Tes Balance"
                         android:textSize="20sp"
                         android:textStyle="bold"
                         android:textColor="@color/BluePrimary"
                         android:layout_marginBottom="16dp" />
 
-                    <!-- Instruction 1 -->
+                    <!-- Instruction 1 - YANG DIUBAH -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -154,13 +154,13 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Letakkan ponsel pada permukaan stabil, kamera belakang menghadap Anda dari jarak ±2–3 m."
+                            android:text="Letakkan ponsel setinggi DADA, kamera depan menghadap Anda. Jarak 1-1.5 meter. TIDAK PERLU kaki sampai bawah terlihat."
                             android:textSize="14sp"
                             android:textColor="@color/black"
                             android:lineSpacingExtra="2dp" />
                     </LinearLayout>
 
-                    <!-- Instruction 2 -->
+                    <!-- Instruction 2 - YANG DIUBAH -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -179,7 +179,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Berdiri tegap, kaki rapat, tangan di samping tubuh. Pastikan seluruh tubuh terlihat."
+                            android:text="Perhatikan overlay: titik BIRU (pinggul) dan HIJAU (lutut) harus terlihat. Sistem akan otomatis mulai ketika pose terdeteksi."
                             android:textSize="14sp"
                             android:textColor="@color/black"
                             android:lineSpacingExtra="2dp" />
@@ -204,7 +204,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Tetap diam menatap lurus ke depan selama 10 detik saat perekaman."
+                            android:text="Tes hanya 5 detik setelah pose terkunci. Tetap DIAM sempurna selama tes berjalan."
                             android:textSize="14sp"
                             android:textColor="@color/black"
                             android:lineSpacingExtra="2dp" />

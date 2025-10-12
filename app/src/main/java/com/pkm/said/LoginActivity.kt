@@ -452,7 +452,6 @@ class LoginActivity : AppCompatActivity() {
                     val birthdate = doc.getString("birthdate")
                     val phone = doc.getString("phone")
                     val address = doc.getString("address")
-                    val emergency = doc.getString("emergency")
                     val savedPhoto = doc.getString("photoUrl")
                     val hasPhoto = !savedPhoto.isNullOrBlank()
 
@@ -488,7 +487,6 @@ class LoginActivity : AppCompatActivity() {
                                     birthdate = birthdate,
                                     phone = phone,
                                     address = address,
-                                    emergency = emergency,
                                     loginMethod = loginMethod,
                                     emailVerified = user.isEmailVerified
                                 )
@@ -505,7 +503,6 @@ class LoginActivity : AppCompatActivity() {
                                     birthdate = birthdate,
                                     phone = phone,
                                     address = address,
-                                    emergency = emergency,
                                     loginMethod = loginMethod,
                                     emailVerified = user.isEmailVerified
                                 )
@@ -525,7 +522,6 @@ class LoginActivity : AppCompatActivity() {
                         birthdate = birthdate,
                         phone = phone,
                         address = address,
-                        emergency = emergency,
                         loginMethod = loginMethod,
                         emailVerified = user.isEmailVerified
                     )

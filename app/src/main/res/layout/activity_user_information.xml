@@ -116,7 +116,7 @@
                     android:clickable="false"
                     android:focusable="false"
                     android:inputType="none"
-                    android:paddingStart="48dp"
+                    android:paddingStart="36dp"
                     android:paddingEnd="16dp"
                     android:text="+62"
                     android:textColor="@color/GrayLight"

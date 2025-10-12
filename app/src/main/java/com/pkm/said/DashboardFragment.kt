@@ -249,6 +249,8 @@ class DashboardFragment : Fragment() {
             RiskLevel.UNKNOWN -> R.color.risk_unknown_text
             else -> R.color.risk_unknown_text
         }
+
+        binding.tvScoreValue.setTextColor(ContextCompat.getColor(requireContext(), colorRes))
         binding.tvScoreStatus.setTextColor(ContextCompat.getColor(requireContext(), colorRes))
     }
 

@@ -34,6 +34,7 @@ import com.pkm.said.util.SessionManager
 import com.pkm.said.service.VoiceActivationService
 import com.pkm.said.util.PicovoiceManager
 import com.pkm.said.util.SpecialPermissionManager
+import androidx.core.content.edit
 
 class MainActivity : AppCompatActivity() {
 
@@ -66,7 +67,6 @@ class MainActivity : AppCompatActivity() {
 
     // Permission request flags
     private var shouldRequestCriticalPermissions = false
-    private var criticalPermissionsRequestedOnce = false
 
     companion object {
         private const val TAG = "MainActivity"
@@ -181,7 +181,7 @@ class MainActivity : AppCompatActivity() {
     // ✅ DETEKSI SERVICE YANG SUDAH JALAN
     private fun isVoiceServiceRunning(): Boolean {
         return try {
-            val manager = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            val manager = getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager
             val runningServices = manager.getRunningServices(Integer.MAX_VALUE)
             val isRunning = runningServices.any {
                 it.service.className == VoiceActivationService::class.java.name
@@ -202,7 +202,9 @@ class MainActivity : AppCompatActivity() {
             Log.d(TAG, "🔄 MainActivity onPostResume - Re-checking permissions for UI update.")
             checkPermissionStatus() // Cek status izin lagi
 
-            permissionManager.checkAndRequestAllPermissions(this)
+            if (isUserLoggedIn) {
+                onLoginSuccess()
+            }
         }
     }
 
@@ -280,6 +282,36 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    fun triggerEmergencyPermissionRequest() {
+        val emergencyPermissions = arrayOf(
+            Manifest.permission.CALL_PHONE,
+            Manifest.permission.READ_PHONE_STATE,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        )
+
+        val missingEmergencyPermissions = emergencyPermissions.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }
+
+        if (missingEmergencyPermissions.isNotEmpty()) {
+            emergencyPermissionLauncher.launch(missingEmergencyPermissions.toTypedArray())
+        } else {
+            Toast.makeText(this, "Izin darurat sudah lengkap.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private val emergencyPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        Log.d(TAG, "📞 Emergency permission results handled.")
+        val allGranted = permissions.all { it.value }
+        if (allGranted) {
+            Toast.makeText(this, "Izin darurat telah diberikan.", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(this, "⚠️ Izin darurat ditolak. Fitur terbatas.", Toast.LENGTH_LONG).show()
+        }
+    }
+
     // Fallback emergency handler jika EmergencyActivity gagal
     private fun handleEmergencyFallback() {
         Log.d(TAG, "🚨 Emergency fallback - showing dialog")
@@ -300,27 +332,6 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    // ✅ EMERGENCY COMMAND HANDLER - DIUBAH MENJADI DIALOG
-    private fun handleEmergencyCommand() {
-        try {
-            Log.d(TAG, "🚨 Starting emergency procedure")
-
-            AlertDialog.Builder(this)
-                .setTitle("🚨 Emergency Detected")
-                .setMessage("Voice assistant detected emergency situation. Do you need help?")
-                .setPositiveButton("Call Emergency") { _, _ ->
-                    // Implement emergency call logic here
-                    Toast.makeText(this, "Emergency call initiated", Toast.LENGTH_SHORT).show()
-                }
-                .setNegativeButton("Cancel") { _, _ -> }
-                .show()
-
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error handling emergency command", e)
-            Toast.makeText(this, "🚨 Emergency feature not available", Toast.LENGTH_SHORT).show()
-        }
-    }
-
     fun navigateToTopLevel(@IdRes destinationId: Int) {
         if (!topLevelDestinations.contains(destinationId)) {
             Log.e(TAG, "❌ Destination ID $destinationId is not a top-level destination. Aborting navigation.")
@@ -328,11 +339,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         try {
-            // Navigasi menggunakan ID destinasi
             navController.navigate(destinationId)
-
-            // Sinkronkan sorotan Navbar secara eksplisit (Ini menyelesaikan masalah utama Anda!)
-            selectBottomTab(destinationId)
 
             Log.d(TAG, "✅ Top-Level Nav: Moved to ${resources.getResourceEntryName(destinationId)} and synchronized tab.")
         } catch (e: Exception) {
@@ -469,7 +476,7 @@ class MainActivity : AppCompatActivity() {
         isUserLoggedIn = true
 
         val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-        prefs.edit().putBoolean("user_logged_in", true).apply()
+        prefs.edit { putBoolean("user_logged_in", true) }
 
         // Generate reports menggunakan permissionManager
         try {
@@ -488,153 +495,6 @@ class MainActivity : AppCompatActivity() {
         onLoginSuccess()
     }
 
-    // ✅ PERMISSION CHECKING METHOD
-    private val emergencyPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        Log.d(TAG, "📞 Emergency permission results:")
-        permissions.entries.forEach { (permission, isGranted) ->
-            Log.d(TAG, "  - $permission: ${if (isGranted) "GRANTED" else "DENIED"}")
-        }
-
-        val allGranted = permissions.all { it.value }
-        if (allGranted) {
-            Log.d(TAG, "✅ All emergency permissions granted!")
-            Toast.makeText(this, "Izin darurat telah diberikan", Toast.LENGTH_SHORT).show()
-        } else {
-            Log.w(TAG, "⚠️ Some emergency permissions denied")
-            // Tidak perlu finish(), biarkan user tetap bisa menggunakan app
-        }
-    }
-
-    // ✅ CHECK PERMISSIONS - TAMBAHKAN IZIN DARURAT
-    private fun checkPermissions() {
-        Log.d(TAG, "🔐 Checking all permissions...")
-
-        // Izin dasar untuk voice assistant
-        permissionManager.checkAndRequestAllPermissions(this)
-
-        // Izin tambahan untuk fitur darurat (telepon)
-        checkEmergencyPermissions()
-    }
-
-    private fun checkEmergencyPermissions() {
-        val emergencyPermissions = arrayOf(
-            Manifest.permission.CALL_PHONE,
-            Manifest.permission.READ_PHONE_STATE
-        )
-
-        val missingEmergencyPermissions = emergencyPermissions.filter {
-            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
-        }
-
-        Log.d(TAG, "📞 Missing emergency permissions: $missingEmergencyPermissions")
-
-        if (missingEmergencyPermissions.isNotEmpty()) {
-            // Tampilkan dialog penjelasan sebelum meminta izin
-            showEmergencyPermissionExplanation(missingEmergencyPermissions)
-        } else {
-            Log.d(TAG, "✅ All emergency permissions already granted")
-        }
-    }
-
-    // ✅ DIALOG PENJELASAN UNTUK IZIN DARURAT
-    private fun showEmergencyPermissionExplanation(missingPermissions: List<String>) {
-        val permissionMessages = buildString {
-            append("Untuk fitur darurat memanggil ambulans, aplikasi membutuhkan izin:\n\n")
-
-            missingPermissions.forEach { permission ->
-                when (permission) {
-                    Manifest.permission.CALL_PHONE ->
-                        append("• 📞 Menelepon - untuk menghubungi nomor darurat\n")
-                    Manifest.permission.READ_PHONE_STATE ->
-                        append("• 📱 Status Telepon - untuk mendeteksi panggilan diangkat\n")
-                    Manifest.permission.ACCESS_FINE_LOCATION ->
-                        append("• 📍 Lokasi - untuk membagikan lokasi ke petugas\n")
-                }
-            }
-
-            append("\nIzin ini HANYA digunakan saat keadaan darurat.")
-        }
-
-        AlertDialog.Builder(this)
-            .setTitle("Izin Fitur Darurat")
-            .setMessage(permissionMessages)
-            .setPositiveButton("Berikan Izin") { dialog, which ->
-                requestEmergencyPermissions(missingPermissions)
-            }
-            .setNegativeButton("Nanti Saja") { dialog, which ->
-                Log.d(TAG, "User menunda izin darurat")
-                Toast.makeText(this, "Anda bisa berikan izin nanti di pengaturan", Toast.LENGTH_LONG).show()
-            }
-            .setCancelable(false)
-            .show()
-    }
-
-    // ✅ REQUEST IZIN DARURAT
-    private fun requestEmergencyPermissions(missingPermissions: List<String>) {
-        Log.d(TAG, "📞 Requesting emergency permissions: $missingPermissions")
-        emergencyPermissionLauncher.launch(missingPermissions.toTypedArray())
-    }
-
-    private fun showManualPermissionGuide() {
-        AlertDialog.Builder(this)
-            .setTitle("Izin Diperlukan")
-            .setMessage("Beberapa izin darurat ditolak. Anda masih bisa memberikan izin nanti melalui:\n\n" +
-                    "1. Buka Pengaturan Android\n" +
-                    "2. Pilih 'Aplikasi' → 'Said'\n" +
-                    "3. Pilih 'Izin'\n" +
-                    "4. Berikan izin Menelepon dan Status Telepon\n\n" +
-                    "Fitur darurat akan aktif setelah izin diberikan.")
-            .setPositiveButton("Buka Pengaturan") { dialog, which ->
-                openAppSettings()
-            }
-            .setNegativeButton("Nanti") { dialog, which -> }
-            .show()
-    }
-
-    // ✅ BUKA PENGATURAN APLIKASI
-    private fun openAppSettings() {
-        try {
-            val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-            intent.data = Uri.parse("package:$packageName")
-            startActivity(intent)
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error opening app settings", e)
-        }
-    }
-
-    // ✅ METHOD UNTUK CEK STATUS IZIN DARURAT (bisa dipanggil dari EmergencyActivity)
-    fun areEmergencyPermissionsGranted(): Boolean {
-        val emergencyPermissions = arrayOf(
-            Manifest.permission.CALL_PHONE,
-            Manifest.permission.READ_PHONE_STATE
-        )
-
-        return emergencyPermissions.all {
-            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
-        }
-    }
-
-    // ✅ METHOD UNTUK DAPATKAN REPORT IZIN DARURAT
-    fun getEmergencyPermissionStatus(): String {
-        val status = buildString {
-            append("Emergency Permissions Status:\n")
-            append("• CALL_PHONE: ${getPermissionStatus(Manifest.permission.CALL_PHONE)}\n")
-            append("• READ_PHONE_STATE: ${getPermissionStatus(Manifest.permission.READ_PHONE_STATE)}\n")
-            append("• ACCESS_FINE_LOCATION: ${getPermissionStatus(Manifest.permission.ACCESS_FINE_LOCATION)}\n")
-        }
-        return status
-    }
-
-    private fun getPermissionStatus(permission: String): String {
-        return if (ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED) {
-            "GRANTED"
-        } else {
-            "DENIED"
-        }
-    }
-
     // ✅ ENHANCED LOGIN SUCCESS
     private fun onLoginSuccess() {
         Log.d(TAG, "✅ Login successful - checking voice assistant status")
@@ -644,7 +504,8 @@ class MainActivity : AppCompatActivity() {
             connectToExistingVoiceService()
         } else {
             Log.d(TAG, "🎤 Voice service not running, starting new...")
-            checkPermissionsAndStartVoiceAssistant()
+            permissionManager.checkAndRequestAllPermissions(this)
+            triggerEmergencyPermissionRequest()
         }
     }
 
@@ -659,24 +520,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ PERMISSION CHECK
-    private fun checkPermissionsAndStartVoiceAssistant() {
-        val permissions = permissionManager.getAllPermissionStatus()
-        val criticalMissing = permissions.count { !it.isGranted && it.isRequired }
-
-        if (criticalMissing > 0) {
-            Log.w(TAG, "⚠️ $criticalMissing critical permissions missing")
-            if (!criticalPermissionsRequestedOnce) {
-                // Ini akan memicu dialog permission (termasuk basic dan special)
-                permissionManager.checkAndRequestAllPermissions(this)
-            } else {
-                Toast.makeText(this, "Izin Kritis belum lengkap. Buka Pengaturan Izin di Profil.", Toast.LENGTH_LONG).show()
-            }
-        } else {
-            startVoiceAssistant()
-        }
-    }
-
     // ✅ START VOICE ASSISTANT
     private fun startVoiceAssistant() {
         try {
@@ -687,7 +530,7 @@ class MainActivity : AppCompatActivity() {
             bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
 
             val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-            prefs.edit().putBoolean(VOICE_ASSISTANT_ENABLED, true).apply()
+            prefs.edit { putBoolean(VOICE_ASSISTANT_ENABLED, true) }
 
             if (!isFinishing && !isDestroyed) {
                 Toast.makeText(
@@ -752,14 +595,12 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+        val allCriticalGranted = permissionManager.getAllPermissionStatus()
+            .all { !it.isRequired || it.isGranted }
 
-        // Check jika permissions sudah granted dan start service
-        if (requestCode == SpecialPermissionManager.REQUEST_CODE_BASIC_PERMISSIONS) {
-            val allGranted = grantResults.all { it == PackageManager.PERMISSION_GRANTED }
-            if (allGranted) {
-                Log.d(TAG, "✅ All basic permissions granted, starting voice assistant...")
-                startVoiceAssistant()
-            }
+        if (allCriticalGranted) {
+            Log.d(TAG, "✅ All critical permissions are now granted, starting voice assistant...")
+            startVoiceAssistant()
         }
     }
 
@@ -768,20 +609,6 @@ class MainActivity : AppCompatActivity() {
 
         // Forward ke Permission Manager
         permissionManager.onActivityResult(requestCode, resultCode, data, this)
-
-        // Handle specific results
-        when (requestCode) {
-            SpecialPermissionManager.REQUEST_CODE_BATTERY_OPTIMIZATION -> {
-                Log.d(TAG, "🔋 User kembali dari battery settings")
-                // Optional: Check status battery optimization
-                val isBatteryOptimized = permissionManager.getAllPermissionStatus()
-                    .find { it.name == "BATTERY_OPTIMIZATION_IGNORED" }?.isGranted == true
-                Log.d(TAG, "🔋 Battery optimization after settings: ${if (isBatteryOptimized) "BYPASSED" else "ACTIVE"}")
-            }
-            SpecialPermissionManager.REQUEST_CODE_OVERLAY_PERMISSION -> {
-                Log.d(TAG, "📱 User kembali dari overlay settings")
-            }
-        }
     }
 
     override fun onResume() {
@@ -789,7 +616,7 @@ class MainActivity : AppCompatActivity() {
 
         // ✅ PERBAIKI: Hanya update status, tidak check permissions berulang
         Log.d(TAG, "🔄 MainActivity onResume - updating status")
-        updateVoiceServiceStatus()
+//        updateVoiceServiceStatus()
 
         // Optional: Update permission status display jika ada UI
         checkPermissionStatus()

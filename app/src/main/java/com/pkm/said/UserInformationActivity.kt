@@ -45,7 +45,6 @@ class UserInformationActivity : AppCompatActivity() {
         prefillFields()
         setupListeners()
         setupPhoneNumberInput()
-        setupEmergencyNumberInput()
         setupSaveButton() // ✅ DIPANGGIL DI SINI
     }
 
@@ -79,12 +78,10 @@ class UserInformationActivity : AppCompatActivity() {
 
                     // Format ulang nomor telepon jika sudah ada
                     val existingPhone = doc.getString("phone") ?: ""
-                    val existingEmergency = doc.getString("emergency") ?: ""
 
                     binding.etBirthdate.setText(doc.getString("birthdate") ?: "")
                     binding.etPhone.setText(formatPhoneForDisplay(existingPhone))
                     binding.etAddress.setText(doc.getString("address") ?: "")
-                    binding.etEmergency.setText(formatPhoneForDisplay(existingEmergency))
                 } else {
                     Log.d(TAG, "Dokumen belum ada, gunakan field kosong / intent")
                 }
@@ -217,13 +214,6 @@ class UserInformationActivity : AppCompatActivity() {
                 isFormattingPhone = false
             }
         })
-
-        // Focus listener untuk validasi
-        binding.etEmergency.setOnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus) {
-                validateEmergencyNumber()
-            }
-        }
     }
 
     private fun validatePhoneNumber(): Boolean {
@@ -248,33 +238,6 @@ class UserInformationActivity : AppCompatActivity() {
             }
             else -> {
                 binding.etPhone.error = null
-                true
-            }
-        }
-    }
-
-    private fun validateEmergencyNumber(): Boolean {
-        val emergencyText = binding.etEmergency.textValue().replace("\\D".toRegex(), "")
-
-        return when {
-            emergencyText.isEmpty() -> {
-                binding.etEmergency.error = "Nomor darurat tidak boleh kosong"
-                false
-            }
-            emergencyText.length < 10 -> {
-                binding.etEmergency.error = "Nomor darurat minimal 10 digit"
-                false
-            }
-            emergencyText.length > 12 -> {
-                binding.etEmergency.error = "Nomor darurat maksimal 12 digit"
-                false
-            }
-            emergencyText[0] != '8' && emergencyText[0] != '9' -> {
-                binding.etEmergency.error = "Nomor darurat harus dimulai dengan 8 atau 9"
-                false
-            }
-            else -> {
-                binding.etEmergency.error = null
                 true
             }
         }
@@ -313,16 +276,15 @@ class UserInformationActivity : AppCompatActivity() {
         val birthdate = binding.etBirthdate.textValue()
         val phone = binding.etPhone.textValue()
         val address = binding.etAddress.textValue()
-        val emergency = binding.etEmergency.textValue()
 
         // Validasi semua field
-        if (name.isBlank() || birthdate.isBlank() || phone.isBlank() || address.isBlank() || emergency.isBlank()) {
+        if (name.isBlank() || birthdate.isBlank() || phone.isBlank() || address.isBlank()) {
             Toast.makeText(this, "Lengkapi semua field", Toast.LENGTH_SHORT).show()
             return
         }
 
         // Validasi nomor telepon
-        if (!validatePhoneNumber() || !validateEmergencyNumber()) {
+        if (!validatePhoneNumber()) {
             Toast.makeText(this, "Periksa kembali nomor telepon", Toast.LENGTH_SHORT).show()
             return
         }
@@ -331,10 +293,10 @@ class UserInformationActivity : AppCompatActivity() {
 
         // Format nomor telepon untuk Firebase (+62)
         val formattedPhone = formatPhoneForFirebase(phone)
-        val formattedEmergency = formatPhoneForFirebase(emergency)
+//        val formattedEmergency = formatPhoneForFirebase(emergency)
 
         Log.d(TAG, "Phone formatted: $phone -> $formattedPhone")
-        Log.d(TAG, "Emergency formatted: $emergency -> $formattedEmergency")
+//        Log.d(TAG, "Emergency formatted: $emergency -> $formattedEmergency")
 
         // 1. Update displayName Auth jika berubah
         val needUpdateAuthName = (user.displayName ?: "") != name
@@ -358,7 +320,6 @@ class UserInformationActivity : AppCompatActivity() {
                 "birthdate" to birthdate,
                 "phone" to formattedPhone,
                 "address" to address,
-                "emergency" to formattedEmergency,
                 "updatedAt" to FieldValue.serverTimestamp()
             )
 
@@ -382,7 +343,6 @@ class UserInformationActivity : AppCompatActivity() {
                                 birthdate,
                                 formattedPhone,
                                 address,
-                                formattedEmergency,
                                 intentLoginMethod,
                                 intentEmailVerified
                             )

@@ -73,6 +73,7 @@ dependencies {
     implementation(libs.picovoice.rhino.android)
     implementation(libs.androidx.lifecycle.service)
     implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.mediapipe.tasks.vision)
     implementation(libs.gson)
     implementation(libs.retrofit2)
     implementation(libs.converter.gson)

@@ -41,7 +41,6 @@ object SessionManager {
         birthdate: String?,
         phone: String?,
         address: String?,
-        emergency: String?,
         loginMethod: String?,
         emailVerified: Boolean
     ) {
@@ -54,7 +53,6 @@ object SessionManager {
                 .putString(KEY_BIRTHDATE, birthdate)
                 .putString(KEY_PHONE, phone)
                 .putString(KEY_ADDRESS, address)
-                .putString(KEY_EMERGENCY, emergency)
                 .putString(KEY_LOGIN_METHOD, loginMethod)
                 .putBoolean(KEY_EMAIL_VERIFIED, emailVerified)
         }

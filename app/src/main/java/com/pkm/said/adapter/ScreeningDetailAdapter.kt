@@ -30,7 +30,7 @@ class ScreeningDetailAdapter :
         RecyclerView.ViewHolder(binding.root) {
 
         fun bind(item: TestResult) {
-            val ctx = binding.root.context // ✅ PERBAIKI: gunakan ctx bukan context
+            val ctx = binding.root.context
 
             // Nama tes
             binding.tvTestName.text = getDisplayName(item.testName)
@@ -39,7 +39,7 @@ class ScreeningDetailAdapter :
                 !item.isCompleted -> {
                     // Tes belum selesai
                     binding.tvPercent.text = "—%"
-                    binding.tvTestName.setTextColor(ContextCompat.getColor(ctx, R.color.GrayLight)) // ✅ PERBAIKI: ctx
+                    binding.tvTestName.setTextColor(ContextCompat.getColor(ctx, R.color.GrayLight))
                     setDotIndicatorColor(R.color.GrayLight)
                 }
                 item.isSuccessful -> {
@@ -48,9 +48,9 @@ class ScreeningDetailAdapter :
                     binding.tvPercent.text = "$percent%"
 
                     // ✅ Warna berdasarkan score meski successful
-                    val (textColor, dotColor) = getColorsForScore(item.score) // ✅ PERBAIKI: hapus parameter isSuccessful
-                    binding.tvTestName.setTextColor(ContextCompat.getColor(ctx, textColor)) // ✅ PERBAIKI: ctx
-                    binding.tvPercent.setTextColor(ContextCompat.getColor(ctx, textColor)) // ✅ PERBAIKI: ctx
+                    val (textColor, dotColor) = getColorsForScore(item.score)
+                    binding.tvTestName.setTextColor(ContextCompat.getColor(ctx, textColor))
+                    binding.tvPercent.setTextColor(ContextCompat.getColor(ctx, textColor))
                     setDotIndicatorColor(dotColor)
                 }
                 else -> {
@@ -59,9 +59,9 @@ class ScreeningDetailAdapter :
                     binding.tvPercent.text = "$percent%"
 
                     // ✅ Warna berdasarkan score untuk abnormal
-                    val (textColor, dotColor) = getColorsForScore(item.score) // ✅ PERBAIKI: hapus parameter isSuccessful
-                    binding.tvTestName.setTextColor(ContextCompat.getColor(ctx, textColor)) // ✅ PERBAIKI: ctx
-                    binding.tvPercent.setTextColor(ContextCompat.getColor(ctx, textColor)) // ✅ PERBAIKI: ctx
+                    val (textColor, dotColor) = getColorsForScore(item.score)
+                    binding.tvTestName.setTextColor(ContextCompat.getColor(ctx, textColor))
+                    binding.tvPercent.setTextColor(ContextCompat.getColor(ctx, textColor))
                     setDotIndicatorColor(dotColor)
                 }
             }

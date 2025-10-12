@@ -14,6 +14,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
+import com.pkm.said.R
 import com.pkm.said.databinding.FragmentSpeechTestBinding
 import kotlinx.coroutines.launch
 import java.io.File
@@ -251,7 +253,7 @@ class SpeechTestFragment : Fragment() {
 
                 // ✅ JANGAN langsung complete session, tunggu semua test selesai
                 // Hanya navigate back saja
-                parentFragmentManager.popBackStack()
+                navigateToResultScreen()
 
             } catch (e: Exception) {
                 Toast.makeText(
@@ -259,7 +261,7 @@ class SpeechTestFragment : Fragment() {
                     "✅ Data tersimpan lokal",
                     Toast.LENGTH_SHORT
                 ).show()
-                parentFragmentManager.popBackStack()
+                navigateToResultScreen()
             }
         }
     }
@@ -310,6 +312,15 @@ class SpeechTestFragment : Fragment() {
         // Reset progress bars
         binding.progressBarRecord.progress = 0
         binding.progressBarPlay.progress = 0
+    }
+
+    private fun navigateToResultScreen() {
+        try {
+            findNavController().navigate(R.id.action_speechTest_to_screeningResult)
+        } catch (e: Exception) {
+            // Fallback jika navigation gagal
+            findNavController().popBackStack()
+        }
     }
 
     // ===================== WAVE ANIMATION =====================

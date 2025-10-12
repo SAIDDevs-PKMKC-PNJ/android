@@ -32,6 +32,7 @@ gson = "2.10.1"
 camerax_version = "1.2.2"
 camerax_view_version = "1.2.2"
 tensorflowLite = "2.9.0"
+mediapipe-tasks = "0.10.26"
 workRuntimeKtx = "2.8.1"
 firebaseFirestore = "26.0.0"
 retrofit2 = "3.0.0"
@@ -80,6 +81,7 @@ guava-listenablefuture = { module = "com.google.guava:listenablefuture", version
 glide = { module = "com.github.bumptech.glide:glide", version.ref = "glide" }
 slidetoact = { module = "com.ncorti:slidetoact", version.ref = "slidetoact" }
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth", version.ref = "firebaseAuth" }
+mediapipe-tasks-vision = { group = "com.google.mediapipe", name = "tasks-vision", version.ref = "mediapipe-tasks" }
 
 
 [plugins]

@@ -1,8 +1,12 @@
 package com.pkm.said.adapter
 
+import android.content.res.Resources
 import android.graphics.Typeface
+import android.graphics.drawable.LayerDrawable
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import android.widget.ProgressBar
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
@@ -40,7 +44,7 @@ class ScreeningHistoryAdapter(
             binding.tvRiskDesc.text  = item.overallRisk.description
 
             // Count BE-FAST /3
-            binding.tvBeFastCount.text = "BE-FAST: ${completedCount(item)}/4"
+            binding.tvBeFastCount.text = "BE-FAST: ${completedCount(item)}/5"
 
             // Waktu: utamakan completedAt (server) → fallback ke timestamp (awal sesi)
             val whenStr = item.completedAtFormatted().let { if (it == "-") item.timestamp else it }
@@ -51,9 +55,9 @@ class ScreeningHistoryAdapter(
             binding.tvLocation.text = "Jakarta"
 
             // FAST overall 0..80%
-            val fastOverall = ScreeningDataManager.calculateBEFASTOverallPercent(item) // 0..80
+            val fastOverall = ScreeningDataManager.calculateBEFASTOverallPercent(item)
             binding.tvPercent.text = "$fastOverall%"
-            binding.progressBar.max = 80
+            binding.progressBar.max = 100
             binding.progressBar.progress = fastOverall
 
             // Status
@@ -80,14 +84,14 @@ class ScreeningHistoryAdapter(
         }
 
         private fun completedCount(item: ScreeningResult): Int {
-            val tests = listOfNotNull(item.balanceResult, item.eyesResult, item.faceResult, item.armsResult)
-            return tests.count { it.isCompleted } // 3 tes
+            val tests = listOfNotNull(item.balanceResult, item.eyesResult, item.faceResult, item.armsResult, item.speechResult)
+            return tests.count { it.isCompleted }
         }
 
         // (TETAPKAN kalau kamu masih butuh, tapi tidak dipakai untuk FAST overall)
         @Suppress("unused")
         private fun computePercentLegacy(item: ScreeningResult): Int {
-            val tests: List<TestResult> = listOfNotNull(item.balanceResult, item.eyesResult, item.faceResult, item.armsResult)
+            val tests: List<TestResult> = listOfNotNull(item.balanceResult, item.eyesResult, item.faceResult, item.armsResult, item.speechResult)
             if (tests.isEmpty()) return 0
             val avg = tests.map { it.score }.average()
             return (avg * 100).roundToInt().coerceIn(0, 100)
@@ -143,7 +147,29 @@ class ScreeningHistoryAdapter(
             binding.headerContainer.setBackgroundResource(bgHeader)
             binding.tvPercent.setTextColor(accent)
             binding.tvRiskLabelValue.setTextColor(accent)
-            binding.progressBar.progressDrawable.setTint(progressTint)
+            setProgressColor(binding.progressBar, progressTint)
+        }
+
+        @Suppress("DEPRECATION")
+        private fun setProgressColor(progressBar: ProgressBar, colorRes: Int) {
+            try {
+                val color = ContextCompat.getColor(progressBar.context, colorRes)
+
+                // Dapatkan progress drawable
+                val progressDrawable = progressBar.progressDrawable
+
+                // ✅ HANYA ubah bagian progress, bukan background
+                if (progressDrawable is LayerDrawable) {
+                    val progressLayer = progressDrawable.findDrawableByLayerId(android.R.id.progress)
+                    progressLayer?.setColorFilter(color, android.graphics.PorterDuff.Mode.SRC_IN)
+                } else {
+                    // Fallback: set color filter ke seluruh drawable
+                    progressDrawable.setColorFilter(color, android.graphics.PorterDuff.Mode.SRC_IN)
+                }
+
+            } catch (e: Exception) {
+                Log.e("ProgressColor", "Error setting progress color: ${e.message}")
+            }
         }
     }
 
