@@ -117,7 +117,7 @@
     <string name="logout_failed_try_again">Logout bermasalah silahkan ulangi lain kali</string>
     <string name="slider_label">Geser untuk membatalkan...</string>
     <string name="reminder_handler_daily_true">Pengingat akan dikirim setiap hari pukul %1$s</string>
-    <string name="emergency_number">+628159445670</string>
+    <string name="emergency_number">+62816986577</string>
     <string name="emergency_noresponse_hint">Jika tidak ada respons, aplikasi akan menghubungi kontak darurat dan mengirim lokasi Anda.</string>
     <string name="emergency_phone_status_ready">SEDANG BERBICARA DENGAN PETUGAS</string>
     <string name="emergency_phone_status_notready">TELEPON SEDANG BERDERING...</string>
