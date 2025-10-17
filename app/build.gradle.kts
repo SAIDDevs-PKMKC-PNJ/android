@@ -17,6 +17,7 @@ android {
         versionName = "1.0"
 
         buildConfigField("String", "ACCESS_KEY", "\"${project.properties["ACCESS_KEY"]}\"")
+        buildConfigField("String", "GEMINI_API_KEY", "\"${project.properties["GEMINI_API_KEY"]}\"")
         buildConfigField("String", "NEWS_API_KEY", "\"${project.properties["NEWS_API_KEY"]}\"")
         buildConfigField("String", "CLOUDINARY_CLOUD_NAME", "\"${project.properties["cloudName"]}\"")
         buildConfigField("String", "CLOUDINARY_UNSIGNED_PRESET", "\"${project.properties["uploadPreset"]}\"")
@@ -63,6 +64,7 @@ dependencies {
     implementation(libs.androidx.concurrent.futures.ktx)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(platform ( libs.firebase.bom ))
+    implementation(libs.generative.ai)
     implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.firestore.ktx)
     implementation(libs.androidx.credentials)

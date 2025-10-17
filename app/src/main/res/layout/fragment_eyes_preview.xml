@@ -88,7 +88,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:text="Tes Pergerakan Mata (kamera depan)"
+                android:text="Tes Pergerakan Mata"
                 android:textSize="16sp"
                 android:textColor="@color/white_alpha_80"
                 android:gravity="center"
@@ -105,7 +105,7 @@
                 app:layout_constraintTop_toBottomOf="@+id/tv_test_subtitle"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
-                tools:src="@drawable/ic_eyes_preview_placeholder" />
+                tools:src="@drawable/placeholder" />
 
             <!-- Instructions Card -->
             <androidx.cardview.widget.CardView
@@ -129,7 +129,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Instruksi Test"
+                        android:text="Instruksi Tes"
                         android:textSize="20sp"
                         android:textStyle="bold"
                         android:textColor="@color/BluePrimary"
@@ -179,7 +179,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Ikuti titik panduan: kiri → kanan → atas → bawah. Gerakkan mata saja, kepala tetap."
+                            android:text="Ikuti titik panduan: atas → kanan → bawah → kiri. Gerakkan mata saja, kepala tetap."
                             android:textSize="14sp"
                             android:textColor="@color/black"
                             android:lineSpacingExtra="2dp" />
@@ -204,7 +204,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Tahan pandangan pada tiap arah selama ±1 detik sesuai instruksi di layar."
+                            android:text="Putar pandangan searah jarum jam."
                             android:textSize="14sp"
                             android:textColor="@color/black"
                             android:lineSpacingExtra="2dp" />
@@ -255,7 +255,7 @@
                     android:layout_height="56dp"
                     android:layout_weight="2"
                     android:layout_marginStart="8dp"
-                    android:text="Mulai Test"
+                    android:text="Mulai Tes"
                     android:textSize="16sp"
                     android:textStyle="bold"
                     app:cornerRadius="28dp"

@@ -24,6 +24,10 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.activity.viewModels
+import androidx.lifecycle.lifecycleScope
+import com.pkm.said.util.ChatViewModel
+import kotlinx.coroutines.launch
 import com.pkm.said.adapter.MessageAdapter
 import com.pkm.said.databinding.ActivityChatbotBinding
 import com.pkm.said.util.AuthManager
@@ -55,6 +59,7 @@ class ChatbotActivity : AppCompatActivity() {
     private var inputMode: InputMode = InputMode.KEYBOARD
     private lateinit var messageAdapter: MessageAdapter
     private val messageList = mutableListOf<MessageAdapter.ChatMessage>()
+    private val viewModel: ChatViewModel by viewModels()
 
     // STT
     private var speechRecognizer: SpeechRecognizer? = null
@@ -97,13 +102,6 @@ class ChatbotActivity : AppCompatActivity() {
             Log.d(TAG, "✅ View Binding setup completed")
 
             setupViews()
-
-            val initial = intent.getStringExtra(EXTRA_INITIAL_MESSAGE)
-            if (!initial.isNullOrBlank()) {
-                sendMessage(initial, isUser = true)
-                simulateBotResponse(initial)
-            }
-
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error setting up activity", e)
             finish()
@@ -117,7 +115,7 @@ class ChatbotActivity : AppCompatActivity() {
             setupPressToTalkGesture()
 
             setupChipListeners()
-            addInitialMessage()
+            observeViewModel()
             setupUiListeners()
             switchInputMode(InputMode.KEYBOARD)
 
@@ -184,8 +182,7 @@ class ChatbotActivity : AppCompatActivity() {
                     // ✅ Sembunyikan chips setelah diklik
                     hideSuggestionChips()
 
-                    sendMessage(text, isUser = true)
-                    simulateBotResponse(text)
+                    viewModel.sendMessage(text)
                 }
             }
 
@@ -307,6 +304,41 @@ class ChatbotActivity : AppCompatActivity() {
         }
     }
 
+    private fun observeViewModel() {
+        val initial = intent.getStringExtra(EXTRA_INITIAL_MESSAGE)
+
+        // Flag untuk memastikan pesan awal HANYA dikirim sekali
+        var initialMessageSent = false
+
+        lifecycleScope.launch {
+            // Mengamati StateFlow messages dari ViewModel
+            viewModel.messages.collect { updatedMessages ->
+
+                // ⭐ Update data di adapter (tanpa removePrefix, karena ViewModel sudah mengirim data bersih)
+                messageList.clear()
+                messageList.addAll(updatedMessages)
+                messageAdapter.notifyDataSetChanged()
+
+                // Gulir ke bawah
+                if (messageList.isNotEmpty()) {
+                    binding.rvMessages.post {
+                        binding.rvMessages.smoothScrollToPosition(messageList.size - 1)
+                    }
+                }
+
+                // Update visibilitas chip setelah setiap update
+                updateChipsVisibility()
+
+                if (!initial.isNullOrBlank() && !initialMessageSent && updatedMessages.isEmpty()) {
+                    viewModel.sendMessage(initial)
+                    initialMessageSent = true
+                }
+            }
+        }
+        val welcomePrompt = "TOLONG JAWAB SEKARANG DENGAN PESAN SELAMAT DATANG: \"Halo! Saya Said. Apa yang bisa saya bantu hari ini seputar topik kesehatan dan stroke?\""
+        viewModel.sendInitialPrompt(welcomePrompt)
+    }
+
     // ✅ Send message
     private fun handleSendMessage() {
         try {
@@ -314,9 +346,8 @@ class ChatbotActivity : AppCompatActivity() {
 
             if (message.isNotEmpty()) {
                 Log.d(TAG, "Sending message: $message")
-                sendMessage(message, isUser = true)
+                viewModel.sendMessage(message)
                 binding.etMessage.text?.clear()
-                simulateBotResponse(message)
             } else {
                 showToast("Pesan tidak boleh kosong!")
             }
@@ -328,15 +359,8 @@ class ChatbotActivity : AppCompatActivity() {
 
     // ✅ Update clear messages function
     fun clearMessagesAndShowChips() {
-        messageList.clear()
-        messageAdapter.notifyDataSetChanged()
+        viewModel.clearChatHistory()
         showSuggestionChips()
-    }
-
-    // ✅ Update di tempat yang memanggil clear messages
-    private fun handleClearChat() {
-        clearMessagesAndShowChips()
-        addInitialMessage() // Tambah pesan welcome kembali
     }
 
     // ✅ Atau sembunyikan chips hanya ketika ada cukup banyak pesan
@@ -352,111 +376,18 @@ class ChatbotActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ Panggil update visibility setiap kali ada perubahan message
-    private fun sendMessage(text: String, isUser: Boolean, isVoice: Boolean = false) {
-        try {
-            val message = MessageAdapter.ChatMessage(
-                text = if (isUser) {
-                    if (isVoice) "Anda (via suara): $text" else "Anda: $text"
-                } else {
-                    "Bot: $text"
-                },
-                isUser = isUser,
-                isVoice = isVoice
-            )
-
-            messageList.add(message)
-            messageAdapter.notifyItemInserted(messageList.size - 1)
-
-            // ✅ Update chips visibility setelah kirim pesan
-            updateChipsVisibility()
-
-            binding.rvMessages.post {
-                binding.rvMessages.smoothScrollToPosition(messageList.size - 1)
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error adding message", e)
-            showError("Gagal menambah pesan")
-        }
-    }
-    private fun addInitialMessage() {
-        try {
-            val welcomeMessage = MessageAdapter.ChatMessage(
-                text = "Bot: Hello! Saya Said bot. Ada yang bisa saya bantu tentang stroke?",
-                isUser = false
-            )
-            messageList.add(welcomeMessage)
-            messageAdapter.notifyItemInserted(messageList.size - 1)
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error adding initial message", e)
-        }
-    }
-
-    private fun simulateBotResponse(userMessage: String) {
-        messageAdapter.addLoadingMessage()
-
-        binding.rvMessages.postDelayed({
-            try {
-                val botResponse = generateBotResponse(userMessage)
-                val botMessage = MessageAdapter.ChatMessage(
-                    text = "Bot: $botResponse",
-                    isUser = false
-                )
-                messageAdapter.updateLoadingToMessage(botMessage)
-            } catch (e: Exception) {
-                Log.e(TAG, "❌ Error in bot response", e)
-                val errorMessage = MessageAdapter.ChatMessage(
-                    text = "Bot: Maaf, terjadi kesalahan. Coba lagi nanti.",
-                    isUser = false
-                )
-                messageAdapter.updateLoadingToMessage(errorMessage)
-            }
-        }, 2000)
-    }
-
     private fun onReloadResponse(position: Int) {
         if (position > 0 && position < messageList.size) {
-            val userMessage = messageList[position - 1].text
-                .removePrefix("Anda: ")
-                .removePrefix("Anda (via suara):")
+            val userPromptMessage = messageList[position - 1]
 
-            // Ganti message dengan loading
-            messageList[position] = MessageAdapter.ChatMessage("",
-                isUser = false,
-                isVoice = false,
-                isLoading = true
-            )
-            messageAdapter.notifyItemChanged(position)
-
-            // Generate response baru
-            simulateBotResponse(userMessage)
-        }
-    }
-
-    private fun generateBotResponse(userMessage: String): String {
-        return when {
-            userMessage.contains("stroke", ignoreCase = true) ||
-                    userMessage.contains("apa itu stroke", ignoreCase = true) ->
-                "Stroke adalah kondisi medis serius yang terjadi ketika aliran darah ke otak terganggu. Ini dapat menyebabkan kerusakan sel otak yang permanen."
-
-            userMessage.contains("penyebab", ignoreCase = true) ->
-                "Penyebab stroke dapat berupa:\n• Penyumbatan pembuluh darah (stroke iskemik)\n• Perdarahan di otak (stroke hemoragik)\n• Tekanan darah tinggi\n• Diabetes\n• Merokok"
-
-            userMessage.contains("deteksi", ignoreCase = true) ||
-                    userMessage.contains("metode", ignoreCase = true) ->
-                "Metode deteksi stroke meliputi:\n• CT Scan atau MRI\n• Tes FAST (Face, Arms, Speech, Time)\n• Pemeriksaan neurologis\n• Tes darah"
-
-            userMessage.contains("gejala", ignoreCase = true) ->
-                "Gejala stroke utama:\n• Kesulitan berbicara atau memahami\n• Kelumpuhan atau mati rasa pada wajah, lengan, atau kaki\n• Masalah penglihatan\n• Sakit kepala parah mendadak\n• Kehilangan keseimbangan"
-
-            userMessage.contains("pengobatan", ignoreCase = true) ->
-                "Pengobatan stroke meliputi:\n• Obat pengencer darah\n• Terapi fisik\n• Terapi wicara\n• Operasi jika diperlukan\n• Rehabilitasi medis"
-
-            userMessage.contains("pencegahan", ignoreCase = true) ->
-                "Pencegahan stroke:\n• Kontrol tekanan darah\n• Berhenti merokok\n• Olahraga teratur\n• Diet sehat\n• Kelola diabetes dan kolesterol"
-
-            else ->
-                "Terima kasih atas pertanyaan Anda. Saya siap membantu menjawab pertanyaan seputar stroke. Silakan pilih topik yang ingin Anda ketahui!"
+            if (userPromptMessage.isUser) {
+                viewModel.reloadMessage(
+                    promptToReload = userPromptMessage.text,
+                    botMessageIndex = position
+                )
+            } else {
+                showToast("Gagal me-reload. Pesan sebelumnya bukan dari Anda.")
+            }
         }
     }
 
@@ -539,9 +470,7 @@ class ChatbotActivity : AppCompatActivity() {
                     // ✅ Sembunyikan chips ketika voice input berhasil
                     hideSuggestionChips()
 
-                    sendMessage(text, isUser = true, isVoice = true)
-                    val reply = generateBotResponse(text)
-                    sendMessage(reply, isUser = false)
+                    viewModel.sendMessage(text)
                 } else {
                     Toast.makeText(this@ChatbotActivity, "Tidak ada hasil suara", Toast.LENGTH_SHORT).show()
                 }

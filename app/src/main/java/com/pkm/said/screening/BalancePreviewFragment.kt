@@ -43,13 +43,14 @@ class BalancePreviewFragment : Fragment() {
 
     private fun setupClickListeners() {
         binding.btnStartTest.setOnClickListener {
-            // TODO: nanti tambahkan action ini di nav_graph.xml
-            // Catatan: Balance akan pakai kamera belakang di layar test
             findNavController().navigate(
                 R.id.action_balancePreview_to_balanceTest
             )
         }
-        binding.btnBack.setOnClickListener { findNavController().popBackStack() }
+//        binding.btnBack.setOnClickListener { findNavController().popBackStack() }
+        binding.btnBack.setOnClickListener {
+            requireActivity().finish()
+        }
     }
 
     override fun onDestroyView() {

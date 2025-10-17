@@ -86,7 +86,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:text="Tes Ekspresi Wajah"
+                android:text="Tes Bentuk Wajah"
                 android:textSize="16sp"
                 android:textColor="@color/white_alpha_80"
                 android:gravity="center"

@@ -83,7 +83,7 @@
                         android:id="@+id/tvFastOverall"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="FAST overall: 0% (maks 80%)"
+                        android:text="BEFAST overall: 0%"
                         android:layout_marginTop="8dp"/>
 
                 </LinearLayout>

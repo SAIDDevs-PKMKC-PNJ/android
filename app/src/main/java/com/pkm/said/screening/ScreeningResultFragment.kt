@@ -561,7 +561,7 @@ class ScreeningResultFragment : Fragment() {
     private fun navigateToHistory() {
         // ✅ Navigasi ke Dashboard di MainActivity
         val intent = Intent(requireContext(), MainActivity::class.java).apply {
-            putExtra("navigate_to", "dashboard") // Flag untuk navigasi ke dashboard
+            putExtra("navigate_to", "history") // Flag untuk navigasi ke dashboard
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
         startActivity(intent)

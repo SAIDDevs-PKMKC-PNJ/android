@@ -41,14 +41,13 @@ class MessageAdapter(
 
         private val botFooter: ViewGroup? = itemView.findViewById(R.id.bot_message_footer)
         private val btnReload: MaterialButton? = itemView.findViewById(R.id.btn_reload_response)
-        private val loadingIndicator: ViewGroup? = itemView.findViewById(R.id.loading_indicator)
         private val tvTypingDots: TextView? = itemView.findViewById(R.id.tv_typing_dots)
 
         fun bind(message: ChatMessage, position: Int) {
             when (viewType) {
                 VIEW_TYPE_BOT -> {
-                    messageTextView?.text = message.text.removePrefix("Bot: ")
-                    // ✅ Tampilkan reload button untuk bot messages
+                    messageTextView?.text = message.text
+
                     botFooter?.visibility = View.VISIBLE
                     btnReload?.setOnClickListener {
                         onReloadResponse(position)
@@ -56,17 +55,18 @@ class MessageAdapter(
                 }
 
                 VIEW_TYPE_BOT_LOADING -> {
-                    // ✅ Handle loading state
-                    loadingIndicator?.visibility = View.VISIBLE
                     startTypingAnimation()
+
+                    // ⭐ Opsional: Tampilkan teks streaming di item loading (jika diperlukan)
+                    // Jika item_message_bot_loading hanya berisi typing dots, Anda dapat mengabaikan ini
                 }
 
                 VIEW_TYPE_USER -> {
-                    messageTextView?.text = message.text.removePrefix("Anda: ")
+                    messageTextView?.text = message.text
                 }
 
                 VIEW_TYPE_USER_SPEECH -> {
-                    messageTextView?.text = message.text.removePrefix("Anda (via suara):")
+                    messageTextView?.text = message.text
                 }
             }
         }
@@ -113,25 +113,6 @@ class MessageAdapter(
             message.isVoice -> VIEW_TYPE_USER_SPEECH
             message.isUser -> VIEW_TYPE_USER
             else -> VIEW_TYPE_BOT
-        }
-    }
-
-    fun addMessage(message: ChatMessage) {
-        messages.add(message)
-        notifyItemInserted(messages.size - 1)
-    }
-
-    fun addLoadingMessage() {
-        val loadingMessage = ChatMessage("", false, false, true)
-        messages.add(loadingMessage)
-        notifyItemInserted(messages.size - 1)
-    }
-
-    fun updateLoadingToMessage(botMessage: ChatMessage) {
-        if (messages.isNotEmpty() && messages.last().isLoading) {
-            messages.removeAt(messages.size - 1)
-            messages.add(botMessage)
-            notifyDataSetChanged()
         }
     }
 

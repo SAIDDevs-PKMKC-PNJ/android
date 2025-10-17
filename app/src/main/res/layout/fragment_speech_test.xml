@@ -19,7 +19,7 @@
             android:layout_height="wrap_content"
             android:layout_marginBottom="24dp"
             android:gravity="center"
-            android:text="Katakan\nSaya mau pulang untuk minum"
+            android:text="Katakan\nSaya mau pulang untuk tidur"
             android:textSize="22sp"
             android:textStyle="bold" />
 

@@ -1,6 +1,5 @@
 package com.pkm.said.util
 
-import ai.picovoice.porcupine.Porcupine.BuiltInKeyword
 import ai.picovoice.porcupine.PorcupineManager
 import ai.picovoice.porcupine.PorcupineManagerCallback
 import ai.picovoice.rhino.RhinoInference
@@ -10,8 +9,6 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.pkm.said.BuildConfig
-import java.io.BufferedInputStream
-import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileNotFoundException
 
@@ -56,31 +53,39 @@ class PicovoiceManager(
             return false
         }
 
-        return try {
+        try {
+            // STEP 1: Copy PPN
             val keywordPath = copyAssetToFiles("hi-said_en_android_v3_0_0.ppn")
-            val contextPath = copyAssetToFiles("said-activation_en_android_v3_0_0.rhn")
+            Log.d(TAG, "PPN Path: $keywordPath") // <-- DEBUG
 
+            // STEP 2: Copy RHN
+            val contextPath = copyAssetToFiles("said-activation_en_android_v3_0_0.rhn")
+            Log.d(TAG, "RHN Path: $contextPath") // <-- DEBUG
+
+            // STEP 3: Build Porcupine
             val porcupinebuilder = PorcupineManager.Builder()
                 .setAccessKey(ACCESS_KEY)
                 .setKeywordPath(keywordPath)
                 .setSensitivity(0.7f)
 
             porcupineManager = porcupinebuilder.build(context, porcupineCallback)
-            Log.d(TAG, "Porcupine initialized successfully")
+            Log.d(TAG, "Porcupine initialized successfully") // <-- HARUS MUNCUL
 
+            // STEP 4: Build Rhino
             val rhinoBuilder = RhinoManager.Builder()
                 .setAccessKey(ACCESS_KEY)
                 .setContextPath(contextPath)
                 .setSensitivity(0.5f)
 
             rhinoManager = rhinoBuilder.build(context, rhinoCallback)
-            Log.d(TAG, "Rhino initialized successfully")
+            Log.d(TAG, "Rhino initialized successfully") // <-- HARUS MUNCUL
 
             Log.i(TAG, "Picovoice initialized successfully")
-            true
+            return true
         } catch (e: Exception) {
-            Log.e(TAG, "Error initializing Picovoice", e)
-            false
+            // PASTIKAN ERROR DI LOG!
+            Log.e(TAG, "❌ CRITICAL: Picovoice initialization failed with error", e)
+            return false
         }
     }
 
@@ -185,7 +190,7 @@ class PicovoiceManager(
         }
     }
 
-    public fun copyAssetToFiles(assetName: String): String {
+    fun copyAssetToFiles(assetName: String): String {
         return try {
             // Periksa apakah file sudah ada
             val internalFile = File(context.filesDir, assetName)

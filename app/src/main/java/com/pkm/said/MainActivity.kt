@@ -1,13 +1,11 @@
 package com.pkm.said
 
 import android.Manifest
-import android.app.AlertDialog
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -20,23 +18,27 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.IdRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import androidx.core.view.isVisible
 import androidx.navigation.NavController
-import androidx.navigation.findNavController
+import androidx.navigation.NavOptions
 import androidx.navigation.fragment.NavHostFragment
-import androidx.navigation.ui.NavigationUI
-import androidx.navigation.ui.setupWithNavController
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.firebase.auth.FirebaseAuth
 import com.pkm.said.databinding.ActivityMainBinding
 import com.pkm.said.screening.ScreeningActivity
-import com.pkm.said.util.SessionManager
 import com.pkm.said.service.VoiceActivationService
-import com.pkm.said.util.PicovoiceManager
+import com.pkm.said.util.SessionManager
 import com.pkm.said.util.SpecialPermissionManager
-import androidx.core.content.edit
 
-class MainActivity : AppCompatActivity() {
+
+interface NavigationCallback {
+    // Definisi fungsi yang ingin kamu panggil di Activity
+    fun navigateToTopLevel(destinationId: Int)
+}
+
+
+class MainActivity : AppCompatActivity(), NavigationCallback {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var navController: NavController
@@ -108,37 +110,64 @@ class MainActivity : AppCompatActivity() {
             permissionManager = SpecialPermissionManager(this)
             Log.d(TAG, "✅ Permission manager initialized")
 
-            debugPicovoiceAssets()
+//            debugPicovoiceAssets()
 
-            // Navigation setup
-            val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
-            this.navController = navHostFragment.navController
-
-            val bottomNav: BottomNavigationView = findViewById(R.id.bottom_nav_view)
-            bottomNav.setupWithNavController(this.navController)
-
-            navController.addOnDestinationChangedListener { _, destination, _ ->
-
-                // 1. Logika sembunyikan Navbar untuk detail
-                val shouldHide = destination.id in hideBottomNavDestinations
-                binding.navViewContainer.isVisible = !shouldHide
-
-                // 2. Logika SINKRONISASI SOROTAN (HIGHLIGHT)
-                if (topLevelDestinations.contains(destination.id)) {
-                    // Panggil selectBottomTab dengan ID destinasi yang baru
-                    selectBottomTab(destination.id)
-                    Log.d(TAG, "✅ Nav sync: Highlight set to ${resources.getResourceEntryName(destination.id)}")
+            try {
+                val navHostFragment = supportFragmentManager
+                    .findFragmentById(R.id.nav_host_fragment) as NavHostFragment
+                if (navHostFragment == null) {
+                    Log.e(
+                        TAG,
+                        "❌ NavHostFragment not found with ID R.id.nav_host_fragment. Crash imminent."
+                    )
+                    // Lakukan penanganan yang lebih baik, misalnya Toast dan finish()
+                    Toast.makeText(
+                        this,
+                        "Navigasi gagal: NavHost tidak ditemukan.",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
-            }
+                this.navController = navHostFragment.navController
+//                binding.bottomNavView.setupWithNavController(this.navController)
 
-            val navigateTo = intent.getStringExtra("navigate_to")
-            if (navigateTo == "history") {
-                // Gunakan fungsi baru untuk memastikan sinkronisasi jika dipanggil dari intent
-                navigateToTopLevel(R.id.navigation_history)
-            } else if (navigateTo == "profile") {
-                navigateToTopLevel(R.id.navigation_profile)
-            }
+                binding.bottomNavView.setOnItemSelectedListener { item ->
+                    // Hanya tangani tujuan yang merupakan tab utama
+                    if (topLevelDestinations.contains(item.itemId)) {
+                        // Panggil fungsi inti yang menjamin back stack bersih dan single top
+                        executeToTopLevel(item.itemId)
+                        true // Event dikonsumsi
+                    } else {
+                        // Biarkan default handling (untuk item yang mungkin bukan Fragment)
+                        false
+                    }
+                }
 
+                navController.addOnDestinationChangedListener { _, destination, _ ->
+
+                    // 1. Logika sembunyikan Navbar untuk detail
+                    val shouldHide = destination.id in hideBottomNavDestinations
+                    binding.navViewContainer.isVisible = !shouldHide
+
+                    // 2. Logika SINKRONISASI SOROTAN (HIGHLIGHT)
+                    if (topLevelDestinations.contains(destination.id)) {
+                        // Panggil selectBottomTab dengan ID destinasi yang baru
+                        selectBottomTab(destination.id)
+                        Log.d(
+                            TAG,
+                            "✅ Nav sync: Highlight set to ${
+                                resources.getResourceEntryName(destination.id)
+                            }"
+                        )
+                    }
+                }
+
+                mainHandler.postDelayed({
+                    handleIntentNavigation(intent)
+                }, 500)
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ CRITICAL: NavController setup failed", e)
+                throw e
+            }
 
             setupBackPressedHandler()
 
@@ -161,10 +190,26 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun selectBottomTab(@IdRes menuId: Int) {
-        // Cek apakah ID menu berbeda dari yang sedang dipilih untuk menghindari flicker/loop
-        if (binding.bottomNavView.selectedItemId != menuId) {
-            binding.bottomNavView.selectedItemId = menuId
+    private fun selectBottomTab(@IdRes destinationId: Int) {
+        val bottomNav = findViewById<BottomNavigationView>(R.id.bottom_nav_view)
+        if (bottomNav.selectedItemId != destinationId) {
+            // Ini adalah langkah kritis: Secara manual mengatur item menu yang dicentang
+            bottomNav.menu.findItem(destinationId)?.isChecked = true
+            // Kamu juga mungkin perlu memicu setelannya sebagai "terpilih" jika menggunakan efek visual kustom
+            // Meskipun setChecked=true biasanya sudah cukup, item terpilih harus diset
+            bottomNav.selectedItemId = destinationId // <--- PASTIKAN KAMU MEMANGGIL INI
+        }
+    }
+
+    private fun handleIntentNavigation(intent: Intent?) {
+        val navigateTo = intent?.getStringExtra("navigate_to")
+        if (navigateTo == "history") {
+            Log.d(TAG, "Intent: Navigating to History")
+            // Panggil fungsi yang sudah diperbaiki
+            executeToTopLevel(R.id.navigation_history)
+        } else if (navigateTo == "profile") {
+            Log.d(TAG, "Intent: Navigating to Profile")
+            executeToTopLevel(R.id.navigation_profile)
         }
     }
 
@@ -215,26 +260,28 @@ class MainActivity : AppCompatActivity() {
         handleVoiceIntent(intent)
     }
 
-    private fun debugPicovoiceAssets() {
-        val picovoiceManager = PicovoiceManager(
-            context = this,
-            onIntentDetected = { /* dummy */ },
-            onListeningStatusChange = { /* dummy */ }
-        )
-
-        Log.d(TAG, "Starting asset copy debug...")
-
-        try {
-            // Coba copy HANYA file PPN
-            val keywordPath = picovoiceManager.copyAssetToFiles("hi-said_en_android_v3_0_0.ppn")
-            Log.d(TAG, "SUCCESS: Keyword file path: $keywordPath")
-
-        } catch (e: Exception) {
-            // Log error copy aset secara terpisah dan eksplisit
-            Log.e(TAG, "❌ FATAL ASSET ERROR: Asset copy failed during debug", e)
-            Toast.makeText(this, "FATAL ERROR: Asset Copy Failed! Check Logcat", Toast.LENGTH_LONG).show()
-        }
-    }
+    //legacy untuk picovoice
+//    private fun debugPicovoiceAssets() {
+//        val picovoiceManager = PicovoiceManager(
+//            context = this,
+//            onIntentDetected = { /* dummy */ },
+//            onListeningStatusChange = { /* dummy */ }
+//        )
+//
+//        Log.d(TAG, "Starting asset copy debug...")
+//
+//        try {
+//            // Coba copy HANYA file PPN
+//            val keywordPath = picovoiceManager.copyAssetToFiles("hi-said_en_android_v3_0_0.ppn")
+//            Log.d(TAG, "SUCCESS: Keyword file path: $keywordPath")
+//
+//        } catch (e: Exception) {
+//            // Log error copy aset secara terpisah dan eksplisit
+//            Log.e(TAG, "❌ FATAL ASSET ERROR: Asset copy failed during debug", e)
+//            Toast.makeText(this, "FATAL ERROR: Asset Copy Failed! Check Logcat", Toast.LENGTH_LONG)
+//                .show()
+//        }
+//    }
 
     // ✅ VOICE INTENT HANDLING
     // Di MainActivity - handleVoiceIntent() tambahkan:
@@ -247,22 +294,26 @@ class MainActivity : AppCompatActivity() {
                 Log.d(TAG, "🏥 Voice command - Start screening")
                 startStrokeScreening()
             }
+
             "DAILY_REMINDER_OPEN" -> {
                 Log.d(TAG, "📅 App opened from daily reminder")
                 val autoStartScreening = intent.getBooleanExtra("auto_start_screening", false)
                 if (autoStartScreening) {
                     mainHandler.postDelayed({
                         if (!isFinishing && !isDestroyed) {
-                            Toast.makeText(this, "⏰ Daily screening time!", Toast.LENGTH_LONG).show()
+                            Toast.makeText(this, "⏰ Daily screening time!", Toast.LENGTH_LONG)
+                                .show()
                             startStrokeScreening()
                         }
                     }, 2000)
                 }
             }
+
             "EMERGENCY_CALL" -> {
                 Log.d(TAG, "🚨 Emergency command from service fallback")
                 handleEmergencyFallback() // Handle fallback case
             }
+
             else -> {
                 Log.d(TAG, "❓ Unknown voice intent action: ${intent.action}")
                 if (intent.getBooleanExtra("from_voice_service", false)) {
@@ -308,7 +359,8 @@ class MainActivity : AppCompatActivity() {
         if (allGranted) {
             Toast.makeText(this, "Izin darurat telah diberikan.", Toast.LENGTH_SHORT).show()
         } else {
-            Toast.makeText(this, "⚠️ Izin darurat ditolak. Fitur terbatas.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "⚠️ Izin darurat ditolak. Fitur terbatas.", Toast.LENGTH_LONG)
+                .show()
         }
     }
 
@@ -332,16 +384,33 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    fun navigateToTopLevel(@IdRes destinationId: Int) {
+    override fun navigateToTopLevel(destinationId: Int) {
+        // Panggil fungsi navigateToTopLevel yang sudah kamu perbaiki
+        // dengan NavOptions dan sinkronisasi navbar.
+        this.executeToTopLevel(destinationId)
+    }
+
+    fun executeToTopLevel(@IdRes destinationId: Int) {
         if (!topLevelDestinations.contains(destinationId)) {
-            Log.e(TAG, "❌ Destination ID $destinationId is not a top-level destination. Aborting navigation.")
+            Log.e(
+                TAG,
+                "❌ Destination ID $destinationId is not a top-level destination. Aborting navigation."
+            )
             return
         }
 
         try {
-            navController.navigate(destinationId)
+            val options = NavOptions.Builder()
+                .setPopUpTo(navController.graph.startDestinationId, false) // <-- PENTING
+                .setLaunchSingleTop(true)
+                .build()
 
-            Log.d(TAG, "✅ Top-Level Nav: Moved to ${resources.getResourceEntryName(destinationId)} and synchronized tab.")
+            navController.navigate(destinationId, null, options)
+
+            Log.d(
+                TAG,
+                "✅ Top-Level Nav: Moved to ${resources.getResourceEntryName(destinationId)} with pop-up options."
+            )
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error during top-level navigation to $destinationId", e)
         }
@@ -370,12 +439,14 @@ class MainActivity : AppCompatActivity() {
                     saveUsernameToSessionManager(username)
                     username
                 }
+
                 firebaseUser?.email != null -> {
                     val email = firebaseUser.email!!
                     val usernameFromEmail = email.substringBefore("@")
                     saveUsernameToSessionManager(usernameFromEmail)
                     usernameFromEmail
                 }
+
                 else -> generateAnonymousUsername()
             }
         } catch (e: Exception) {
@@ -421,7 +492,8 @@ class MainActivity : AppCompatActivity() {
     private fun handleCustomBackPressed() {
         try {
             val currentDestId = navController.currentDestination?.id
-            val startDestId = navController.graph.startDestinationId // Atau navController.graph.startDestinationId
+            val startDestId =
+                navController.graph.startDestinationId // Atau navController.graph.startDestinationId
 
             // ID dari semua destinasi level teratas Anda
             val topLevelDestinations = setOf(
@@ -487,7 +559,10 @@ class MainActivity : AppCompatActivity() {
             // ✅ CEK BATTERY OPTIMIZATION DARI PERMISSION MANAGER
             val isBatteryOptimized = permissionManager.getAllPermissionStatus()
                 .find { it.name == "BATTERY_OPTIMIZATION_IGNORED" }?.isGranted == true
-            Log.d(TAG, "🔋 Battery optimization status: ${if (isBatteryOptimized) "BYPASSED" else "ACTIVE"}")
+            Log.d(
+                TAG,
+                "🔋 Battery optimization status: ${if (isBatteryOptimized) "BYPASSED" else "ACTIVE"}"
+            )
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error generating permission report", e)
         }
@@ -503,8 +578,25 @@ class MainActivity : AppCompatActivity() {
             Log.d(TAG, "🎤 Voice service already running, just connecting...")
             connectToExistingVoiceService()
         } else {
-            Log.d(TAG, "🎤 Voice service not running, starting new...")
-            permissionManager.checkAndRequestAllPermissions(this)
+            Log.d(TAG, "🎤 Voice service not running, checking permissions...")
+
+            // ✅ DEBUG: Cek status permissions dulu
+            val needsAudio = !permissionManager.isRecordAudioGranted()
+            val needsNotification = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                    !permissionManager.isNotificationPermissionGranted()
+
+            Log.d(TAG, "📊 Permission Status Check:")
+            Log.d(TAG, "   - Needs RECORD_AUDIO: $needsAudio")
+            Log.d(TAG, "   - Needs POST_NOTIFICATIONS: $needsNotification")
+
+            if (needsAudio || needsNotification) {
+                Log.d(TAG, "🚀 Requesting permissions via SpecialPermissionManager...")
+                permissionManager.requestBasicPermissions(this)
+            } else {
+                Log.d(TAG, "✅ All basic permissions already granted, starting voice assistant...")
+                startVoiceAssistant()
+            }
+
             triggerEmergencyPermissionRequest()
         }
     }
@@ -535,7 +627,7 @@ class MainActivity : AppCompatActivity() {
             if (!isFinishing && !isDestroyed) {
                 Toast.makeText(
                     this,
-                    "🎤 Voice Assistant activated. Say 'Hey Barista' for commands",
+                    "🎤 Voice Assistant dimulai, silahkan berikan perintah\nemergency atau screening",
                     Toast.LENGTH_LONG
                 ).show()
             }
@@ -564,43 +656,39 @@ class MainActivity : AppCompatActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
 
+        Log.d(TAG, "🎯 ON_REQUEST_PERMISSIONS_RESULT CALLED!")
+        Log.d(TAG, "   Request Code: $requestCode")
+        Log.d(TAG, "   Permissions: ${permissions.joinToString()}")
+        Log.d(TAG, "   Grant Results: ${grantResults.joinToString()}")
+        Log.d(TAG, "   Expected Code: ${SpecialPermissionManager.REQUEST_CODE_BASIC_PERMISSIONS}")
+
+
         // Forward ke Permission Manager
         permissionManager.onRequestPermissionsResult(requestCode, permissions, grantResults, this)
 
         // Check jika permissions sudah granted dan start service
-        if (requestCode != SpecialPermissionManager.REQUEST_CODE_BASIC_PERMISSIONS) {
-            // Cek jika ini izin darurat
-            val hasEmergencyPermissions = permissions.any {
-                it == Manifest.permission.CALL_PHONE || it == Manifest.permission.READ_PHONE_STATE
-            }
+        if (requestCode == SpecialPermissionManager.REQUEST_CODE_BASIC_PERMISSIONS) {
+            val allBasicGranted = grantResults.all { it == PackageManager.PERMISSION_GRANTED }
 
-            if (hasEmergencyPermissions) {
-                val allGranted = grantResults.all { it == PackageManager.PERMISSION_GRANTED }
-                if (allGranted) {
-                    val specialMissing = permissionManager.getAllPermissionStatus()
-                        .count { it.isRequired && !it.isGranted }
+            if (allBasicGranted) {
+                Log.d(TAG, "✅ All basic permissions granted - Starting voice assistant immediately")
 
-                    if (specialMissing == 0) {
-                        // Jika tidak ada special permission yang hilang, LANGSUNG START.
-                        startVoiceAssistant()
-                    } else {
-                        // Biarkan SpecialPermissionManager memproses sisanya (Autostart, Battery)
-                        // Manager akan memanggil processNextPermissionRequest() secara internal
-                        Toast.makeText(
-                            this,
-                            "Lanjutkan ke pengaturan khusus perangkat.",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
+                // Delay sedikit untuk memastikan permission benar-benar applied
+                mainHandler.postDelayed({
+                    startVoiceAssistant()
+                }, 500)
+
+            } else {
+                Log.w(TAG, "⚠️ Some basic permissions were denied")
+                // Tampilkan pesan bahwa fitur voice akan terbatas
+                if (!isFinishing && !isDestroyed) {
+                    Toast.makeText(
+                        this,
+                        "Voice assistant limited without microphone permission",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             }
-        }
-        val allCriticalGranted = permissionManager.getAllPermissionStatus()
-            .all { !it.isRequired || it.isGranted }
-
-        if (allCriticalGranted) {
-            Log.d(TAG, "✅ All critical permissions are now granted, starting voice assistant...")
-            startVoiceAssistant()
         }
     }
 
@@ -616,10 +704,11 @@ class MainActivity : AppCompatActivity() {
 
         // ✅ PERBAIKI: Hanya update status, tidak check permissions berulang
         Log.d(TAG, "🔄 MainActivity onResume - updating status")
-//        updateVoiceServiceStatus()
+        updateVoiceServiceStatus()
 
-        // Optional: Update permission status display jika ada UI
-        checkPermissionStatus()
+        if (isUserLoggedIn) {
+            onLoginSuccess() // Fungsi ini akan memanggil startVoiceAssistant() jika izin OK.
+        }
     }
 
     // ✅ STROKE SCREENING
@@ -632,7 +721,11 @@ class MainActivity : AppCompatActivity() {
             ScreeningActivity.start(this, currentUsername, startNew = true)
 
             if (!isFinishing && !isDestroyed) {
-                Toast.makeText(this, "🏥 Starting screening for $currentUsername", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    this,
+                    "🏥 Starting screening for $currentUsername",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
             Log.d(TAG, "✅ ScreeningActivity started successfully via companion method")
         } catch (e: Exception) {
@@ -641,6 +734,22 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "❌ Failed to start screening", Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    private fun stopVoiceAssistant() {
+        if (isBound) {
+            unbindService(serviceConnection)
+            isBound = false
+            voiceService = null
+        }
+
+        val intent = Intent(this, VoiceActivationService::class.java)
+        stopService(intent)
+
+        // Opsional: Hentikan SpeechRecognizer di dalam Service agar mikrofon bebas lebih cepat
+        // Walaupun stopService() harusnya memicu onDestroy() di Service
+
+        Log.d(TAG, "🛑 Voice Activation Service stopped.")
     }
 
     // ✅ PERMISSION STATUS CHECK (untuk logging)
@@ -652,8 +761,18 @@ class MainActivity : AppCompatActivity() {
         Log.d("PermissionStatus", "Granted: $grantedCount/$totalCount")
 
         permissions.forEach { permission ->
-            Log.d("PermissionStatus", "${permission.name}: ${if (permission.isGranted) "GRANTED" else "MISSING"}")
+            Log.d(
+                "PermissionStatus",
+                "${permission.name}: ${if (permission.isGranted) "GRANTED" else "MISSING"}"
+            )
         }
+    }
+
+
+    override fun onPause() {
+        super.onPause()
+
+        stopVoiceAssistant()
     }
 
     override fun onStop() {

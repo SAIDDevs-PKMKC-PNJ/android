@@ -50,8 +50,11 @@ class ArmPreviewFragment : Fragment() {
             )
         }
 
+//        binding.btnBack.setOnClickListener {
+//            findNavController().popBackStack()
+//        }
         binding.btnBack.setOnClickListener {
-            findNavController().popBackStack()
+            requireActivity().finish()
         }
     }
 

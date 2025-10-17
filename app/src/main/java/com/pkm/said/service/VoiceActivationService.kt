@@ -1,6 +1,5 @@
 package com.pkm.said.service
 
-import ai.picovoice.rhino.RhinoInference
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -11,34 +10,43 @@ import android.content.IntentFilter
 import android.app.PendingIntent
 import android.os.Binder
 import android.os.Build
+import android.os.Bundle
 import android.os.CountDownTimer
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.pkm.said.R
-import com.pkm.said.util.PicovoiceManager
 import com.pkm.said.MainActivity
 import java.util.Locale
 import androidx.core.content.edit
 import com.pkm.said.EmergencyActivity
 import com.pkm.said.screening.ScreeningActivity
 import com.pkm.said.util.SessionManager
+//import ai.picovoice.rhino.RhinoInference
+//import com.pkm.said.util.PicovoiceManager
 
 class VoiceActivationService : Service() {
     private val TAG = "VoiceActivationService"
 
-    private lateinit var picovoiceManager: PicovoiceManager
+//    private lateinit var picovoiceManager: PicovoiceManager
+
+    private var speechRecognizer: SpeechRecognizer? = null
+    private var recognizerIntent: Intent? = null
+    private val RESTART_DELAY: Long = 200
     private var textToSpeech: TextToSpeech? = null
     private var isTtsReady = false
     private var isServiceRunning = false
     private var isInitialized = false
 
-    private var emergencyResponseTimer: CountDownTimer? = null
-    private var isWaitingForEmergencyResponse = false
-    private val EMERGENCY_RESPONSE_TIMEOUT = 10000L // 10 detik
+//    private var emergencyResponseTimer: CountDownTimer? = null
+//    private var isWaitingForEmergencyResponse = false
+//    private val EMERGENCY_RESPONSE_TIMEOUT = 10000L
 
     // Binder untuk activity-service communication
     private val binder = VoiceServiceBinder()
@@ -63,7 +71,8 @@ class VoiceActivationService : Service() {
         Log.d(TAG, "Service onCreate")
         initializeTTS()
         createNotificationChannel()
-        initializePicovoice()
+        initializeSpeechRecognizer()
+//        initializePicovoice()
     }
 
     private fun initializeTTS() {
@@ -128,48 +137,150 @@ class VoiceActivationService : Service() {
         return START_STICKY
     }
 
-    private fun initializePicovoice() {
-        Log.d(TAG, "🔧 Starting Picovoice initialization...")
+    //fitur legacy dengan picovoice
+//    private fun initializePicovoice() {
+//        Log.d(TAG, "🔧 Starting Picovoice initialization...")
+//
+//        try {
+//            picovoiceManager = PicovoiceManager(
+//                context = this,
+//                onIntentDetected = { inference ->
+//                    Log.d(TAG, "🎯 Intent detected: ${inference.intent}")
+//                    // Handle intent
+//                },
+//                onListeningStatusChange = { isListening ->
+//                    Log.d(TAG, "👂 Listening status: $isListening")
+//                    broadcastListeningState(isListening)
+//                }
+//            )
+//
+//            // Debug initialization step by step
+//            val success = picovoiceManager?.initPicovoice() ?: false
+//
+//            if (success) {
+//                Log.d(TAG, "✅ Picovoice initialized successfully")
+//                isInitialized = true
+//                startListening()
+//            } else {
+//                Log.e(TAG, "❌ Picovoice initialization failed")
+//                isInitialized = false
+//            }
+//
+//        } catch (e: Exception) {
+//            Log.e(TAG, "💥 Critical error during Picovoice initialization", e)
+//            isInitialized = false
+//        }
+//    }
 
-        try {
-            picovoiceManager = PicovoiceManager(
-                context = this,
-                onIntentDetected = { inference ->
-                    Log.d(TAG, "🎯 Intent detected: ${inference.intent}")
-                    // Handle intent
-                },
-                onListeningStatusChange = { isListening ->
-                    Log.d(TAG, "👂 Listening status: $isListening")
-                    broadcastListeningState(isListening)
-                }
-            )
+    private val recognitionListener = object : RecognitionListener {
+        override fun onReadyForSpeech(params: Bundle) {
+            Log.d(TAG, "Ready for speech. Listening...")
+            broadcastListeningState(true)
+            updateListeningStatus(true)
+        }
 
-            // Debug initialization step by step
-            val success = picovoiceManager?.initPicovoice() ?: false
+        override fun onBeginningOfSpeech() {}
+        override fun onRmsChanged(rmsdB: Float) {}
+        override fun onBufferReceived(buffer: ByteArray) {}
+        override fun onEndOfSpeech() {
+            Log.d(TAG, "End of speech detected.")
+        }
 
-            if (success) {
-                Log.d(TAG, "✅ Picovoice initialized successfully")
-                isInitialized = true
-                startListening()
+        // --- 1. Mendapatkan Hasil dan Memproses Intent ---
+        override fun onResults(results: Bundle) {
+            val matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+            if (!matches.isNullOrEmpty()) {
+                val spokenText = matches[0].lowercase(Locale.getDefault())
+                Log.d(TAG, "Speech recognized: $spokenText")
+                handleSpokenCommand(spokenText) // Panggil fungsi pemrosesan intent
             } else {
-                Log.e(TAG, "❌ Picovoice initialization failed")
-                isInitialized = false
+                Log.d(TAG, "No speech match found.")
             }
 
-        } catch (e: Exception) {
-            Log.e(TAG, "💥 Critical error during Picovoice initialization", e)
-            isInitialized = false
+            // Setelah memproses (atau tidak ada hasil), segera restart listening
+            scheduleRestart()
         }
+
+        // --- 2. Menangani Error dan Melanjutkan Loop ---
+        override fun onError(error: Int) {
+            val errorText = when (error) {
+                SpeechRecognizer.ERROR_AUDIO -> "Audio recording error"
+                SpeechRecognizer.ERROR_CLIENT -> "Client side error"
+                SpeechRecognizer.ERROR_NO_MATCH -> "No recognition result"
+                SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No speech input"
+                // ... error lainnya
+                else -> "Unknown error: $error"
+            }
+            Log.e(TAG, "Speech Recognizer Error: $errorText")
+
+            // Jadwal restart, terutama untuk ERROR_NO_MATCH dan ERROR_SPEECH_TIMEOUT
+            scheduleRestart()
+        }
+
+        // Metode lain tidak terlalu krusial untuk loop
+        override fun onPartialResults(partialResults: Bundle) {}
+        override fun onEvent(eventType: Int, params: Bundle) {}
+    }
+
+    private fun initializeSpeechRecognizer() {
+        if (speechRecognizer != null) {
+            // Sudah diinisialisasi
+            return
+        }
+
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            Log.e(TAG, "Speech Recognition is NOT available on this device.")
+            return
+        }
+
+        // 1. Inisialisasi SpeechRecognizer
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
+        speechRecognizer?.setRecognitionListener(recognitionListener)
+
+        // 2. Siapkan Recognizer Intent (Sama untuk setiap kali listening dimulai)
+        recognizerIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
+            // Opsi: Coba mode offline untuk mengurangi penggunaan data, tetapi akurasi bisa turun.
+            // putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+
+            // Coba fitur continuous (tidak didukung secara resmi di semua versi/provider)
+            // putExtra(RecognizerIntent.EXTRA_ENDPOINTER_SILENCE_TIMEOUT, 500)
+            // putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1000)
+        }
+
+        isInitialized = true
+        Log.d(TAG, "✅ SpeechRecognizer initialized successfully.")
+        startListening()
     }
 
     private fun startListening() {
-        if (isInitialized) {
-            Log.d(TAG, "🎤 Starting wake word detection...")
-            picovoiceManager?.start()
-            broadcastServiceState("RUNNING")
+        //legacy untuk picovoice
+//        if (isInitialized) {
+//            Log.d(TAG, "🎤 Starting wake word detection...")
+//            picovoiceManager?.start()
+//            broadcastServiceState("RUNNING")
+//        } else {
+//            Log.e(TAG, "❌ Cannot start listening - Picovoice not initialized")
+//            broadcastServiceState("STOPPED")
+//        }
+        if (speechRecognizer != null && recognizerIntent != null) {
+            try {
+                speechRecognizer?.startListening(recognizerIntent)
+
+                // Perbarui status bahwa Service sedang berjalan
+                broadcastServiceState("RUNNING")
+                Log.d(TAG, "🎤 SpeechRecognizer started/restarted for continuous listening.")
+
+            } catch (e: Exception) {
+                Log.e(TAG, "Error starting SpeechRecognizer. Scheduling retry.", e)
+
+                Handler(Looper.getMainLooper()).postDelayed({
+                    startListening()
+                }, 1000)
+            }
         } else {
-            Log.e(TAG, "❌ Cannot start listening - Picovoice not initialized")
-            broadcastServiceState("STOPPED")
+            Log.e(TAG, "❌ Cannot start listening - Recognizer not initialized.")
         }
     }
 
@@ -196,7 +307,9 @@ class VoiceActivationService : Service() {
         }
 
         try {
-            picovoiceManager.start()
+            //legacy untuk picovoice
+//            picovoiceManager.start()
+            initializeSpeechRecognizer()
             isServiceRunning = true
 
             startForeground(NOTIFICATION_ID, createNotification("Voice activation active"))
@@ -216,7 +329,9 @@ class VoiceActivationService : Service() {
         }
 
         try {
-            picovoiceManager.stop()
+            //legacy untuk picovoice
+//            picovoiceManager.stop()
+            speechRecognizer?.cancel()
             isServiceRunning = false
 
             stopForeground(true)
@@ -246,10 +361,10 @@ class VoiceActivationService : Service() {
             isTtsReady = false
 
             // Hentikan Picovoice
-            picovoiceManager.stop()
-            picovoiceManager.release()
+//            picovoiceManager.stop()
+//            picovoiceManager.release()
 
-            // Hapus semua shared preferences terkait voice
+            speechRecognizer?.destroy()
             clearVoicePreferences()
 
             // Hentikan service
@@ -278,37 +393,68 @@ class VoiceActivationService : Service() {
         }
     }
 
-    private fun handleIntentDetection(inference: RhinoInference) {
-        Log.d(TAG, "Handling intent: ${inference.intent}, Slots: ${inference.slots}")
-
-        when (inference.intent) {
-            "start_screening" -> handleStartScreening()
-            "emergency_call" -> handleEmergencyCall()
-            "open_app" -> handleOpenApp()
-            else -> handleUnknownIntent(inference)
+    private fun handleSpokenCommand(command: String) {
+        // 1. Prioritaskan Perintah Darurat
+        if (command.contains("darurat") || command.contains("emergency") || command.contains("tolong")) {
+            handleEmergencyCall()
+        }
+        // 2. Perintah Navigasi/Aksi Utama
+        else if (command.contains("mulai screening") || command.contains("start screening") || command.contains("tes")) {
+            handleStartScreening()
+        }
+        // 3. Perintah Default/Tidak Dikenal
+        else {
+            handleUnknownIntent(command)
         }
 
-        // Show action notification
-        showActionNotification("Executed: ${inference.intent}")
-
-        Handler(Looper.getMainLooper()).postDelayed({
-            try {
-                // Kita asumsikan PicovoiceManager.start() me-restart engine ke mode wake word
-                picovoiceManager.start()
-                updateNotification("Voice activation active")
-                Log.d(TAG, "✅ Picovoice restarted to wake word mode")
-            } catch (e: Exception) {
-                Log.e(TAG, "❌ Failed to restart Picovoice", e)
-            }
-        }, 3000)
+        // Catatan: Hapus logika restart Picovoice dan ganti dengan scheduleRestart() jika Anda menggunakan metode UtteranceProgressListener di TTS.
+        // Jika tidak menggunakan TTS listener, pastikan scheduleRestart() dipanggil di onResults, bukan di sini.
     }
+
+    private fun handleUnknownIntent(command: String) {
+        Log.w(TAG, "Unknown command: $command")
+
+        // TTS feedback
+        val response = "Maaf, saya tidak mengerti perintah itu."
+        speak(response, 300)
+        showActionNotification("Unknown command: $command")
+
+        // Log intent yang tidak dikenal jika diperlukan
+        logUnknownIntent(command)
+    }
+
+    //legacyu untuk picovoice
+//    private fun handleIntentDetection(inference: RhinoInference) {
+//        Log.d(TAG, "Handling intent: ${inference.intent}, Slots: ${inference.slots}")
+//
+//        when (inference.intent) {
+//            "start_screening" -> handleStartScreening()
+//            "emergency_call" -> handleEmergencyCall()
+//            "open_app" -> handleOpenApp()
+//            else -> handleUnknownIntent(inference)
+//        }
+//
+//        // Show action notification
+//        showActionNotification("Executed: ${inference.intent}")
+//
+//        Handler(Looper.getMainLooper()).postDelayed({
+//            try {
+//                // Kita asumsikan PicovoiceManager.start() me-restart engine ke mode wake word
+//                picovoiceManager.start()
+//                updateNotification("Voice activation active")
+//                Log.d(TAG, "✅ Picovoice restarted to wake word mode")
+//            } catch (e: Exception) {
+//                Log.e(TAG, "❌ Failed to restart Picovoice", e)
+//            }
+//        }, 3000)
+//    }
 
     fun updateListeningStatus(isListening: Boolean) {
         if (isListening) {
             updateNotification("🎤 Listening for command...")
         } else {
             // Kembali ke status default Porcupine
-            updateNotification("Voice activation active (Say 'Hi Said')")
+            updateNotification("Voice activation active")
         }
     }
 
@@ -339,80 +485,83 @@ class VoiceActivationService : Service() {
         showActionNotification("Emergency detected", "emergency")
     }
 
-    private fun handleOpenApp() {
-        Log.d(TAG, "Opening main app")
+    //legacy untuk picovoice
+//    private fun handleOpenApp() {
+//        Log.d(TAG, "Opening main app")
+//
+//        // TTS feedback
+//        speak("Opening Said application", 300)
+//
+//        Handler(Looper.getMainLooper()).postDelayed({
+//            openMainActivity("dashboard")
+//        }, 1500)
+//
+//        showActionNotification("Opening app", "app")
+//    }
+//
+//    private fun handleUnknownIntent(inference: RhinoInference) {
+//        Log.w(TAG, "Unknown intent received: ${inference.intent}")
+//
+//        // TTS feedback untuk unknown intent
+//        val response = when {
+//            inference.intent.contains("weather") -> "I can't check weather yet"
+//            inference.intent.contains("time") -> "I can't tell time yet"
+//            else -> "Sorry, I didn't understand that command"
+//        }
+//
+//        speak(response, 300)
+//        showActionNotification("Unknown command: ${inference.intent}")
+//        logUnknownIntent(inference)
+//    }
 
-        // TTS feedback
-        speak("Opening Said application", 300)
+    //Legacy untuk picovoice
+//    private fun logUnknownIntent(inference: RhinoInference) {
+//        // Log unknown intents for future training
+//        val sharedPrefs = getSharedPreferences("voice_logs", Context.MODE_PRIVATE)
+//        val unknownIntents = sharedPrefs.getStringSet("unknown_intents", mutableSetOf()) ?: mutableSetOf()
+//
+//        unknownIntents.add("${System.currentTimeMillis()}: ${inference.intent} - ${inference.slots}")
+//
+//        sharedPrefs.edit {
+//            putStringSet("unknown_intents", unknownIntents)
+//        }
+//    }
 
-        Handler(Looper.getMainLooper()).postDelayed({
-            openMainActivity("dashboard")
-        }, 1500)
-
-        showActionNotification("Opening app", "app")
-    }
-
-    private fun handleUnknownIntent(inference: RhinoInference) {
-        Log.w(TAG, "Unknown intent received: ${inference.intent}")
-
-        // TTS feedback untuk unknown intent
-        val response = when {
-            inference.intent.contains("weather") -> "I can't check weather yet"
-            inference.intent.contains("time") -> "I can't tell time yet"
-            else -> "Sorry, I didn't understand that command"
-        }
-
-        speak(response, 300)
-        showActionNotification("Unknown command: ${inference.intent}")
-        logUnknownIntent(inference)
-    }
-
-    private fun logUnknownIntent(inference: RhinoInference) {
-        // Log unknown intents for future training
+    private fun logUnknownIntent(command: String) {
+        // Log unknown commands for future training (menggunakan SpeechRecognizer command string)
         val sharedPrefs = getSharedPreferences("voice_logs", Context.MODE_PRIVATE)
         val unknownIntents = sharedPrefs.getStringSet("unknown_intents", mutableSetOf()) ?: mutableSetOf()
 
-        unknownIntents.add("${System.currentTimeMillis()}: ${inference.intent} - ${inference.slots}")
+        // Log waktu dan teks perintah yang tidak dikenal
+        unknownIntents.add("${System.currentTimeMillis()}: $command")
 
         sharedPrefs.edit {
             putStringSet("unknown_intents", unknownIntents)
         }
     }
 
-    private fun startScreeningActivity() {
-        try {
-            // ✅ GUNAKAN PARAMETER YANG SESUAI DENGAN SCREENINGACTIVITY ANDA
-            val currentUser = getCurrentUsername() // Method dari MainActivity atau shared preferences
-            ScreeningActivity.start(
-                context = this,
-                userId = currentUser,
-                dest = null, // Biarkan ScreeningActivity tentukan dest sendiri
-                startNew = true // Mulai sesi baru untuk voice command
-            )
-            Log.d(TAG, "✅ ScreeningActivity started for user: $currentUser")
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error starting ScreeningActivity", e)
+    private fun scheduleRestart() {
+        broadcastListeningState(false)
+        updateListeningStatus(false)
 
-            // Fallback strategy
-            tryFallbackScreeningStart()
-        }
+        Handler(Looper.getMainLooper()).postDelayed({
+            startListening()
+        }, RESTART_DELAY)
     }
 
-    private fun tryFallbackScreeningStart() {
+    private fun startScreeningActivity() {
         try {
-            // Fallback 1: Direct intent dengan extras
+            // Gunakan metode Intent langsung (seperti EmergencyActivity)
             val intent = Intent(this, ScreeningActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                putExtra("user_id", getCurrentUsername())
                 putExtra("from_voice_service", true)
                 putExtra("startNew", true)
             }
             startActivity(intent)
-            Log.d(TAG, "✅ ScreeningActivity started via fallback intent")
+            Log.d(TAG, "✅ ScreeningActivity started via direct Intent (Voice Command)")
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Fallback intent also failed", e)
-
-            // Fallback 2: Buka MainActivity dengan screening command
+            Log.e(TAG, "❌ Error starting ScreeningActivity", e)
+            // Jika gagal, setidaknya buka MainActivity
             openMainActivity("screening")
         }
     }
@@ -528,13 +677,14 @@ class VoiceActivationService : Service() {
     // Public methods untuk activity
     fun isServiceRunning(): Boolean = isServiceRunning
 
-    fun getServiceState(): String {
-        return when {
-            !isServiceRunning -> "Stopped"
-            picovoiceManager.isInIntentMode() -> "Listening for command"
-            else -> "Waiting for wake word"
-        }
-    }
+    //legacy untuk picovoice
+//    fun getServiceState(): String {
+//        return when {
+//            !isServiceRunning -> "Stopped"
+//            picovoiceManager.isInIntentMode() -> "Listening for command"
+//            else -> "Waiting for wake word"
+//        }
+//    }
 
     override fun onDestroy() {
         super.onDestroy()
@@ -544,7 +694,10 @@ class VoiceActivationService : Service() {
         try {
             textToSpeech?.stop()
             textToSpeech?.shutdown()
-            picovoiceManager.release()
+//            picovoiceManager.release()
+            speechRecognizer?.destroy()
+            speechRecognizer = null
+
             isServiceRunning = false
             broadcastServiceState(false)
             Log.d(TAG, "✅ All voice service resources released")

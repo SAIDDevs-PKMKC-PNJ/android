@@ -43,12 +43,24 @@ class DashboardFragment : Fragment() {
     private val binding get() = _binding!!
     private lateinit var featureAdapter: FeatureAdapter
 
+    private lateinit var navigationCallback: NavigationCallback
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
         _binding = FragmentDashboardBinding.inflate(inflater, container, false)
         return binding.root
+    }
+
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+        // Pastikan Activity/Context mengimplementasikan interface
+        if (context is NavigationCallback) {
+            navigationCallback = context
+        } else {
+            throw RuntimeException("$context must implement NavigationCallback")
+        }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -106,7 +118,7 @@ class DashboardFragment : Fragment() {
         }
 
         binding.ivAvatar.setOnClickListener {
-            (requireActivity() as MainActivity).navigateToTopLevel(R.id.navigation_profile)
+            navigationCallback.navigateToTopLevel(R.id.navigation_profile)
         }
         binding.tvWelcome.text = getString(R.string.welcome_text, finalName)
     }
@@ -114,6 +126,8 @@ class DashboardFragment : Fragment() {
     private fun setupSearch() {
         val et = binding.etSearch
         val iv = binding.ivSearch
+
+        val defaultString = getString(R.string.dashboard_search_bar_hint)
 
         fun hideKeyboard() {
             val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
@@ -129,6 +143,8 @@ class DashboardFragment : Fragment() {
             }
             hideKeyboard()
             ChatbotActivity.start(requireContext(), initialMessage = q)
+
+            et.setText(defaultString)
         }
 
         iv.setOnClickListener { go(et.text?.toString().orEmpty()) }
@@ -212,7 +228,7 @@ class DashboardFragment : Fragment() {
                 ScreeningActivity.start(requireContext(), userId = null)
             }
             binding.tvHistoryLink.setOnClickListener {
-                (requireActivity() as MainActivity).navigateToTopLevel(R.id.navigation_history)
+                navigationCallback.navigateToTopLevel(R.id.navigation_history)
             }
         }
     }

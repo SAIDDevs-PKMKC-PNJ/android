@@ -64,6 +64,18 @@ class ProfileFragment : Fragment() {
         return binding.root
     }
 
+    private lateinit var navigationCallback: NavigationCallback
+
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+        // Cek apakah Activity mengimplementasikan interface
+        if (context is NavigationCallback) {
+            navigationCallback = context
+        } else {
+            throw RuntimeException("$context must implement NavigationCallback")
+        }
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         Log.d(TAG, "onViewCreated called")
@@ -169,7 +181,7 @@ class ProfileFragment : Fragment() {
 
             // Menu
             setMenuItem(binding.menuInformasi, R.drawable.ic_user, "Informasi Pribadi")
-            setMenuItem(binding.menuHistory, R.drawable.ic_location, "Riwayat Screening")
+            setMenuItem(binding.menuHistory, R.drawable.ic_records, "Riwayat Screening")
             setMenuItem(binding.menuSettings, R.drawable.ic_setting, "Setting reminder")
             setMenuItem(binding.menuHapus, R.drawable.ic_delete, "Hapus Akun")
 
@@ -198,7 +210,7 @@ class ProfileFragment : Fragment() {
                 findNavController().navigate(R.id.action_profile_to_editProfile)
             }
             binding.menuHistory.root.setOnClickListener {
-                (requireActivity() as MainActivity).navigateToTopLevel(R.id.navigation_history)
+                navigationCallback.navigateToTopLevel(R.id.navigation_history)
             }
             binding.menuSettings.root.setOnClickListener {
                 Log.d(TAG, "Menu: Settings clicked")

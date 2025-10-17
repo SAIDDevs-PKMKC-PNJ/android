@@ -553,7 +553,7 @@ class EyesTestFragment : Fragment(), OnInitListener, FaceLandmarkerHelper.Landma
         // ✅ SIMPLE: Simpan ke lokal saja (local-first approach)
         ScreeningDataManager.updateTestResult(requireContext(), result)
 
-        // ✅ Navigasi setelah delay kecil untuk UX
+        stopCameraAndCleanup()
         binding.root.postDelayed({
             navigateToNextTest()
         }, 1500)
@@ -562,6 +562,11 @@ class EyesTestFragment : Fragment(), OnInitListener, FaceLandmarkerHelper.Landma
     private fun stopCameraAndCleanup() {
         Log.d(TAG, "🛑 Stopping camera and cleanup...")
 
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
+        cameraProviderFuture.addListener({
+            cameraProviderFuture.get().unbindAll()
+        }, ContextCompat.getMainExecutor(requireContext()))
+
         // Stop analyzer
         imageAnalyzer?.clearAnalyzer()
         imageAnalyzer = null
@@ -569,6 +574,11 @@ class EyesTestFragment : Fragment(), OnInitListener, FaceLandmarkerHelper.Landma
         // Stop FaceLandmarker
         if (::faceLandmarkerHelper.isInitialized) {
             faceLandmarkerHelper.clearFaceLandmarker()
+        }
+
+        if (::tts.isInitialized) {
+            tts.stop()
+            tts.shutdown()
         }
 
         // Shutdown executor
@@ -583,29 +593,15 @@ class EyesTestFragment : Fragment(), OnInitListener, FaceLandmarkerHelper.Landma
             findNavController().navigate(R.id.action_eyesTest_to_facePreview)
         } catch (e: Exception) {
             Log.e(TAG, "Gagal navigasi. Pop back stack sebagai fallback.", e)
-            // Fallback jika navigation gagal
-            findNavController().popBackStack()
+            Toast.makeText(requireContext(), "Gagal pindah ke tes berikutnya. Mohon coba ulang.", Toast.LENGTH_LONG).show()
+            requireActivity().finish()
         }
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
         Log.d(TAG, "onDestroyView: Membersihkan sumber daya.")
-        stopTest()
-        if (::faceLandmarkerHelper.isInitialized) {
-            faceLandmarkerHelper.clearFaceLandmarker()
-            Log.d(TAG, "FaceLandmarker dibersihkan.")
-        }
 
-        stopCameraAndCleanup()
-        // MATIKAN TTS
-        if (::tts.isInitialized) {
-            tts.stop()
-            tts.shutdown()
-            Log.d(TTS_TAG, "TTS dimatikan (shutdown).")
-        }
-
-        cameraExecutor.shutdown()
         _binding = null
     }
 }

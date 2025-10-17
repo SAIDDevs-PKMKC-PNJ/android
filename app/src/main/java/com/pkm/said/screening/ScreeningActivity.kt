@@ -205,11 +205,20 @@ class ScreeningActivity : AppCompatActivity() {
 
     private fun safeNavigate(destId: Int) {
         try {
-            if (navController.currentDestination?.id != destId) {
-                navController.navigate(destId)
+            if (navController.currentDestination?.id == destId) {
+                Log.d(TAG, "Navigation ignored: Already at destination $destId")
+                return
             }
+
+            if (navController.currentDestination?.id == navController.graph.startDestinationId && destId == navController.graph.startDestinationId) {
+                Log.d(TAG, "Navigation ignored: Already at start destination.")
+                return
+            }
+
+            navController.navigate(destId)
+
         } catch (e: Exception) {
-            Log.w(TAG, "Navigation ignored: ${e.message}")
+            Log.e(TAG, "❌ FATAL: Navigation failed to ID $destId", e)
         }
     }
 }

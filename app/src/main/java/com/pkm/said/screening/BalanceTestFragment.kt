@@ -42,6 +42,9 @@ class BalanceTestFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener 
     private val REQUIRED_VALID_POSE_MS = 3000L // 3 detik pose valid
     private val TEST_DURATION_MS = 5000L       // 5 detik tes
 
+    private val MAX_POSE_WAIT_MS = 10000L
+    private var poseWaitTimer: CountDownTimer? = null
+
     // Data collection untuk analisis
     private val balanceMetricsList = mutableListOf<PoseLandmarkerHelper.BalanceMetrics>()
 
@@ -257,11 +260,37 @@ class BalanceTestFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener 
     private fun startAdaptiveTest() {
         currentState = TestState.DETECTING_POSE
         validPoseStartTime = 0L
-        binding.tvStatus.text = "Cari posisi... Pastikan pinggul & lutut terlihat"
+        binding.tvStatus.text = "Pastikan pinggul & lutut terlihat"
         binding.tvTimer.text = "-"
         isTestCompleted.set(false)
 
+        startPoseWaitTimer()
         Log.d(TAG, "startAdaptiveTest: Adaptive test started, waiting for pose detection")
+    }
+
+    private fun startPoseWaitTimer() {
+        poseWaitTimer?.cancel() // Batalkan yang lama jika ada
+
+        poseWaitTimer = object : CountDownTimer(MAX_POSE_WAIT_MS, 1000) {
+            override fun onTick(millisUntilFinished: Long) {
+                val secondsLeft = (millisUntilFinished / 1000).toInt()
+                binding.tvTimer.text = secondsLeft.toString()
+            }
+
+            override fun onFinish() {
+                Log.w(TAG, "❌ POSE DETECTION TIMEOUT")
+                if (isAdded) {
+                    saveResultAndNext(
+                        isSuccessful = false,
+                        score = 1.0f, // Skor terburuk
+                        notes = "Tes dilewati (Timeout): Orang tidak terdeteksi dalam ${MAX_POSE_WAIT_MS / 1000} detik."
+                    )
+                }
+            }
+        }.start()
+
+        // Pastikan UI menampilkan timer
+        binding.tvStatus.text = "Mencari pose..."
     }
 
     // Implementasi LandmarkerListener
@@ -332,6 +361,9 @@ class BalanceTestFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener 
                 binding.tvStatus.text = "✅ Pose terdeteksi! Tahan..."
                 Log.d(TAG, "🟢 VALID POSE DETECTED - Starting timer: $validPoseStartTime")
             }
+
+            poseWaitTimer?.cancel()
+            poseWaitTimer = null
 
             val elapsed = System.currentTimeMillis() - validPoseStartTime
             val timeLeft = (REQUIRED_VALID_POSE_MS - elapsed) / 1000
@@ -554,6 +586,18 @@ class BalanceTestFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener 
 
         cleanupPoseLandmarker()
 
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
+        cameraProviderFuture.addListener({
+            try {
+                val cameraProvider = cameraProviderFuture.get()
+                cameraProvider.unbindAll() // <-- UNBIND SEMUA DARI LIFECYCLE FRAGMENT
+                Log.d(TAG, "✅ CameraX unbindAll successful")
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Failed to unbind CameraX", e)
+            }
+        }, ContextCompat.getMainExecutor(requireContext()))
+
+
         binding.root.postDelayed({
             if (isAdded && !requireActivity().isFinishing) {
                 navigateToNextTest()
@@ -604,6 +648,9 @@ class BalanceTestFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener 
         cameraExecutor.shutdownNow()
         cleanupPoseLandmarker()
         _binding = null
+
+        poseWaitTimer?.cancel() // 💡 Batalkan timer saat view dihancurkan
+        poseWaitTimer = null
 
         super.onDestroyView()
         Log.d(TAG, "onDestroyView: Cleanup completed")

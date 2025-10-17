@@ -114,6 +114,9 @@
             android:exported="false"
             android:foregroundServiceType="microphone"
             android:stopWithTask="false" />
+
+        <uses-permission android:name="android.permission.BIND_VOICE_INTERACTION" tools:node="remove"
+            tools:ignore="ProtectedPermissions" />
         
         <activity
             android:name=".ScreeningManagementActivity"

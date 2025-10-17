@@ -3,6 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
     android:background="@drawable/gradient_background">
 
     <!-- Back Button -->
@@ -12,6 +13,7 @@
         android:layout_height="48dp"
         android:layout_marginStart="24dp"
         android:layout_marginTop="20dp"
+        android:layout_marginBottom="20dp"
         android:background="@drawable/bg_circle_light"
         android:contentDescription="Back"
         android:src="@drawable/ic_arrow_back"
@@ -22,8 +24,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginStart="24dp"
-        android:layout_marginTop="80dp"
         android:layout_marginEnd="24dp"
+        android:layout_below="@id/btn_back"
         android:background="@drawable/bg_card_container_primary"
         android:elevation="6dp"
         android:orientation="vertical"

@@ -48,12 +48,14 @@ class ScreeningHistoryFragment : Fragment() {
     }
 
     private fun setupToolbar() {
-        binding.btnBack.setOnClickListener { findNavController().navigateUp() }
-        val title = "Riwayat Screening"
-        val span = SpannableString(title).apply {
-            setSpan(StyleSpan(android.graphics.Typeface.BOLD), 0, title.length, 0)
+        _binding?.let { b ->
+            b.btnBack.setOnClickListener { findNavController().navigateUp() }
+            val title = "Riwayat Screening"
+            val span = SpannableString(title).apply {
+                setSpan(StyleSpan(android.graphics.Typeface.BOLD), 0, title.length, 0)
+            }
+            b.tvTitle.text = span
         }
-        binding.tvTitle.text = span
     }
 
     private fun setupRecycler() {
@@ -64,19 +66,23 @@ class ScreeningHistoryFragment : Fragment() {
             },
             onShare = { result -> shareResult(result) }
         )
-        binding.recyclerHistory.layoutManager = LinearLayoutManager(requireContext())
-        binding.recyclerHistory.adapter = adapter
+        _binding?.let { b ->
+            b.recyclerHistory.layoutManager = LinearLayoutManager(requireContext())
+            b.recyclerHistory.adapter = adapter
+        }
     }
 
     private fun setupChips() {
-        // All
-        binding.chipAll.setOnClickListener { selectFilter(null) }
-        // High (termasuk CRITICAL)
-        binding.chipHigh.setOnClickListener { selectFilter(RiskLevel.HIGH) }
-        binding.chipMedium.setOnClickListener { selectFilter(RiskLevel.MEDIUM) }
-        binding.chipLow.setOnClickListener { selectFilter(RiskLevel.LOW) }
+        _binding?.let { b ->
+            // All
+            b.chipAll.setOnClickListener { selectFilter(null) }
+            // High (termasuk CRITICAL)
+            b.chipHigh.setOnClickListener { selectFilter(RiskLevel.HIGH) }
+            b.chipMedium.setOnClickListener { selectFilter(RiskLevel.MEDIUM) }
+            b.chipLow.setOnClickListener { selectFilter(RiskLevel.LOW) }
 
-        binding.chipAll.isChecked = true
+            b.chipAll.isChecked = true
+        }
     }
 
     private fun selectFilter(risk: RiskLevel?) {
@@ -86,10 +92,12 @@ class ScreeningHistoryFragment : Fragment() {
     }
 
     private fun updateChipSelection() {
-        binding.chipAll.isChecked = currentFilter == null
-        binding.chipHigh.isChecked = currentFilter == RiskLevel.HIGH
-        binding.chipMedium.isChecked = currentFilter == RiskLevel.MEDIUM
-        binding.chipLow.isChecked = currentFilter == RiskLevel.LOW
+        _binding?.let { b ->
+            b.chipAll.isChecked = currentFilter == null
+            b.chipHigh.isChecked = currentFilter == RiskLevel.HIGH
+            b.chipMedium.isChecked = currentFilter == RiskLevel.MEDIUM
+            b.chipLow.isChecked = currentFilter == RiskLevel.LOW
+        }
     }
 
     private fun loadData() {
@@ -129,43 +137,51 @@ class ScreeningHistoryFragment : Fragment() {
         }
     }
     private fun setLoading(loading: Boolean) {
-        binding.loadingOverlay.isVisible = loading
-        binding.recyclerHistory.isVisible = !loading && fullHistory.isNotEmpty()
-        binding.layoutEmpty.isVisible = !loading && fullHistory.isEmpty()
-        binding.layoutError.isVisible = false
-        binding.layoutWarning.isVisible = false
+        _binding?.let { b ->
+            b.loadingOverlay.isVisible = loading
+            b.recyclerHistory.isVisible = !loading && fullHistory.isNotEmpty()
+            b.layoutEmpty.isVisible = !loading && fullHistory.isEmpty()
+            b.layoutError.isVisible = false
+            b.layoutWarning.isVisible = false
+        }
     }
 
     private fun showErrorState(message: String) {
-        binding.layoutError.isVisible = true
-        binding.tvErrorText.text = message
-        binding.recyclerHistory.isVisible = false
-        binding.layoutEmpty.isVisible = false
+        _binding?.let { b ->
+            b.layoutError.isVisible = true
+            b.tvErrorText.text = message
+            b.recyclerHistory.isVisible = false
+            b.layoutEmpty.isVisible = false
+        }
     }
 
     private fun showWarningState(message: String) {
-        binding.layoutWarning.isVisible = true
-        binding.tvWarningText.text = message
-        binding.btnRetry.setOnClickListener { loadData() }
+        _binding?.let { b ->
+            b.layoutWarning.isVisible = true
+            b.tvWarningText.text = message
+            b.btnRetry.setOnClickListener { loadData() }
+        }
     }
 
     private fun applyFilter() {
-        val list = when (currentFilter) {
-            null -> fullHistory
-            RiskLevel.HIGH -> fullHistory.filter {
-                it.overallRisk == RiskLevel.HIGH || it.overallRisk == RiskLevel.CRITICAL
+        _binding?.let { b ->
+            val list = when (currentFilter) {
+                null -> fullHistory
+                RiskLevel.HIGH -> fullHistory.filter {
+                    it.overallRisk == RiskLevel.HIGH || it.overallRisk == RiskLevel.CRITICAL
+                }
+                RiskLevel.MEDIUM -> fullHistory.filter { it.overallRisk == RiskLevel.MEDIUM }
+                RiskLevel.LOW -> fullHistory.filter { it.overallRisk == RiskLevel.LOW }
+                else -> fullHistory.filter { it.overallRisk == currentFilter }
             }
-            RiskLevel.MEDIUM -> fullHistory.filter { it.overallRisk == RiskLevel.MEDIUM }
-            RiskLevel.LOW -> fullHistory.filter { it.overallRisk == RiskLevel.LOW }
-            else -> fullHistory.filter { it.overallRisk == currentFilter }
-        }
-        adapter.submitList(list)
-        binding.tvCount.text = getString(R.string.session, list.size)
-        binding.layoutEmpty.isVisible = list.isEmpty()
-        binding.recyclerHistory.isVisible = list.isNotEmpty()
-        if (list.isNotEmpty()) {
-            binding.layoutError.isVisible = false
-            binding.layoutWarning.isVisible = false
+            adapter.submitList(list)
+            b.tvCount.text = getString(R.string.session, list.size)
+            b.layoutEmpty.isVisible = list.isEmpty()
+            b.recyclerHistory.isVisible = list.isNotEmpty()
+            if (list.isNotEmpty()) {
+                b.layoutError.isVisible = false
+                b.layoutWarning.isVisible = false
+            }
         }
     }
 

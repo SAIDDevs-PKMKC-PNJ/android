@@ -357,27 +357,11 @@ class ArmTestFragment : Fragment(), SensorEventListener {
 
     private fun navigateToNextTest() {
         try {
-            // ✅ Cek dulu apakah data benar-benar tersimpan
-            val currentSession = ScreeningDataManager.getCurrentSession(requireContext())
-            if (currentSession?.armsResult?.isCompleted != true) {
-                Log.e("ArmTest", "❌ Arms test not saved properly!")
-                // Fallback: coba save lagi
-                val fallbackResult = TestResult(
-                    testName = "befast_arms",
-                    isCompleted = true,
-                    isSuccessful = false,
-                    score = 1.0f,
-                    notes = "Fallback: data mungkin tidak tersimpan sempurna",
-                    timestamp = ScreeningDataManager.getCurrentTimestamp()
-                )
-                ScreeningDataManager.updateTestResult(requireContext(), fallbackResult)
-            }
-
             findNavController().navigate(R.id.action_armsTest_to_speechPreview)
-
         } catch (e: Exception) {
             Log.e("ArmTest", "Navigation failed: ${e.message}")
-            findNavController().popBackStack()
+            Toast.makeText(requireContext(), "Gagal pindah ke tes berikutnya. Mohon coba ulang.", Toast.LENGTH_LONG).show()
+            requireActivity().finish()
         }
     }
 

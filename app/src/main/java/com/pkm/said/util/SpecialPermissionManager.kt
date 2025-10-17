@@ -91,16 +91,6 @@ class SpecialPermissionManager(private val context: Context) {
 
         permissions.add(
             PermissionStatus(
-                "AUTOSTART",
-                isAutoStartEnabled(),
-                false,
-                "Auto-start setelah device restart (manufacturer specific)",
-                getAutoStartIntent().action
-            )
-        )
-
-        permissions.add(
-            PermissionStatus(
                 "BACKGROUND_ACTIVITY",
                 isBackgroundActivityAllowed(),
                 false,
@@ -125,14 +115,14 @@ class SpecialPermissionManager(private val context: Context) {
 
     // === IMPLEMENTATION OF PERMISSION CHECKS ===
 
-    private fun isRecordAudioGranted(): Boolean {
+    fun isRecordAudioGranted(): Boolean {
         return ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.RECORD_AUDIO
         ) == PackageManager.PERMISSION_GRANTED
     }
 
-    private fun isNotificationPermissionGranted(): Boolean {
+    fun isNotificationPermissionGranted(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             ContextCompat.checkSelfPermission(
                 context,

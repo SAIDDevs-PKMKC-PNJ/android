@@ -43,13 +43,15 @@ class EyesPreviewFragment : Fragment() {
 
     private fun setupClickListeners() {
         binding.btnStartTest.setOnClickListener {
-            // TODO: nanti tambahkan action ini di nav_graph.xml
-            // Catatan: Eyes akan pakai kamera depan di layar test
             findNavController().navigate(
                 R.id.action_eyesPreview_to_eyesTest
             )
         }
-        binding.btnBack.setOnClickListener { findNavController().popBackStack() }
+//        binding.btnBack.setOnClickListener { findNavController().popBackStack() }
+        binding.btnBack.setOnClickListener {
+            requireActivity().finish()
+            // Anda juga bisa memanggil fungsi di Activity induk untuk memicu dialog keluar
+        }
     }
 
     override fun onDestroyView() {
