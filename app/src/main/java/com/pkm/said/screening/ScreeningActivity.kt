@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -14,11 +15,13 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
 import androidx.navigation.findNavController
+import com.pkm.said.EmergencyActivity
 import com.pkm.said.R
+import com.pkm.said.Said
 import com.pkm.said.databinding.ActivityScreeningBinding
 import kotlinx.coroutines.launch
 
-class ScreeningActivity : AppCompatActivity() {
+class ScreeningActivity : AppCompatActivity(), Said.VoiceActivityCallback {
 
     companion object {
         private const val TAG = "ScreeningActivity"
@@ -62,6 +65,7 @@ class ScreeningActivity : AppCompatActivity() {
         setupFullscreenMode()
         setupNavigation()
         setupBackPressHandler()
+        Said.getInstance().registerActivityCallback(this.localClassName, this)
 
         // Inisialisasi sesi screening
         if (savedInstanceState == null) {
@@ -185,8 +189,72 @@ class ScreeningActivity : AppCompatActivity() {
         finish()
     }
 
+    override fun onVoiceCommand(command: String, extras: Bundle?): Boolean {
+        Log.d(TAG, "🎤 Voice command received in Screening: $command")
+        return when (command.toLowerCase()) {
+            "darurat", "emergency", "tolong"-> {
+                handleEmergencyFromVoice()
+                true
+            }
+            else -> false
+        }
+    }
+
+    override fun onNavigateTo(destination: String): Boolean {
+        return when (destination.toLowerCase()) {
+            "emergency" -> {
+                handleEmergencyFromVoice()
+                true
+            }
+            else -> false
+        }
+    }
+
+    override fun getSupportedCommands(): List<String> {
+        return listOf(
+            "darurat", "emergency", "tolong"
+        )
+    }
+
+    private fun handleEmergencyFromVoice() {
+        try {
+            Log.d(TAG, "🚨 EMERGENCY DETECTED - Cancelling screening and opening emergency")
+
+            // 1. Batalkan screening session
+            ScreeningDataManager.cancelSession(this)
+
+            // 2. Tampilkan notifikasi cepat
+            Toast.makeText(this, "🚨 Emergency detected - Screening cancelled", Toast.LENGTH_SHORT).show()
+
+            // 3. Buka EmergencyActivity
+            val intent = Intent(this, EmergencyActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("from_voice_command", true)
+                putExtra("from_screening", true)
+                putExtra("screening_cancelled", true) // Beri tahu emergency activity
+            }
+            startActivity(intent)
+
+            // 4. Tutup screening activity
+            finish()
+
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to handle emergency from screening", e)
+            // Fallback: tetap batalkan screening dan coba buka emergency
+            ScreeningDataManager.cancelSession(this)
+            try {
+                startActivity(Intent(this, EmergencyActivity::class.java))
+                finish()
+            } catch (e2: Exception) {
+                // Ultimate fallback: hanya batalkan screening
+                finish()
+            }
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        Said.getInstance().unregisterActivityCallback(this.localClassName)
         Log.d(TAG, "=== SCREENING ACTIVITY END ===")
     }
 

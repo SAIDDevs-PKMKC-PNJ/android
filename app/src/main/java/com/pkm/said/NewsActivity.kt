@@ -11,16 +11,19 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.tabs.TabLayoutMediator
+import com.google.firebase.auth.FirebaseAuth
 import com.pkm.said.adapter.ArticleListAdapter
 import com.pkm.said.adapter.NewsSliderAdapter
 import com.pkm.said.databinding.ActivityNewsBinding
+import com.pkm.said.screening.ScreeningActivity
 import com.pkm.said.service.NewsRetrofit
+import com.pkm.said.util.SessionManager
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 import java.util.Locale
 
-class NewsActivity : AppCompatActivity() {
+class NewsActivity : AppCompatActivity(), Said.VoiceActivityCallback {
 
     companion object {
         private const val TAG = "NewsActivity"
@@ -64,6 +67,7 @@ class NewsActivity : AppCompatActivity() {
 
         Log.d(TAG, "=== NEWS ACTIVITY DEBUG === onCreate")
 
+        Said.getInstance().registerActivityCallback(this.localClassName, this)
         setupToolbar()
         setupSlider()
         setupLists()
@@ -71,10 +75,23 @@ class NewsActivity : AppCompatActivity() {
         loadDataFromApi()
     }
 
-    private fun setupToolbar() {
-        binding.btnBack.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
+    private fun handleBackNavigation() {
+        try {
+            Log.d(TAG, "🔄 Handling back navigation in News...")
+            navigateToDashboard()
+            Log.d(TAG, "✅ Back navigation completed")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error in back navigation", e)
+            finish() // Fallback
+        }
     }
 
+    // ✅ UPDATE TOOLBAR SETUP
+    private fun setupToolbar() {
+        binding.btnBack.setOnClickListener {
+            handleBackNavigation()
+        }
+    }
     private fun setupSlider() {
         sliderAdapter = NewsSliderAdapter { article ->
             safeClick { openDetail(article) }
@@ -320,6 +337,200 @@ class NewsActivity : AppCompatActivity() {
         ArticleContentActivity.start(this, item)
     }
 
+    override fun onVoiceCommand(command: String, extras: Bundle?): Boolean {
+        Log.d(TAG, "🎤 Voice command received in News: $command")
+        return when (command.toLowerCase()) {
+            // SCREENING - sama seperti MainActivity
+            "tes stroke", "mulai screening", "screening", "mulai tes" -> {
+                startStrokeScreening()
+                true
+            }
+            // EMERGENCY - sama seperti MainActivity
+            "darurat", "emergency", "tolong" -> {
+                handleEmergencyFromVoice()
+                true
+            }
+            // DASHBOARD - kembali ke MainActivity
+            "dashboard", "home", "kembali" -> {
+                navigateToDashboard()
+                true
+            }
+            else -> false
+        }
+    }
+
+    // ✅ NAVIGATION - UPDATE UNTUK SCREENING & EMERGENCY
+    override fun onNavigateTo(destination: String): Boolean {
+        Log.d(TAG, "🧭 Navigation command in News: $destination")
+        return when (destination.toLowerCase()) {
+            "dashboard", "home" -> {
+                navigateToDashboard()
+                true
+            }
+            "screening" -> {
+                startStrokeScreening()
+                true
+            }
+            "emergency" -> {
+                handleEmergencyFromVoice()
+                true
+            }
+            else -> false
+        }
+    }
+
+    // ✅ SUPPORTED COMMANDS - UPDATE DENGAN SCREENING & EMERGENCY
+    override fun getSupportedCommands(): List<String> {
+        return listOf(
+            "tes stroke", "mulai screening", "screening", "mulai tes",
+            "darurat", "emergency", "tolong",
+            "dashboard", "home", "kembali"
+        )
+    }
+
+    // ✅ STROKE SCREENING - SAMA SEPERTI DI MAINACTIVITY
+    private fun startStrokeScreening() {
+        try {
+            Log.d(TAG, "🏥 Starting stroke screening from News...")
+
+            // Dapatkan username seperti di MainActivity
+            val username = getCurrentUsername()
+            Log.d(TAG, "Username: $username")
+
+            // ✅ GUNAKAN METHOD start() DARI SCREENINGACTIVITY - sama seperti MainActivity
+            ScreeningActivity.start(this, username, startNew = true)
+
+            if (!isFinishing && !isDestroyed) {
+                Toast.makeText(
+                    this,
+                    "🏥 Starting screening for $username",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+            Log.d(TAG, "✅ ScreeningActivity started successfully from News")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error starting stroke screening from News", e)
+            if (!isFinishing && !isDestroyed) {
+                Toast.makeText(this, "❌ Failed to start screening", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    // ✅ EMERGENCY HANDLER - SAMA SEPERTI DI MAINACTIVITY
+    private fun handleEmergencyFromVoice() {
+        try {
+            Log.d(TAG, "🚨 Emergency from voice command in News - starting EmergencyActivity")
+            val intent = Intent(this, EmergencyActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("from_voice_command", true)
+                putExtra("from_news", true) // Tambahkan identifier
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to start EmergencyActivity from News, using fallback", e)
+            // Fallback ke dialog emergency
+            showEmergencyFallbackDialog()
+        }
+    }
+
+    // ✅ EMERGENCY FALLBACK DIALOG - SAMA SEPERTI DI MAINACTIVITY
+    private fun showEmergencyFallbackDialog() {
+        Log.d(TAG, "🚨 Emergency fallback in News - showing dialog")
+
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("🚨 Emergency Detected")
+            .setMessage("Voice assistant detected emergency situation. Please manually open emergency features.")
+            .setPositiveButton("Open Emergency") { _, _ ->
+                // Try to start EmergencyActivity again dengan approach berbeda
+                try {
+                    val intent = Intent(this, EmergencyActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        putExtra("from_news", true)
+                    }
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Cannot open emergency screen", Toast.LENGTH_SHORT).show()
+                    Log.e(TAG, "❌ Emergency fallback also failed in News", e)
+                }
+            }
+            .setNegativeButton("Cancel") { _, _ -> }
+            .show()
+    }
+
+    // ✅ GET CURRENT USERNAME - SAMA SEPERTI DI MAINACTIVITY
+    private fun getCurrentUsername(): String {
+        return try {
+            SessionManager.getUserName(this) ?: getFallbackUsername()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting username in News", e)
+            getFallbackUsername()
+        }
+    }
+
+    private fun getFallbackUsername(): String {
+        return try {
+            // Coba dapatkan dari Firebase Auth sebagai fallback
+            val firebaseUser = FirebaseAuth.getInstance().currentUser
+            when {
+                firebaseUser?.displayName != null -> {
+                    val username = firebaseUser.displayName!!
+                    // Simpan ke SessionManager untuk konsistensi
+                    saveUsernameToSessionManager(username)
+                    username
+                }
+
+                firebaseUser?.email != null -> {
+                    val email = firebaseUser.email!!
+                    val usernameFromEmail = email.substringBefore("@")
+                    saveUsernameToSessionManager(usernameFromEmail)
+                    usernameFromEmail
+                }
+
+                else -> generateAnonymousUsername()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting fallback username", e)
+            generateAnonymousUsername()
+        }
+    }
+
+    private fun saveUsernameToSessionManager(username: String) {
+        try {
+            // Jika user sudah login di Firebase, update SessionManager
+            val firebaseUser = FirebaseAuth.getInstance().currentUser
+            firebaseUser?.let { user ->
+                SessionManager.saveBasicFromFirebase(this, user, "auto_detected")
+            }
+            Log.d(TAG, "✅ Username saved to SessionManager: $username")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving username to SessionManager", e)
+        }
+    }
+
+    private fun generateAnonymousUsername(): String {
+        val anonymousUser = "user_${System.currentTimeMillis()}"
+        Log.d(TAG, "Generated anonymous username in News: $anonymousUser")
+        return anonymousUser
+    }
+
+    private fun navigateToDashboard() {
+        try {
+            Log.d(TAG, "🚀 Navigating to Dashboard - finishing NewsActivity")
+
+            // Cukup finish() karena MainActivity sudah default ke dashboard
+            finish()
+
+            // Optional: smooth transition animation
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+
+            Log.d(TAG, "✅ Navigation to dashboard completed")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error navigating to dashboard", e)
+            // Fallback - tetap coba finish
+            finish()
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         autoScrollHandler.postDelayed(autoScrollRunnable, AUTO_SCROLL_INTERVAL)
@@ -333,5 +544,6 @@ class NewsActivity : AppCompatActivity() {
     override fun onDestroy() {
         autoScrollHandler.removeCallbacks(autoScrollRunnable)
         super.onDestroy()
+        Said.getInstance().unregisterActivityCallback(this.localClassName)
     }
 }

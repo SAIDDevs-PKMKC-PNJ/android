@@ -3,15 +3,12 @@ package com.pkm.said.service
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.Service
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.app.PendingIntent
+import android.app.Service
+import android.content.Intent
 import android.os.Binder
 import android.os.Build
 import android.os.Bundle
-import android.os.CountDownTimer
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -21,13 +18,11 @@ import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.pkm.said.R
 import com.pkm.said.MainActivity
+import com.pkm.said.R
+import com.pkm.said.Said
 import java.util.Locale
-import androidx.core.content.edit
-import com.pkm.said.EmergencyActivity
-import com.pkm.said.screening.ScreeningActivity
-import com.pkm.said.util.SessionManager
+
 //import ai.picovoice.rhino.RhinoInference
 //import com.pkm.said.util.PicovoiceManager
 
@@ -78,23 +73,59 @@ class VoiceActivationService : Service() {
     private fun initializeTTS() {
         textToSpeech = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                var result = textToSpeech?.setLanguage(Locale.US)
+
+                val indonesianLocale = Locale("id", "ID")
+                var result = textToSpeech?.setLanguage(indonesianLocale)
+
+                if (result == TextToSpeech.LANG_MISSING_DATA) {
+                    Log.w(TAG, "Missing TTS data for Indonesian. Prompting user to install.")
+                    promptForTtsInstallation(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
+
+                } else if (result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    Log.e(TAG, "TTS Language (ID) not supported. Falling back to US English.")
+                }
 
                 if (result == TextToSpeech.LANG_MISSING_DATA ||
                     result == TextToSpeech.LANG_NOT_SUPPORTED
                 ) {
-                    Log.e(TAG, "TTS Language not supported")
-                    result = textToSpeech?.setLanguage(Locale.getDefault())
-                } else {
-                    isTtsReady = true
-                    Log.d(TAG, "TTS initialized successfully")
+                    Log.e(TAG, "TTS Language (ID) not supported. Falling back to US English.")
+                    result = textToSpeech?.setLanguage(Locale.US)
 
-                    // Set slower speed for better clarity
+                    if (result == TextToSpeech.LANG_MISSING_DATA ||
+                        result == TextToSpeech.LANG_NOT_SUPPORTED)
+                    {
+                        Log.e(TAG, "TTS Language (US) not supported. Falling back to device default.")
+                        result = textToSpeech?.setLanguage(Locale.getDefault())
+                    }
+                }
+
+                if (result != TextToSpeech.LANG_MISSING_DATA &&
+                    result != TextToSpeech.LANG_NOT_SUPPORTED) {
+
+                    isTtsReady = true
+                    Log.d(TAG, "TTS initialized successfully with final language: ${textToSpeech?.language}")
+
                     textToSpeech?.setSpeechRate(0.9f)
+                    textToSpeech?.setPitch(1.0f)
+                } else {
+                    Log.e(TAG, "TTS initialization failed: No supported language found.")
                 }
             } else {
-                Log.e(TAG, "TTS initialization failed")
+                Log.e(TAG, "TTS initialization failed (Status: $status)")
             }
+        }
+    }
+
+    private fun promptForTtsInstallation(action: String) {
+        val installIntent = Intent(action).apply {
+            // Karena dipanggil dari Service, perlu FLAG_ACTIVITY_NEW_TASK
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        try {
+            startActivity(installIntent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Could not launch TTS installation intent.", e)
+            // Beri tahu pengguna bahwa mereka harus menginstal Google TTS dari Play Store
         }
     }
 
@@ -380,11 +411,11 @@ class VoiceActivationService : Service() {
 
     private fun clearVoicePreferences() {
         try {
-            val sharedPrefs = getSharedPreferences("voice_logs", Context.MODE_PRIVATE)
+            val sharedPrefs = getSharedPreferences("voice_logs", MODE_PRIVATE)
             sharedPrefs.edit().clear().apply()
 
             // Hapus preferences lain yang terkait voice service jika ada
-            val appPrefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+            val appPrefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
             appPrefs.edit().remove("voice_service_enabled").apply()
 
             Log.d(TAG, "✅ Voice preferences cleared")
@@ -394,60 +425,43 @@ class VoiceActivationService : Service() {
     }
 
     private fun handleSpokenCommand(command: String) {
-        // 1. Prioritaskan Perintah Darurat
-        if (command.contains("darurat") || command.contains("emergency") || command.contains("tolong")) {
-            handleEmergencyCall()
-        }
-        // 2. Perintah Navigasi/Aksi Utama
-        else if (command.contains("mulai screening") || command.contains("start screening") || command.contains("tes")) {
-            handleStartScreening()
-        }
-        // 3. Perintah Default/Tidak Dikenal
-        else {
-            handleUnknownIntent(command)
+        Log.d(TAG, "🎤 Processing voice command: $command")
+
+        val handled = Said.getInstance().dispatchVoiceCommand(command)
+
+        if (handled) {
+            Log.d(TAG, "✅ Command handled by activity: $command")
+
+            val actionType = when {
+                command.contains("screening") || command.contains("tes") -> {
+                    speak("Memulai screening stroke", 300)
+                    "screening"
+                }
+                command.contains("darurat") || command.contains("emergency") -> {
+                    speak("Membuka mode darurat", 300)
+                    "emergency"
+                }
+                command.contains("dashboard") || command.contains("home") -> {
+                    speak("Menuju dashboard", 300)
+                    "dashboard"
+                }
+                else -> "general"
+            }
+
+            showActionNotification("Perintah: $command", actionType)
+        } else {
+            //showActionNotification untuk Feddback Error
+            Log.w(TAG, "⚠️ Command not handled: $command")
+            showActionNotification("Perintah tidak dikenali: $command", "error")
+
+            if (!command.contains("hi said") && !command.contains("halo said")) {
+                speak("Maaf, perintah tidak dikenali", 500)
+            }
         }
 
-        // Catatan: Hapus logika restart Picovoice dan ganti dengan scheduleRestart() jika Anda menggunakan metode UtteranceProgressListener di TTS.
-        // Jika tidak menggunakan TTS listener, pastikan scheduleRestart() dipanggil di onResults, bukan di sini.
+        // Tetap restart listening setelah processing
+        scheduleRestart()
     }
-
-    private fun handleUnknownIntent(command: String) {
-        Log.w(TAG, "Unknown command: $command")
-
-        // TTS feedback
-        val response = "Maaf, saya tidak mengerti perintah itu."
-        speak(response, 300)
-        showActionNotification("Unknown command: $command")
-
-        // Log intent yang tidak dikenal jika diperlukan
-        logUnknownIntent(command)
-    }
-
-    //legacyu untuk picovoice
-//    private fun handleIntentDetection(inference: RhinoInference) {
-//        Log.d(TAG, "Handling intent: ${inference.intent}, Slots: ${inference.slots}")
-//
-//        when (inference.intent) {
-//            "start_screening" -> handleStartScreening()
-//            "emergency_call" -> handleEmergencyCall()
-//            "open_app" -> handleOpenApp()
-//            else -> handleUnknownIntent(inference)
-//        }
-//
-//        // Show action notification
-//        showActionNotification("Executed: ${inference.intent}")
-//
-//        Handler(Looper.getMainLooper()).postDelayed({
-//            try {
-//                // Kita asumsikan PicovoiceManager.start() me-restart engine ke mode wake word
-//                picovoiceManager.start()
-//                updateNotification("Voice activation active")
-//                Log.d(TAG, "✅ Picovoice restarted to wake word mode")
-//            } catch (e: Exception) {
-//                Log.e(TAG, "❌ Failed to restart Picovoice", e)
-//            }
-//        }, 3000)
-//    }
 
     fun updateListeningStatus(isListening: Boolean) {
         if (isListening) {
@@ -458,88 +472,6 @@ class VoiceActivationService : Service() {
         }
     }
 
-    private fun handleStartScreening() {
-        Log.d(TAG, "Starting screening")
-
-        // TTS feedback sebelum action
-        speak("Starting health screening", 300)
-
-        // Delay action sedikit setelah TTS
-        Handler(Looper.getMainLooper()).postDelayed({
-            startScreeningActivity()
-        }, 1500)
-
-        showActionNotification("Starting health screening", "screening")
-    }
-
-    private fun handleEmergencyCall() {
-        Log.d(TAG, "Emergency call requested")
-
-        // TTS feedback untuk emergency
-        speak("Emergency detected! Starting countdown", 300)
-
-        Handler(Looper.getMainLooper()).postDelayed({
-            showEmergencyCountdown()
-        }, 1500)
-
-        showActionNotification("Emergency detected", "emergency")
-    }
-
-    //legacy untuk picovoice
-//    private fun handleOpenApp() {
-//        Log.d(TAG, "Opening main app")
-//
-//        // TTS feedback
-//        speak("Opening Said application", 300)
-//
-//        Handler(Looper.getMainLooper()).postDelayed({
-//            openMainActivity("dashboard")
-//        }, 1500)
-//
-//        showActionNotification("Opening app", "app")
-//    }
-//
-//    private fun handleUnknownIntent(inference: RhinoInference) {
-//        Log.w(TAG, "Unknown intent received: ${inference.intent}")
-//
-//        // TTS feedback untuk unknown intent
-//        val response = when {
-//            inference.intent.contains("weather") -> "I can't check weather yet"
-//            inference.intent.contains("time") -> "I can't tell time yet"
-//            else -> "Sorry, I didn't understand that command"
-//        }
-//
-//        speak(response, 300)
-//        showActionNotification("Unknown command: ${inference.intent}")
-//        logUnknownIntent(inference)
-//    }
-
-    //Legacy untuk picovoice
-//    private fun logUnknownIntent(inference: RhinoInference) {
-//        // Log unknown intents for future training
-//        val sharedPrefs = getSharedPreferences("voice_logs", Context.MODE_PRIVATE)
-//        val unknownIntents = sharedPrefs.getStringSet("unknown_intents", mutableSetOf()) ?: mutableSetOf()
-//
-//        unknownIntents.add("${System.currentTimeMillis()}: ${inference.intent} - ${inference.slots}")
-//
-//        sharedPrefs.edit {
-//            putStringSet("unknown_intents", unknownIntents)
-//        }
-//    }
-
-    private fun logUnknownIntent(command: String) {
-        // Log unknown commands for future training (menggunakan SpeechRecognizer command string)
-        val sharedPrefs = getSharedPreferences("voice_logs", Context.MODE_PRIVATE)
-        val unknownIntents = sharedPrefs.getStringSet("unknown_intents", mutableSetOf()) ?: mutableSetOf()
-
-        // Log waktu dan teks perintah yang tidak dikenal
-        unknownIntents.add("${System.currentTimeMillis()}: $command")
-
-        sharedPrefs.edit {
-            putStringSet("unknown_intents", unknownIntents)
-        }
-    }
-
     private fun scheduleRestart() {
         broadcastListeningState(false)
         updateListeningStatus(false)
@@ -547,51 +479,6 @@ class VoiceActivationService : Service() {
         Handler(Looper.getMainLooper()).postDelayed({
             startListening()
         }, RESTART_DELAY)
-    }
-
-    private fun startScreeningActivity() {
-        try {
-            // Gunakan metode Intent langsung (seperti EmergencyActivity)
-            val intent = Intent(this, ScreeningActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                putExtra("from_voice_service", true)
-                putExtra("startNew", true)
-            }
-            startActivity(intent)
-            Log.d(TAG, "✅ ScreeningActivity started via direct Intent (Voice Command)")
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error starting ScreeningActivity", e)
-            // Jika gagal, setidaknya buka MainActivity
-            openMainActivity("screening")
-        }
-    }
-
-    // Helper method untuk mendapatkan username
-    private fun getCurrentUsername(): String {
-        return try {
-            SessionManager.getUserName(this) ?: "user_${System.currentTimeMillis()}"
-        } catch (e: Exception) {
-            "user_${System.currentTimeMillis()}"
-        }
-    }
-    private fun showEmergencyCountdown() {
-        // Gunakan Android Intent untuk start Emergency Activity
-        val intent = Intent(this, EmergencyActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            putExtra("from_voice_service", true)
-        }
-        startActivity(intent)
-    }
-
-    private fun openMainActivity(fragment: String? = null) {
-        // Gunakan Android Intent untuk start MainActivity
-        val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra("from_voice_service", true)
-            putExtra("target_fragment", fragment)
-            action = "EMERGENCY_CALL"
-        }
-        startActivity(intent)
     }
 
     private fun createNotificationChannel() {
@@ -673,18 +560,6 @@ class VoiceActivationService : Service() {
         }
         sendBroadcast(intent)
     }
-
-    // Public methods untuk activity
-    fun isServiceRunning(): Boolean = isServiceRunning
-
-    //legacy untuk picovoice
-//    fun getServiceState(): String {
-//        return when {
-//            !isServiceRunning -> "Stopped"
-//            picovoiceManager.isInIntentMode() -> "Listening for command"
-//            else -> "Waiting for wake word"
-//        }
-//    }
 
     override fun onDestroy() {
         super.onDestroy()

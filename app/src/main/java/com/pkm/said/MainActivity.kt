@@ -38,7 +38,7 @@ interface NavigationCallback {
 }
 
 
-class MainActivity : AppCompatActivity(), NavigationCallback {
+class MainActivity : AppCompatActivity(), NavigationCallback, Said.VoiceActivityCallback {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var navController: NavController
@@ -72,7 +72,6 @@ class MainActivity : AppCompatActivity(), NavigationCallback {
 
     companion object {
         private const val TAG = "MainActivity"
-        private const val VOICE_ASSISTANT_ENABLED = "voice_assistant_enabled"
     }
 
     // ✅ SERVICE CONNECTION
@@ -111,6 +110,7 @@ class MainActivity : AppCompatActivity(), NavigationCallback {
             Log.d(TAG, "✅ Permission manager initialized")
 
 //            debugPicovoiceAssets()
+            Said.getInstance().registerActivityCallback(this.localClassName, this)
 
             try {
                 val navHostFragment = supportFragmentManager
@@ -283,18 +283,67 @@ class MainActivity : AppCompatActivity(), NavigationCallback {
 //        }
 //    }
 
-    // ✅ VOICE INTENT HANDLING
-    // Di MainActivity - handleVoiceIntent() tambahkan:
+    override fun onVoiceCommand(command: String, extras: Bundle?): Boolean {
+        Log.d(TAG, "🎤 Voice command received: $command")
+        return when (command.toLowerCase()) {
+            // SCREENING - gunakan fungsi existing startStrokeScreening()
+            "tes stroke", "mulai screening", "screening" -> {
+                startStrokeScreening()
+                true
+            }
+            // EMERGENCY - gunakan fungsi baru handleEmergencyFromVoice()
+            "darurat", "emergency", "tolong" -> {
+                handleEmergencyFromVoice()
+                true
+            }
+            else -> false
+        }
+    }
+
+    override fun onNavigateTo(destination: String): Boolean {
+        Log.d(TAG, "🧭 Navigation command: $destination")
+        return when (destination.toLowerCase()) {
+            "dashboard", "home" -> {
+                navigateToDashboard()
+                true
+            }
+            else -> false
+        }
+    }
+
+    // SUPPORTED COMMANDS
+    override fun getSupportedCommands(): List<String> {
+        return listOf(
+            "tes stroke", "mulai screening", "screening",
+            "darurat", "emergency", "tolong",
+            "dashboard", "home"
+        )
+    }
+
+    private fun handleEmergencyFromVoice() {
+        try {
+            Log.d(TAG, "🚨 Emergency from voice command - starting EmergencyActivity")
+            val intent = Intent(this, EmergencyActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("from_voice_command", true)
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to start EmergencyActivity, using fallback", e)
+            // Fallback ke dialog emergency
+            showEmergencyFallbackDialog()
+        }
+    }
+
     private fun handleVoiceIntent(intent: Intent?) {
         intent ?: return
         Log.d(TAG, "🎤 Handling voice intent: ${intent.action}")
 
         when (intent.action) {
             "START_SCREENING" -> {
-                Log.d(TAG, "🏥 Voice command - Start screening")
+                Log.d(TAG, "🏥 Voice intent - Start screening")
                 startStrokeScreening()
             }
-
             "DAILY_REMINDER_OPEN" -> {
                 Log.d(TAG, "📅 App opened from daily reminder")
                 val autoStartScreening = intent.getBooleanExtra("auto_start_screening", false)
@@ -308,29 +357,44 @@ class MainActivity : AppCompatActivity(), NavigationCallback {
                     }, 2000)
                 }
             }
-
             "EMERGENCY_CALL" -> {
-                Log.d(TAG, "🚨 Emergency command from service fallback")
-                handleEmergencyFallback() // Handle fallback case
+                Log.d(TAG, "🚨 Emergency intent - using new handler")
+                handleEmergencyFromVoice()
             }
-
             else -> {
                 Log.d(TAG, "❓ Unknown voice intent action: ${intent.action}")
                 if (intent.getBooleanExtra("from_voice_service", false)) {
                     val targetFragment = intent.getStringExtra("target_fragment")
                     when (targetFragment) {
-                        "dashboard" -> navigateToDashboard()
                         "screening" -> startStrokeScreening()
-                        "emergency" -> handleEmergencyFallback() // Handle emergency fallback
-                    }
-
-                    // Handle emergency command dari extra
-                    if (intent.getBooleanExtra("emergency_command", false)) {
-                        handleEmergencyFallback()
+                        "emergency" -> handleEmergencyFromVoice()
+                        "dashboard" -> navigateToDashboard()
                     }
                 }
             }
         }
+    }
+
+    private fun showEmergencyFallbackDialog() {
+        Log.d(TAG, "🚨 Emergency fallback - showing dialog")
+
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("🚨 Emergency Detected")
+            .setMessage("Voice assistant detected emergency situation. Please manually open emergency features.")
+            .setPositiveButton("Open Emergency") { _, _ ->
+                // Try to start EmergencyActivity again dengan approach berbeda
+                try {
+                    val intent = Intent(this, EmergencyActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Cannot open emergency screen", Toast.LENGTH_SHORT).show()
+                    Log.e(TAG, "❌ Emergency fallback also failed", e)
+                }
+            }
+            .setNegativeButton("Cancel") { _, _ -> }
+            .show()
     }
 
     fun triggerEmergencyPermissionRequest() {
@@ -364,24 +428,30 @@ class MainActivity : AppCompatActivity(), NavigationCallback {
         }
     }
 
-    // Fallback emergency handler jika EmergencyActivity gagal
-    private fun handleEmergencyFallback() {
-        Log.d(TAG, "🚨 Emergency fallback - showing dialog")
 
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("🚨 Emergency Detected")
-            .setMessage("Voice assistant detected emergency situation but couldn't start emergency screen. Please manually open emergency features.")
-            .setPositiveButton("Open Emergency") { _, _ ->
-                // Try to start EmergencyActivity again
-                try {
-                    val intent = Intent(this, EmergencyActivity::class.java)
-                    startActivity(intent)
-                } catch (e: Exception) {
-                    Toast.makeText(this, "Cannot open emergency screen", Toast.LENGTH_SHORT).show()
-                }
+    // ✅ STROKE SCREENING
+    private fun startStrokeScreening() {
+        try {
+            Log.d(TAG, "🏥 Starting stroke screening process...")
+            Log.d(TAG, "Username: $currentUsername")
+
+            // ✅ GUNAKAN METHOD start() DARI SCREENINGACTIVITY
+            ScreeningActivity.start(this, currentUsername, startNew = true)
+
+            if (!isFinishing && !isDestroyed) {
+                Toast.makeText(
+                    this,
+                    "🏥 Starting screening for $currentUsername",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
-            .setNegativeButton("Cancel") { _, _ -> }
-            .show()
+            Log.d(TAG, "✅ ScreeningActivity started successfully via companion method")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error starting stroke screening", e)
+            if (!isFinishing && !isDestroyed) {
+                Toast.makeText(this, "❌ Failed to start screening", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     override fun navigateToTopLevel(destinationId: Int) {
@@ -594,7 +664,6 @@ class MainActivity : AppCompatActivity(), NavigationCallback {
                 permissionManager.requestBasicPermissions(this)
             } else {
                 Log.d(TAG, "✅ All basic permissions already granted, starting voice assistant...")
-                startVoiceAssistant()
             }
 
             triggerEmergencyPermissionRequest()
@@ -609,32 +678,6 @@ class MainActivity : AppCompatActivity(), NavigationCallback {
             Log.d(TAG, "🔗 Connected to existing voice activation service")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error connecting to existing service", e)
-        }
-    }
-
-    // ✅ START VOICE ASSISTANT
-    private fun startVoiceAssistant() {
-        try {
-            Log.d(TAG, "🎤 Starting Voice Activation Service...")
-
-            val intent = Intent(this, VoiceActivationService::class.java)
-            ContextCompat.startForegroundService(this, intent)
-            bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
-
-            val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-            prefs.edit { putBoolean(VOICE_ASSISTANT_ENABLED, true) }
-
-            if (!isFinishing && !isDestroyed) {
-                Toast.makeText(
-                    this,
-                    "🎤 Voice Assistant dimulai, silahkan berikan perintah\nemergency atau screening",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-
-            Log.d(TAG, "✅ Voice Activation Service started")
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error starting voice assistant", e)
         }
     }
 
@@ -672,12 +715,6 @@ class MainActivity : AppCompatActivity(), NavigationCallback {
 
             if (allBasicGranted) {
                 Log.d(TAG, "✅ All basic permissions granted - Starting voice assistant immediately")
-
-                // Delay sedikit untuk memastikan permission benar-benar applied
-                mainHandler.postDelayed({
-                    startVoiceAssistant()
-                }, 500)
-
             } else {
                 Log.w(TAG, "⚠️ Some basic permissions were denied")
                 // Tampilkan pesan bahwa fitur voice akan terbatas
@@ -711,46 +748,6 @@ class MainActivity : AppCompatActivity(), NavigationCallback {
         }
     }
 
-    // ✅ STROKE SCREENING
-    private fun startStrokeScreening() {
-        try {
-            Log.d(TAG, "🏥 Starting stroke screening process...")
-            Log.d(TAG, "Username: $currentUsername")
-
-            // ✅ GUNAKAN METHOD start() DARI SCREENINGACTIVITY
-            ScreeningActivity.start(this, currentUsername, startNew = true)
-
-            if (!isFinishing && !isDestroyed) {
-                Toast.makeText(
-                    this,
-                    "🏥 Starting screening for $currentUsername",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-            Log.d(TAG, "✅ ScreeningActivity started successfully via companion method")
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error starting stroke screening", e)
-            if (!isFinishing && !isDestroyed) {
-                Toast.makeText(this, "❌ Failed to start screening", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    private fun stopVoiceAssistant() {
-        if (isBound) {
-            unbindService(serviceConnection)
-            isBound = false
-            voiceService = null
-        }
-
-        val intent = Intent(this, VoiceActivationService::class.java)
-        stopService(intent)
-
-        // Opsional: Hentikan SpeechRecognizer di dalam Service agar mikrofon bebas lebih cepat
-        // Walaupun stopService() harusnya memicu onDestroy() di Service
-
-        Log.d(TAG, "🛑 Voice Activation Service stopped.")
-    }
 
     // ✅ PERMISSION STATUS CHECK (untuk logging)
     fun checkPermissionStatus() {
@@ -768,12 +765,6 @@ class MainActivity : AppCompatActivity(), NavigationCallback {
         }
     }
 
-
-    override fun onPause() {
-        super.onPause()
-
-        stopVoiceAssistant()
-    }
 
     override fun onStop() {
         super.onStop()
@@ -797,6 +788,8 @@ class MainActivity : AppCompatActivity(), NavigationCallback {
         super.onDestroy()
         Log.d(TAG, "🧹 MainActivity onDestroy() - cleanup")
 
+        Said.getInstance().unregisterActivityCallback(this.localClassName)
+
         // Remove pending callbacks
         mainHandler.removeCallbacksAndMessages(null)
 
@@ -810,8 +803,6 @@ class MainActivity : AppCompatActivity(), NavigationCallback {
             Log.e(TAG, "❌ Error unbinding service", e)
         }
 
-        // Clear references
-        voiceService = null
         onBackPressedCallback?.remove()
         onBackPressedCallback = null
 

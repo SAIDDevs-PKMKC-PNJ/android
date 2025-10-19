@@ -16,6 +16,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.google.gson.Gson
+import com.pkm.said.EmergencyActivity
 import com.pkm.said.MainActivity
 import com.pkm.said.R
 import com.pkm.said.databinding.FragmentScreeningResultBinding
@@ -403,7 +404,10 @@ class ScreeningResultFragment : Fragment() {
             RiskLevel.LOW -> "Hasil screening menunjukkan kondisi normal. Lanjutkan gaya hidup sehat dan rutin check-up."
             RiskLevel.MEDIUM -> "Ada indikasi yang perlu diperhatikan. Disarankan konsultasi dengan dokter."
             RiskLevel.HIGH -> "Beberapa gejala signifikan. Segera konsultasi dengan dokter/tenaga medis."
-            RiskLevel.CRITICAL -> "⚠️ PENTING: Indikasi kritis. Segera hubungi layanan medis darurat."
+            RiskLevel.CRITICAL -> {
+                showCriticalRiskAlert()
+                "⚠️ PENTING: Indikasi kritis. Segera hubungi layanan medis darurat. Anda bisa mengatakan \\\"Darurat\\\" untuk membuka mode emergency"
+            }
             RiskLevel.UNKNOWN -> "Data belum lengkap. Silakan lanjutkan tes yang tertunda."
         }
         binding.tvRecommendation.text = recommendation
@@ -412,6 +416,41 @@ class ScreeningResultFragment : Fragment() {
             binding.tvRecommendation.setTextColor(
                 ContextCompat.getColor(requireContext(), R.color.error)
             )
+        }
+    }
+
+    private fun showCriticalRiskAlert() {
+        AlertDialog.Builder(requireContext())
+            .setTitle("🚨 HASIL SCREENING KRITIS")
+            .setMessage("Hasil screening menunjukkan indikasi stroke yang serius.\n\n" +
+                    "• Segera hubungi layanan medis darurat\n" +
+                    "• Jangan mengemudi sendiri ke rumah sakit\n" +
+                    "• Tetap tenang dan cari bantuan\n\n" +
+                    "Anda bisa menggunakan voice command \"Darurat\" untuk membuka mode emergency.")
+            .setPositiveButton("Buka Emergency") { _, _ ->
+                openEmergencyFromCriticalResult()
+            }
+            .setNegativeButton("Saya Paham") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .setCancelable(false)
+            .show()
+    }
+
+    // ✅ BUKA EMERGENCY DARI HASIL KRITIS
+    private fun openEmergencyFromCriticalResult() {
+        try {
+            val intent = Intent(requireContext(), EmergencyActivity::class.java).apply {
+                putExtra("from_screening_result", true)
+                putExtra("risk_level", "CRITICAL")
+                putExtra("screening_session_id", completedSession?.sessionId)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            startActivity(intent)
+            requireActivity().finish()
+        } catch (e: Exception) {
+            Log.e("ScreeningResult", "Failed to open emergency from critical result", e)
+            Toast.makeText(requireContext(), "Gagal membuka emergency", Toast.LENGTH_SHORT).show()
         }
     }
 

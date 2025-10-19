@@ -8,7 +8,6 @@ import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
-import android.speech.tts.TextToSpeech
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
@@ -26,17 +25,21 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.activity.viewModels
 import androidx.lifecycle.lifecycleScope
+import com.google.firebase.auth.FirebaseAuth
 import com.pkm.said.util.ChatViewModel
 import kotlinx.coroutines.launch
 import com.pkm.said.adapter.MessageAdapter
 import com.pkm.said.databinding.ActivityChatbotBinding
+import com.pkm.said.screening.ScreeningActivity
+import com.pkm.said.service.VoiceActivationService
 import com.pkm.said.util.AuthManager
 import com.pkm.said.util.InputMode
+import com.pkm.said.util.SessionManager
 import kotlinx.coroutines.Job
 import java.util.Locale
 import kotlin.math.max
 
-class ChatbotActivity : AppCompatActivity() {
+class ChatbotActivity : AppCompatActivity(), Said.VoiceActivityCallback {
 
     companion object {
         private const val TAG = "ChatbotActivity"
@@ -65,9 +68,7 @@ class ChatbotActivity : AppCompatActivity() {
     private var speechRecognizer: SpeechRecognizer? = null
     private var speechIntent: Intent? = null
     private var isListening = false
-
-    // TTS (opsional; belum dipakai)
-    private var tts: TextToSpeech? = null
+    private var wasVoiceServiceRunning = false
 
     // Overlay wave (jika sebelumnya ada dummy animasi, sekarang dimatikan)
     private var waveJob: Job? = null
@@ -101,6 +102,8 @@ class ChatbotActivity : AppCompatActivity() {
             setContentView(binding.root)
             Log.d(TAG, "✅ View Binding setup completed")
 
+            Said.getInstance().registerActivityCallback(this.localClassName, this)
+
             setupViews()
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error setting up activity", e)
@@ -126,6 +129,201 @@ class ChatbotActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error in setupViews", e)
             showError("Terjadi kesalahan saat memuat chatbot")
+        }
+    }
+
+    // ✅ VOICE COMMAND HANDLER - SCREENING, EMERGENCY, DAN DASHBOARD
+    override fun onVoiceCommand(command: String, extras: Bundle?): Boolean {
+        Log.d(TAG, "🎤 Voice command received in Chatbot: $command")
+        return when (command.toLowerCase()) {
+            // SCREENING - sama seperti MainActivity
+            "tes stroke", "mulai screening", "screening", "mulai tes" -> {
+                startStrokeScreening()
+                true
+            }
+            // EMERGENCY - sama seperti MainActivity
+            "darurat", "emergency", "tolong" -> {
+                handleEmergencyFromVoice()
+                true
+            }
+            // DASHBOARD - kembali ke MainActivity
+            "dashboard", "home", "kembali" -> {
+                navigateToDashboard()
+                true
+            }
+            else -> false
+        }
+    }
+
+    // ✅ NAVIGATION - UPDATE UNTUK SCREENING & EMERGENCY
+    override fun onNavigateTo(destination: String): Boolean {
+        Log.d(TAG, "🧭 Navigation command in Chatbot: $destination")
+        return when (destination.toLowerCase()) {
+            "dashboard", "home" -> {
+                navigateToDashboard()
+                true
+            }
+            "screening" -> {
+                startStrokeScreening()
+                true
+            }
+            "emergency" -> {
+                handleEmergencyFromVoice()
+                true
+            }
+            else -> false
+        }
+    }
+
+    // ✅ SUPPORTED COMMANDS - UPDATE DENGAN SCREENING & EMERGENCY
+    override fun getSupportedCommands(): List<String> {
+        return listOf(
+            "tes stroke", "mulai screening", "screening", "mulai tes",
+            "darurat", "emergency", "tolong",
+            "dashboard", "home", "kembali"
+        )
+    }
+
+    // ✅ STROKE SCREENING - SAMA SEPERTI DI MAINACTIVITY
+    private fun startStrokeScreening() {
+        try {
+            Log.d(TAG, "🏥 Starting stroke screening from Chatbot...")
+
+            // Dapatkan username seperti di MainActivity
+            val username = getCurrentUsername()
+            Log.d(TAG, "Username: $username")
+
+            // ✅ GUNAKAN METHOD start() DARI SCREENINGACTIVITY - sama seperti MainActivity
+            ScreeningActivity.start(this, username, startNew = true)
+
+            if (!isFinishing && !isDestroyed) {
+                Toast.makeText(
+                    this,
+                    "🏥 Starting screening for $username",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+            Log.d(TAG, "✅ ScreeningActivity started successfully from Chatbot")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error starting stroke screening from Chatbot", e)
+            if (!isFinishing && !isDestroyed) {
+                Toast.makeText(this, "❌ Failed to start screening", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    // ✅ EMERGENCY HANDLER - SAMA SEPERTI DI MAINACTIVITY
+    private fun handleEmergencyFromVoice() {
+        try {
+            Log.d(TAG, "🚨 Emergency from voice command in Chatbot - starting EmergencyActivity")
+            val intent = Intent(this, EmergencyActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("from_voice_command", true)
+                putExtra("from_chatbot", true) // Tambahkan identifier
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to start EmergencyActivity from Chatbot, using fallback", e)
+            // Fallback ke dialog emergency
+            showEmergencyFallbackDialog()
+        }
+    }
+
+    // ✅ EMERGENCY FALLBACK DIALOG - SAMA SEPERTI DI MAINACTIVITY
+    private fun showEmergencyFallbackDialog() {
+        Log.d(TAG, "🚨 Emergency fallback in Chatbot - showing dialog")
+
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("🚨 Emergency Detected")
+            .setMessage("Voice assistant detected emergency situation. Please manually open emergency features.")
+            .setPositiveButton("Open Emergency") { _, _ ->
+                // Try to start EmergencyActivity again dengan approach berbeda
+                try {
+                    val intent = Intent(this, EmergencyActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        putExtra("from_chatbot", true)
+                    }
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Cannot open emergency screen", Toast.LENGTH_SHORT).show()
+                    Log.e(TAG, "❌ Emergency fallback also failed in Chatbot", e)
+                }
+            }
+            .setNegativeButton("Cancel") { _, _ -> }
+            .show()
+    }
+
+    // ✅ GET CURRENT USERNAME - SAMA SEPERTI DI MAINACTIVITY
+    private fun getCurrentUsername(): String {
+        return try {
+            SessionManager.getUserName(this) ?: getFallbackUsername()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting username in Chatbot", e)
+            getFallbackUsername()
+        }
+    }
+
+    private fun getFallbackUsername(): String {
+        return try {
+            // Coba dapatkan dari Firebase Auth sebagai fallback
+            val firebaseUser = FirebaseAuth.getInstance().currentUser
+            when {
+                firebaseUser?.displayName != null -> {
+                    val username = firebaseUser.displayName!!
+                    // Simpan ke SessionManager untuk konsistensi
+                    saveUsernameToSessionManager(username)
+                    username
+                }
+
+                firebaseUser?.email != null -> {
+                    val email = firebaseUser.email!!
+                    val usernameFromEmail = email.substringBefore("@")
+                    saveUsernameToSessionManager(usernameFromEmail)
+                    usernameFromEmail
+                }
+
+                else -> generateAnonymousUsername()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting fallback username", e)
+            generateAnonymousUsername()
+        }
+    }
+
+    private fun saveUsernameToSessionManager(username: String) {
+        try {
+            // Jika user sudah login di Firebase, update SessionManager
+            val firebaseUser = FirebaseAuth.getInstance().currentUser
+            firebaseUser?.let { user ->
+                SessionManager.saveBasicFromFirebase(this, user, "auto_detected")
+            }
+            Log.d(TAG, "✅ Username saved to SessionManager: $username")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving username to SessionManager", e)
+        }
+    }
+
+    private fun generateAnonymousUsername(): String {
+        val anonymousUser = "user_${System.currentTimeMillis()}"
+        Log.d(TAG, "Generated anonymous username in Chatbot: $anonymousUser")
+        return anonymousUser
+    }
+
+    private fun navigateToDashboard() {
+        try {
+            Log.d(TAG, "🚀 Navigating to Dashboard - finishing ChatbotActivity")
+
+            // Cukup finish() karena MainActivity sudah default ke dashboard
+            finish()
+
+            // Optional: smooth transition animation
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+
+            Log.d(TAG, "✅ Navigation to dashboard completed")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error navigating to dashboard", e)
+            // Fallback - tetap coba finish
+            finish()
         }
     }
 
@@ -399,6 +597,13 @@ class ChatbotActivity : AppCompatActivity() {
         binding.pressToTalkIdle.setOnTouchListener { _, ev ->
             when (ev.action) {
                 MotionEvent.ACTION_DOWN -> {
+                    wasVoiceServiceRunning = isVoiceServiceActive()
+
+                    // 2. Jika Service aktif, hentikan sementaara
+                    if (wasVoiceServiceRunning) {
+                        pauseVoiceService() // <-- Fungsi yang akan kita buat
+                    }
+
                     startY = ev.rawY
                     micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                     // Biarkan UI masuk ke RECORDING saat izin granted (di launcher)
@@ -418,11 +623,38 @@ class ChatbotActivity : AppCompatActivity() {
                     val cancelled = dy > cancelThreshold
                     stopListening(cancelled)
                     switchInputMode(InputMode.MIC_IDLE)
+
+                    if (wasVoiceServiceRunning) {
+                        resumeVoiceService() // <-- Fungsi yang akan kita buat
+                    }
                     true
                 }
                 else -> false
             }
         }
+    }
+
+    private fun isVoiceServiceActive(): Boolean {
+        val manager = getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager
+        return manager.getRunningServices(Integer.MAX_VALUE).any {
+            it.service.className == VoiceActivationService::class.java.name
+        }
+    }
+
+    private fun pauseVoiceService() {
+        val intent = Intent(this, VoiceActivationService::class.java).apply {
+            action = VoiceActivationService.ACTION_STOP
+        }
+        startService(intent)
+        Log.d(TAG, "Sent ACTION_STOP to Voice Service.")
+    }
+
+    private fun resumeVoiceService() {
+        val intent = Intent(this, VoiceActivationService::class.java).apply {
+            action = VoiceActivationService.ACTION_START
+        }
+        ContextCompat.startForegroundService(this, intent)
+        Log.d(TAG, "Sent ACTION_START to Voice Service to resume.")
     }
 
     // ---------------------------
@@ -542,6 +774,7 @@ class ChatbotActivity : AppCompatActivity() {
         Log.d(TAG, "onDestroy called")
 
         try {
+            Said.getInstance().unregisterActivityCallback(this.localClassName)
             stopWaveAnimation()
             speechRecognizer?.destroy()
             binding.rvMessages.removeCallbacks(null)
