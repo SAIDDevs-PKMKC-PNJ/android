@@ -38,6 +38,7 @@ class ProfileFormFragment : Fragment() {
     companion object {
         private const val TAG = "ProfileFormFragment"
         private const val PICK_IMAGE_REQUEST = 1001
+        private val PHONE_REGEX = Regex("^[89]\\d{9,11}$")
     }
 
     private var _binding: FragmentProfileFormBinding? = null
@@ -82,6 +83,7 @@ class ProfileFormFragment : Fragment() {
             binding.etBirthdate.setText("")
             binding.etAddress.setText("")
             binding.etPhone.setText("")
+            binding.etEmergency.setText("")
             return
         }
 
@@ -105,6 +107,7 @@ class ProfileFormFragment : Fragment() {
                 binding.etBirthdate.setText(doc.getString("birthdate").orEmpty())
                 binding.etAddress.setText(doc.getString("address").orEmpty())
                 binding.etPhone.setText(doc.getString("phone").orEmpty())
+                binding.etEmergency.setText(doc.getString("emergencyPhone").orEmpty())
 
                 Log.d(TAG, "Firestore loaded: birthdate=${doc.getString("birthdate")}, address=${doc.getString("address")}, phone=${doc.getString("phone")}")
             }
@@ -144,12 +147,36 @@ class ProfileFormFragment : Fragment() {
             }
         }
 
+        binding.etName.setOnClickListener {
+            if (!isEditing) {
+                Toast.makeText(requireContext(), "Tekan 'Edit Profil' untuk mengubah data", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        binding.etAddress.setOnClickListener {
+            if (!isEditing) {
+                Toast.makeText(requireContext(), "Tekan 'Edit Profil' untuk mengubah data", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        binding.etPhone.setOnClickListener {
+            if (!isEditing) {
+                Toast.makeText(requireContext(), "Tekan 'Edit Profil' untuk mengubah data", Toast.LENGTH_SHORT).show()
+            }
+        }
+
         binding.etBirthdate.setOnClickListener {
             if (!isEditing) {
                 Toast.makeText(requireContext(), "Tekan 'Edit Profil' untuk mengubah data", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
             showDatePicker()
+        }
+
+        binding.etEmergency.setOnClickListener {
+            if (!isEditing) {
+                Toast.makeText(requireContext(), "Tekan 'Edit Profil' untuk mengubah data", Toast.LENGTH_SHORT).show()
+            }
         }
 
         binding.btnBack.setOnClickListener {
@@ -179,9 +206,6 @@ class ProfileFormFragment : Fragment() {
         binding.btnEditSave.text = "Simpan Perubahan"
         binding.btnEditSave.isEnabled = true
         binding.btnEditSave.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.success_color))
-
-        // ✅ TAMPILKAN INDIKATOR SEDANG EDIT
-        showEditModeIndicator(true)
     }
 
     // ✅ KELUAR DARI MODE EDIT (SETELAH SIMPAN/BATAL)
@@ -193,21 +217,8 @@ class ProfileFormFragment : Fragment() {
         binding.btnEditSave.isEnabled = true
         binding.btnEditSave.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.lightBlue))
 
-        // ✅ SEMBUNYIKAN INDIKATOR EDIT
-        showEditModeIndicator(false)
-
         // ✅ RESET SELECTED PHOTO JIKA ADA
         selectedPhotoUri = null
-    }
-
-    // ✅ TAMPILKAN/SEMBUNYIKAN INDIKATOR MODE EDIT
-    private fun showEditModeIndicator(editing: Boolean) {
-        if (editing) {
-            binding.tvEditIndicator.visibility = View.VISIBLE
-            binding.tvEditIndicator.text = "Mode Edit - Isi data lalu tekan 'Simpan Perubahan'"
-        } else {
-            binding.tvEditIndicator.visibility = View.GONE
-        }
     }
 
     private fun setEditable(editable: Boolean) {
@@ -216,6 +227,7 @@ class ProfileFormFragment : Fragment() {
         binding.etBirthdate.isEnabled = editable
         binding.etAddress.isEnabled = editable
         binding.etPhone.isEnabled = editable
+        binding.etEmergency.isEnabled = editable
 
         // ✅ VISUAL FEEDBACK - BEDA WARNA/TAMPILAN
         val alpha = if (editable) 1.0f else 0.7f
@@ -223,6 +235,7 @@ class ProfileFormFragment : Fragment() {
         binding.etBirthdate.alpha = alpha
         binding.etAddress.alpha = alpha
         binding.etPhone.alpha = alpha
+        binding.etEmergency.alpha = alpha
 
         if (editable) binding.etName.requestFocus()
     }
@@ -232,7 +245,8 @@ class ProfileFormFragment : Fragment() {
         val name = binding.etName.text.toString().trim()
         val birthdate = binding.etBirthdate.text.toString().trim()
         val address = binding.etAddress.text.toString().trim()
-        val phone = binding.etPhone.text.toString().trim()
+        val phone = cleanPhoneNumber(binding.etPhone.text.toString())
+        val emergency = cleanPhoneNumber(binding.etEmergency.text.toString())
 
         if (name.isEmpty()) {
             binding.etName.error = "Nama harus diisi"
@@ -258,13 +272,50 @@ class ProfileFormFragment : Fragment() {
             return false
         }
 
-        // ✅ CLEAR ERRORS JIKA VALIDASI BERHASIL
+        if (phone.isEmpty()) {
+            binding.etEmergency.error = "Nomor telepon harus diisi"
+            binding.etEmergency.requestFocus()
+            return false
+        }
+
+        if (!validatePhoneFormat(phone)) return showValidationError(binding.etPhone, "Nomor telepon tidak valid (10-12 digit, mulai 8/9)")
+        if (!validatePhoneFormat(emergency)) return showValidationError(binding.etEmergency, "Nomor darurat tidak valid (10-12 digit, mulai 8/9)")
+
+        // 3. Cek Duplikasi
+        if (phone == emergency) {
+            Toast.makeText(context, "Nomor telepon dan darurat tidak boleh sama.", Toast.LENGTH_LONG).show()
+            return false
+        }
+
+        clearValidationErrors()
+        return true
+    }
+
+    private fun clearValidationErrors() {
         binding.etName.error = null
         binding.etBirthdate.error = null
         binding.etAddress.error = null
         binding.etPhone.error = null
+        binding.etEmergency.error = null
+    }
 
-        return true
+    private fun showValidationError(view: View, message: String): Boolean {
+        if (view is android.widget.EditText) {
+            view.error = message
+            view.requestFocus()
+        } else {
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        }
+        return false
+    }
+
+    private fun validatePhoneFormat(cleanedPhone: String): Boolean {
+        // Cek panjang dan format (menggunakan regex yang sama dengan di UserInformationActivity)
+        return cleanedPhone.length in 10..12 && PHONE_REGEX.matches(cleanedPhone)
+    }
+
+    private fun cleanPhoneNumber(input: String): String {
+        return input.replace("\\D".toRegex(), "")
     }
 
     // ✅ DIALOG KONFIRMASI BATAL EDIT
@@ -274,7 +325,6 @@ class ProfileFormFragment : Fragment() {
             .setMessage("Perubahan yang belum disimpan akan hilang.")
             .setPositiveButton("Ya, Batalkan") { dialog, _ ->
                 dialog.dismiss()
-                // ✅ RELOAD DATA ASLI DAN KELUAR DARI EDIT MODE
                 setupUserData()
                 exitEditMode()
                 Toast.makeText(requireContext(), "Perubahan dibatalkan", Toast.LENGTH_SHORT).show()
@@ -344,6 +394,7 @@ class ProfileFormFragment : Fragment() {
         val birthdate = binding.etBirthdate.text.toString().trim()
         val address = binding.etAddress.text.toString().trim()
         val phone = binding.etPhone.text.toString().trim()
+        val emergency = cleanPhoneNumber(binding.etEmergency.text.toString())
 
         if (selectedPhotoUri != null) {
             // ✅ UPLOAD FOTO BARU JIKA ADA
@@ -365,7 +416,7 @@ class ProfileFormFragment : Fragment() {
                         .build()
 
                     user.updateProfile(profileUpdates).addOnSuccessListener {
-                        saveToFirestore(user.uid, newName, birthdate, address, phone, finalUrl, publicId)
+                        saveToFirestore(user.uid, newName, birthdate, address, phone, emergency, finalUrl, publicId)
                     }.addOnFailureListener { e ->
                         setLoadingState(false)
                         Log.e(TAG, "Update profile failed", e)
@@ -384,7 +435,7 @@ class ProfileFormFragment : Fragment() {
                 .build()
 
             user.updateProfile(profileUpdates).addOnSuccessListener {
-                saveToFirestore(user.uid, newName, birthdate, address, phone, null, null)
+                saveToFirestore(user.uid, newName, birthdate, address, phone, emergency, null, null)
             }.addOnFailureListener { e ->
                 setLoadingState(false)
                 Log.e(TAG, "Update profile failed", e)
@@ -400,14 +451,19 @@ class ProfileFormFragment : Fragment() {
         birthdate: String,
         address: String,
         phone: String,
+        emergency: String,
         photoUrl: String?,
         publicId: String?
     ) {
+        val formattedPhone = formatPhoneForFirebase(phone)
+        val formattedEmergency = formatPhoneForFirebase(emergency)
+
         val userMap = mutableMapOf(
             "name" to name,
             "birthdate" to birthdate,
+            "phone" to formattedPhone,
             "address" to address,
-            "phone" to phone,
+            "emergencyPhone" to formattedPhone,
             "updatedAt" to System.currentTimeMillis()
         )
 
@@ -430,6 +486,28 @@ class ProfileFormFragment : Fragment() {
                 Log.e(TAG, "Save to Firestore failed", e)
                 Toast.makeText(context, "Gagal menyimpan data: ${e.message}", Toast.LENGTH_SHORT).show()
             }
+    }
+
+    private fun formatPhoneForFirebase(phone: String): String {
+        val digitsOnly = phone.replace("\\D".toRegex(), "")
+        return if (digitsOnly.isEmpty()) "" else "+62$digitsOnly"
+    }
+
+    // ✅ Fungsi format telepon untuk ditampilkan (menghapus +62 dan format display)
+    private fun formatPhoneForDisplay(phone: String): String {
+        if (phone.startsWith("+62")) {
+            val digitsOnly = phone.substring(3).replace("\\D".toRegex(), "")
+
+            val formatted = StringBuilder()
+            for (i in digitsOnly.indices) {
+                if (i == 4 || i == 8) {
+                    formatted.append("-")
+                }
+                formatted.append(digitsOnly[i])
+            }
+            return formatted.toString()
+        }
+        return phone
     }
 
     // ✅ SET LOADING STATE

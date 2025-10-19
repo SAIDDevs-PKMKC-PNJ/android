@@ -14,6 +14,15 @@ class Said : Application(), Application.ActivityLifecycleCallbacks {
     private var visibleActivityCount = 0
     private var currentActivity: Activity? = null
 
+    private val ACTIVITY_BLACKLIST = listOf(
+        "LoginActivity",
+        "RegisterActivity",
+        "UserInformationActivity",
+        "IntroActivity",
+        "OpeningActivity"
+
+    )
+
     // =======================================================
     // LIFECYCLE CALLBACKS
     // =======================================================
@@ -43,9 +52,20 @@ class Said : Application(), Application.ActivityLifecycleCallbacks {
         Log.d(TAG, "Application created. Lifecycle monitoring started.")
     }
 
+    private fun isActivityBlacklisted(activity: Activity): Boolean {
+        val activityName = activity.localClassName
+        return ACTIVITY_BLACKLIST.any { activityName.contains(it) }
+    }
+
     // Dipanggil saat Activity pertama dibuka atau kembali dari background
     override fun onActivityResumed(activity: Activity) {
         currentActivity = activity
+
+        if (isActivityBlacklisted(activity)) {
+            Log.d(TAG, "Activity resumed: ${activity.localClassName}. Blacklisted. Skipping voice service check.")
+            return // Abaikan Activity ini
+        }
+
         if (visibleActivityCount == 0) {
             // Activity pertama yang terlihat (misal: MainActivity, ChatbotActivity)
             Log.d(TAG, "Activity resumed: ${activity.localClassName}. Starting Voice Service.")
@@ -57,6 +77,10 @@ class Said : Application(), Application.ActivityLifecycleCallbacks {
 
     // Dipanggil saat Activity tidak lagi terlihat (ketika minimize atau navigasi)
     override fun onActivityStopped(activity: Activity) {
+        if (isActivityBlacklisted(activity)) {
+            return
+        }
+
         if (currentActivity == activity) {
             currentActivity = null
         }
@@ -133,20 +157,6 @@ class Said : Application(), Application.ActivityLifecycleCallbacks {
 
         Log.w(TAG, "⚠️ Voice command not handled by any activity: '$command'")
         return false
-    }
-
-    // ✅ QUERY SUPPORTED COMMANDS
-    fun getSupportedCommands(): List<String> {
-        val allCommands = mutableSetOf<String>()
-        activityCallbacks.values.forEach { callback ->
-            allCommands.addAll(callback.getSupportedCommands())
-        }
-        return allCommands.toList()
-    }
-
-    // ✅ GET CURRENT ACTIVITY INFO
-    fun getCurrentActivityInfo(): String {
-        return currentActivity?.localClassName ?: "No activity"
     }
 
     // Service control methods tetap sama...

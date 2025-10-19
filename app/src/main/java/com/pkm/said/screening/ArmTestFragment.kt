@@ -357,7 +357,7 @@ class ArmTestFragment : Fragment(), SensorEventListener {
 
     private fun navigateToNextTest() {
         try {
-            findNavController().navigate(R.id.action_armsTest_to_speechPreview)
+            findNavController().navigate(R.id.action_armsTest_to_result)
         } catch (e: Exception) {
             Log.e("ArmTest", "Navigation failed: ${e.message}")
             Toast.makeText(requireContext(), "Gagal pindah ke tes berikutnya. Mohon coba ulang.", Toast.LENGTH_LONG).show()

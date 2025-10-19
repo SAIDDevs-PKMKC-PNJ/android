@@ -3,8 +3,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fitsSystemWindows="true"
-    android:background="@drawable/gradient_background">
+    android:background="@drawable/gradient_background"
+    android:fitsSystemWindows="true">
 
     <!-- Back Button -->
     <ImageButton
@@ -23,15 +23,15 @@
         android:id="@+id/container_card"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_below="@id/btn_back"
         android:layout_marginStart="24dp"
         android:layout_marginEnd="24dp"
-        android:layout_below="@id/btn_back"
         android:background="@drawable/bg_card_container_primary"
         android:elevation="6dp"
         android:orientation="vertical"
         android:padding="24dp">
 
-        <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+        <FrameLayout
             android:id="@+id/avatar_container"
             android:layout_width="120dp"
             android:layout_height="120dp"
@@ -90,7 +90,8 @@
             android:text="@string/username"
             android:textColor="@android:color/white"
             android:textSize="22sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:visibility="gone" />
 
         <!-- Form Fields -->
         <LinearLayout
@@ -279,19 +280,47 @@
                 android:layout_height="1dp"
                 android:background="@color/white" />
 
-        </LinearLayout>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
-        <TextView
-            android:id="@+id/tvEditIndicator"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:background="@drawable/bg_menu_item"
-            android:gravity="center"
-            android:padding="8dp"
-            android:text="Mode Edit - Isi data lalu tekan 'Simpan Perubahan'"
-            android:textColor="@color/warning_color"
-            android:visibility="gone" />
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_alert"
+                    app:tint="@color/white" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="10dp"
+                    android:text="No. Darurat"
+                    android:textColor="@color/white"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <EditText
+                android:id="@+id/et_emergency"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="2dp"
+                android:background="@android:color/transparent"
+                android:hint="Nomor Kontak Darurat"
+                android:inputType="phone"
+                android:paddingBottom="4dp"
+                android:textColor="@color/white"
+                android:textSize="16sp" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/white" />
+        </LinearLayout>
 
         <!-- Save & Edit Buttons -->
         <LinearLayout

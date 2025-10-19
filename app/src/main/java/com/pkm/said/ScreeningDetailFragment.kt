@@ -158,7 +158,7 @@ class ScreeningDetailFragment : Fragment() {
             result.eyesResult?.let { add(it) }
             result.faceResult?.let { add(it) }
             result.armsResult?.let { add(it) }
-            result.speechResult?.let { add(it) }
+//            result.speechResult?.let { add(it) }
         }
         testAdapter.submitList(testList)
     }
@@ -219,7 +219,7 @@ class ScreeningDetailFragment : Fragment() {
     }
 
     private fun completedTestCount(result: ScreeningResult): Int {
-        val tests = listOfNotNull(result.balanceResult, result.eyesResult, result.faceResult, result.armsResult, result.speechResult)
+        val tests = listOfNotNull(result.balanceResult, result.eyesResult, result.faceResult, result.armsResult) //, result.speechResult legacy
         return tests.count { it.isCompleted }
     }
 

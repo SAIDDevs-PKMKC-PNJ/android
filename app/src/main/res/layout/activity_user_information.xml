@@ -190,34 +190,78 @@
         </com.google.android.material.textfield.TextInputLayout>
 
         <!-- Nomor Darurat -->
-        <com.google.android.material.textfield.TextInputLayout
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="32dp"
-            android:visibility="gone"
-            app:boxBackgroundMode="outline"
-            app:boxCornerRadiusBottomEnd="20dp"
-            app:boxCornerRadiusBottomStart="20dp"
-            app:boxCornerRadiusTopEnd="20dp"
-            app:boxCornerRadiusTopStart="20dp"
-            app:boxStrokeColor="@color/BluePrimary"
-            app:boxStrokeWidth="2dp"
-            app:hintTextColor="@color/GrayLight"
-            app:startIconDrawable="@drawable/ic_alert"
-            app:startIconTint="@color/GrayLight">
+            android:layout_marginBottom="8dp"
+            android:orientation="horizontal">
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etEmergency"
-                android:layout_width="match_parent"
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/PhoneInputLayoutStyle"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:hint="Nomor Darurat"
-                android:inputType="phone"
-                android:paddingStart="48dp"
-                android:paddingEnd="48dp"
-                android:textColor="@color/black"
-                android:textColorHint="@color/GrayLight"
-                android:textSize="16sp" />
-        </com.google.android.material.textfield.TextInputLayout>
+                android:layout_marginEnd="8dp"
+                android:layout_weight="0.3"
+                app:boxBackgroundMode="outline"
+                app:boxCornerRadiusBottomEnd="20dp"
+                app:boxCornerRadiusBottomStart="20dp"
+                app:boxCornerRadiusTopEnd="20dp"
+                app:boxCornerRadiusTopStart="20dp"
+                app:boxStrokeColor="@color/GrayLight"
+                app:boxStrokeWidth="1dp"
+                app:hintTextColor="@color/GrayLight"
+                app:startIconDrawable="@drawable/ic_indonesia_flag">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etCountryCodeEmergency"
+                    android:layout_width="match_parent"
+                    android:layout_height="58dp"
+                    android:background="@drawable/bg_country_code"
+                    android:clickable="false"
+                    android:focusable="false"
+                    android:inputType="none"
+                    android:paddingStart="36dp"
+                    android:paddingEnd="16dp"
+                    android:text="+62"
+                    android:textColor="@color/GrayLight"
+                    android:textColorHint="@color/GrayLight"
+                    android:textSize="16sp" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="0.7"
+                app:boxBackgroundMode="outline"
+                app:boxCornerRadiusBottomEnd="20dp"
+                app:boxCornerRadiusBottomStart="20dp"
+                app:boxCornerRadiusTopEnd="20dp"
+                app:boxCornerRadiusTopStart="20dp"
+                app:boxStrokeColor="@color/BluePrimary"
+                app:boxStrokeWidth="2dp"
+                app:hintTextColor="@color/GrayLight">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etEmergency"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Nomor Darurat"
+                    android:inputType="phone"
+                    android:textColor="@color/black"
+                    android:textColorHint="@color/GrayLight"
+                    android:textSize="16sp" />
+            </com.google.android.material.textfield.TextInputLayout>
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:paddingStart="16dp"
+            android:text="Contoh: 8123456789 (tanpa 0, langsung mulai dari 8)"
+            android:textColor="@color/GrayLight"
+            android:textSize="12sp"
+            android:textStyle="bold" />
 
         <!-- Tombol Simpan -->
         <Button

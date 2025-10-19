@@ -16,7 +16,7 @@ object SessionManager {
     private const val KEY_EMAIL_VERIFIED = "email_verified"
     private const val KEY_PHONE = "phone"
     private const val KEY_ADDRESS = "address"
-    private const val KEY_EMERGENCY = "emergency"
+    private const val KEY_EMERGENCY_PHONE = "key_emergency_phone"
     private const val KEY_BIRTHDATE = "birthdate"
 
     /** Simpan user yang login dari Firebase */
@@ -32,6 +32,16 @@ object SessionManager {
         }
     }
 
+    fun saveEmergencyPhone(context: Context, emergencyPhone: String) {
+        val prefs = context.getSharedPreferences("user_session", Context.MODE_PRIVATE)
+        prefs.edit().putString(KEY_EMERGENCY_PHONE, emergencyPhone).apply()
+    }
+
+    fun getEmergencyPhone(context: Context): String? {
+        val prefs = context.getSharedPreferences("user_session", Context.MODE_PRIVATE)
+        return prefs.getString(KEY_EMERGENCY_PHONE, null)
+    }
+
     fun saveFullProfile(
         context: Context,
         uid: String?,
@@ -40,6 +50,7 @@ object SessionManager {
         photoUrl: String?,
         birthdate: String?,
         phone: String?,
+        emergencyPhone: String?,
         address: String?,
         loginMethod: String?,
         emailVerified: Boolean
@@ -53,6 +64,7 @@ object SessionManager {
                 .putString(KEY_BIRTHDATE, birthdate)
                 .putString(KEY_PHONE, phone)
                 .putString(KEY_ADDRESS, address)
+                .putString(KEY_EMERGENCY_PHONE, emergencyPhone)
                 .putString(KEY_LOGIN_METHOD, loginMethod)
                 .putBoolean(KEY_EMAIL_VERIFIED, emailVerified)
         }

@@ -10,7 +10,6 @@ import android.net.Uri
 import android.os.*
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
-import android.telephony.PhoneStateListener
 import android.telephony.TelephonyManager
 import android.util.Log
 import android.widget.Toast
@@ -21,28 +20,33 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
-import com.google.firebase.auth.FirebaseAuth
 import com.ncorti.slidetoact.SlideToActView
 import com.pkm.said.databinding.ActivityEmergencyBinding
+import com.pkm.said.util.SessionManager
 import java.util.Locale
+// Menghapus import java.time.* karena tidak lagi menghitung usia
 
 class EmergencyActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private lateinit var binding: ActivityEmergencyBinding
     private lateinit var countDownTimer: CountDownTimer
     private lateinit var textToSpeech: TextToSpeech
-    private lateinit var telephonyManager: TelephonyManager
-    private lateinit var phoneStateListener: PhoneStateListener
+    // private lateinit var telephonyManager: TelephonyManager // TIDAK DIPERLUKAN LAGI
+    // private lateinit var phoneStateListener: PhoneStateListener // TIDAK DIPERLUKAN LAGI
 
     private var currentUserLocation: Location? = null
     private lateinit var fusedLocationClient: FusedLocationProviderClient
+
+    private var contactEmergencyNumber: String = ""
 
     private var isEmergencyCallStarted = false
     private var isActivityFinished = false
     private var isVoiceMessagePlaying = false
     private var isTtsReady = false
     private var ttsLanguageAvailable = false
-    private val countdownValue = 5
+
+    // ✅ Durasi Countdown diubah menjadi 10 detik
+    private val countdownValue = 10
 
     companion object {
         private const val TAG = "EmergencyActivity"
@@ -55,16 +59,48 @@ class EmergencyActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         binding = ActivityEmergencyBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // ✅ KEEP SCREEN ON
+        // KEEP SCREEN ON
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         Log.d(TAG, "✅ Screen keep-on flag set")
 
-        // ✅ INIT COMPONENTS DULU
+        // INIT COMPONENTS DULU
         initializeComponents()
 
-        // ✅ CEK PERMISSIONS SEBELUM START PROTOCOL
+        // MUAT DATA PENGGUNA TERMASUK NOMOR DARURAT
+        loadEmergencyData()
+
+        // CEK PERMISSIONS SEBELUM START PROTOCOL
         checkEmergencyPermissions()
+
+        // ✅ DAFTARKAN LISTENER BACK PRESS
+        setupOnBackPressed()
     }
+
+    // ✅ SETUP BACK PRESS HANDLER (MENCEGAH KELUAR DARI DARURAT)
+    private fun setupOnBackPressed() {
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                // Di mode darurat, back press dianggap sebagai cancel
+                cancelEmergency()
+            }
+        })
+    }
+
+    private fun loadEmergencyData() {
+        val emergencyNum = SessionManager.getEmergencyPhone(this)
+
+        if (emergencyNum.isNullOrBlank()) {
+            contactEmergencyNumber = getString(R.string.emergency_number)
+            Log.e(TAG, "❌ Emergency number from SessionManager is empty. Using fallback: $contactEmergencyNumber")
+            runOnUiThread {
+                Toast.makeText(this, "Nomor darurat kontak tidak ditemukan, menggunakan nomor layanan darurat default.", Toast.LENGTH_LONG).show()
+            }
+        } else {
+            contactEmergencyNumber = emergencyNum.replace("[^0-9+]".toRegex(), "")
+            Log.d(TAG, "✅ Loaded emergency number: $contactEmergencyNumber")
+        }
+    }
+
 
     @SuppressLint("SetTextI18n")
     private fun initializeComponents() {
@@ -72,13 +108,13 @@ class EmergencyActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         try {
             fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
-            telephonyManager = getSystemService(TELEPHONY_SERVICE) as TelephonyManager
+            // telephonyManager = getSystemService(TELEPHONY_SERVICE) as TelephonyManager // Dihapus
 
-            // ✅ INIT TTS DENGAN ERROR HANDLING
+            // INIT TTS DENGAN ERROR HANDLING
             textToSpeech = TextToSpeech(this, this)
 
             binding.tvCountdown.text = countdownValue.toString()
-            binding.tvStatus.text = "KONFIRMASI DARURAT"
+            binding.tvStatus.text = "ALARM LOKAL AKTIF"
             binding.tvHint.text = getString(R.string.emergency_noresponse_hint)
 
             binding.slideToCancel.onSlideCompleteListener =
@@ -89,7 +125,7 @@ class EmergencyActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     }
                 }
 
-            setupPhoneStateListener()
+            // setupPhoneStateListener() // Dihapus
             Log.d(TAG, "✅ All components initialized successfully")
 
         } catch (e: Exception) {
@@ -99,13 +135,14 @@ class EmergencyActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
-    // ✅ CEK PERMISSIONS DARURAT
+    // CEK PERMISSIONS DARURAT
     private fun checkEmergencyPermissions() {
         Log.d(TAG, "🔐 Checking emergency permissions...")
 
+        // ✅ HANYA PERLU CALL_PHONE untuk panggilan
         val emergencyPermissions = arrayOf(
             Manifest.permission.CALL_PHONE,
-            Manifest.permission.READ_PHONE_STATE
+            Manifest.permission.ACCESS_FINE_LOCATION // Tambahkan Lokasi
         )
 
         val missingPermissions = emergencyPermissions.filter {
@@ -113,38 +150,50 @@ class EmergencyActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
 
         if (missingPermissions.isNotEmpty()) {
-            Log.e(TAG, "❌ Missing emergency permissions: $missingPermissions")
-            showEmergencyPermissionError(missingPermissions)
+            Log.w(TAG, "⚠️ Missing permissions: $missingPermissions. Requesting now.")
+            // Hanya meminta izin yang penting di sini, sisanya nanti
+            ActivityCompat.requestPermissions(this, missingPermissions.toTypedArray(), 999)
         } else {
-            Log.d(TAG, "✅ All emergency permissions granted")
+            Log.d(TAG, "✅ All required permissions granted")
             startEmergencyProtocol()
         }
     }
 
-    // ✅ TAMPILKAN ERROR JIKA IZIN TIDAK DIBERIKAN
+    // ✅ HANDLE PERMISSION RESULT
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 999) {
+            if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+                Log.d(TAG, "✅ Permissions granted after request")
+                startEmergencyProtocol()
+            } else {
+                Log.e(TAG, "❌ Required permissions denied")
+                showEmergencyPermissionError(permissions.filterIndexed { index, _ -> grantResults[index] != PackageManager.PERMISSION_GRANTED })
+            }
+        }
+    }
+
+
+    // TAMPILKAN ERROR JIKA IZIN TIDAK DIBERIKAN (Revisi pesan)
     private fun showEmergencyPermissionError(missingPermissions: List<String>) {
         Log.d(TAG, "🚨 Showing permission error dialog")
 
         val errorMessage = buildString {
-            append("Fitur darurat membutuhkan izin berikut:\n\n")
+            append("Fitur darurat membutuhkan izin:\n\n")
 
             missingPermissions.forEach { permission ->
                 when (permission) {
                     Manifest.permission.CALL_PHONE -> append("• 📞 Izin Menelepon\n")
-                    Manifest.permission.READ_PHONE_STATE -> append("• 📱 Izin Status Telepon\n")
+                    Manifest.permission.ACCESS_FINE_LOCATION -> append("• 📍 Izin Lokasi\n")
                 }
             }
-
-            append("\nSilakan berikan izin di pengaturan aplikasi.")
+            append("\nTanpa izin ini, panggilan atau pelaporan lokasi tidak dapat dilakukan.")
         }
 
         AlertDialog.Builder(this)
             .setTitle("Izin Darurat Diperlukan")
             .setMessage(errorMessage)
-            .setPositiveButton("Buka Pengaturan") { dialog, which ->
-                openAppSettings()
-            }
-            .setNegativeButton("Tutup") { dialog, which ->
+            .setPositiveButton("Tutup") { dialog, which ->
                 Log.d(TAG, "❌ User closed without granting permissions")
                 finish()
             }
@@ -155,38 +204,26 @@ class EmergencyActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             .show()
     }
 
-    private fun openAppSettings() {
-        try {
-            val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-            intent.data = Uri.parse("package:$packageName")
-            startActivity(intent)
-            finish()
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error opening app settings", e)
-            Toast.makeText(this, "Tidak dapat membuka pengaturan", Toast.LENGTH_SHORT).show()
-            finish()
-        }
-    }
-
     private fun startEmergencyProtocol() {
         Log.d(TAG, "🚨 STARTING EMERGENCY PROTOCOL")
 
         runOnUiThread {
-            binding.tvStatus.text = "MEMULAI PROTOKOL DARURAT..."
+            binding.tvStatus.text = "ALARM LOKAL AKTIF"
         }
 
-        // ✅ DAPATKAN LOKASI
+        // DAPATKAN LOKASI
         getCurrentLocation()
 
-        // ✅ MULAI COUNTDOWN
-        startCountdown()
-
-        // ✅ SPEAK ALERT (akan dihandle oleh TTS callback jika ready)
+        // ✅ SPEAK ALERT SEKARANG KARENA INI ALARM LOKAL
         if (isTtsReady) {
             speakEmergencyAlert()
         } else {
             Log.w(TAG, "⚠️ TTS not ready yet, alert will be spoken when ready")
         }
+
+
+        // MULAI COUNTDOWN
+        startCountdown()
 
         Log.d(TAG, "✅ Emergency protocol started successfully")
     }
@@ -206,9 +243,11 @@ class EmergencyActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 Log.d(TAG, "⏳ Countdown: $secondsLeft seconds")
 
                 when (secondsLeft) {
-                    5, 4 -> binding.tvStatus.text = "KONFIRMASI DARURAT"
-                    3, 2 -> binding.tvStatus.text = "BERSIAP MENGHUBUNGI..."
-                    1 -> binding.tvStatus.text = "MEMULAI PANGGILAN DARURAT"
+                    10, 9 -> binding.tvStatus.text = "ALARM LOKAL AKTIF"
+                    8, 7 -> binding.tvStatus.text = "TOLONG BATALKAN JIKA AMAN"
+                    6, 5 -> binding.tvStatus.text = "SIAP MENGHUBUNGI KONTAK DARURAT"
+                    4, 3 -> binding.tvStatus.text = "MEMASTIKAN LOKASI..."
+                    2, 1 -> binding.tvStatus.text = "MEMULAI PANGGILAN DARURAT"
                 }
             }
 
@@ -216,7 +255,11 @@ class EmergencyActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 Log.d(TAG, "⏰ COUNTDOWN FINISHED - Starting emergency call")
 
                 if (!isActivityFinished) {
+                    // ✅ PANGGILAN DIMULAI
                     startEmergencyCall()
+
+                    // ✅ TTS PESAN JANGAN LAGI DIMULAI DI SINI, ORANG YG BANTU YG BICARA
+                    speakInstructionMessage()
                 } else {
                     Log.w(TAG, "⚠️ Activity already finished, skipping emergency call")
                 }
@@ -226,73 +269,30 @@ class EmergencyActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         Log.d(TAG, "✅ Countdown timer started")
     }
 
+    // ✅ REVISI: Hanya Nama dan Lokasi GPS
     private fun getUserEmergencyInfo(): String {
-        val currentUser = FirebaseAuth.getInstance().currentUser
+        val name = SessionManager.getUserName(this).orEmpty()
 
-        return try {
-            val userInfo = StringBuilder()
+        val locationInfo = getLocationInfo()
 
-            currentUser?.displayName?.let { name ->
-                userInfo.append("Patient name: $name. ")
-            }
-
-            currentUser?.email?.let { email ->
-                userInfo.append("Email: $email. ")
-            }
-
-            "PATIENT INFORMATION: ${userInfo}Condition: Detected acute stroke symptoms. Patient cannot speak."
-
-        } catch (e: Exception) {
-            "PATIENT INFORMATION: Patient registered in Said App. Condition: Stroke symptoms, cannot speak."
+        return buildString {
+            append("Nama Korban: ${name}. ")
+            append("Gejala Stroke. ")
+            append("Lokasi Korban Saat Ini: $locationInfo")
         }
     }
 
-    @SuppressLint("MissingPermission")
-    private fun setupPhoneStateListener() {
-        phoneStateListener = object : PhoneStateListener() {
-            override fun onCallStateChanged(state: Int, incomingNumber: String?) {
-                Log.d(TAG, "Phone state changed: $state")
-
-                when (state) {
-                    TelephonyManager.CALL_STATE_OFFHOOK -> {
-                        Log.d(TAG, "Call answered - starting emergency voice message")
-                        runOnUiThread {
-                            binding.tvStatus.text = "PANGGILAN DIANGKAT - MEMUTAR PESAN DARURAT"
-                        }
-                        startEmergencyVoiceMessage()
-                    }
-
-                    TelephonyManager.CALL_STATE_IDLE -> {
-                        Log.d(TAG, "📞 Call ended or idle")
-                        if (isEmergencyCallStarted) {
-                            Log.d(TAG, "Call ended")
-                            runOnUiThread {
-                                binding.tvStatus.text = "CALL COMPLETED"
-                                Toast.makeText(this@EmergencyActivity, "Emergency call completed", Toast.LENGTH_LONG).show()
-                            }
-                            finishEmergency()
-                        }
-                    }
-
-                    TelephonyManager.CALL_STATE_RINGING -> {
-                        Log.d(TAG, "Phone is ringing...")
-                        runOnUiThread {
-                            binding.tvStatus.text = "RINGING... WAITING FOR ANSWER"
-                            binding.tvHint.text = "Phone is ringing... Emergency message will play when call is answered"
-                        }
-                    }
-                }
-            }
-        }
-    }
+    // ✅ HAPUS FUNGSI calculateAge
 
     @SuppressLint("MissingPermission")
     private fun getCurrentLocation() {
-        if (ActivityCompat.checkSelfPermission(
+        // Cek izin (sudah dilakukan di checkEmergencyPermissions)
+        if (ContextCompat.checkSelfPermission(
                 this,
                 Manifest.permission.ACCESS_FINE_LOCATION
             ) != PackageManager.PERMISSION_GRANTED
         ) {
+            // Jika izin belum diberikan saat ini, Location akan null
             return
         }
 
@@ -306,11 +306,12 @@ class EmergencyActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
     }
 
+    // ✅ startEmergencyCall TANPA PHONE STATE LISTENER
     @Suppress("DEPRECATION")
     @SuppressLint("MissingPermission")
     private fun startEmergencyCall() {
-        val emergencyNumber = getEmergencyNumber()
-        Log.d(TAG, "📞 Starting emergency call to: $emergencyNumber")
+        val emergencyNumber = contactEmergencyNumber
+        Log.d(TAG, "📞 Starting emergency call to: $emergencyNumber (CONTACT NUMBER)")
 
         if (emergencyNumber.isBlank()) {
             Toast.makeText(this, "Nomor darurat tidak ditemukan", Toast.LENGTH_LONG).show()
@@ -319,18 +320,7 @@ class EmergencyActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
 
         try {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE)
-                != PackageManager.PERMISSION_GRANTED) {
-                Log.e(TAG, "❌ READ_PHONE_STATE permission not granted")
-                Toast.makeText(this, "Phone state permission required", Toast.LENGTH_LONG).show()
-                finish()
-                return
-            }
-
-            // ✅ Daftarkan listener SEBELUM memulai panggilan (seperti kode teman)
-            Log.d(TAG, "📞 Registering phone state listener...")
-            telephonyManager.listen(phoneStateListener, PhoneStateListener.LISTEN_CALL_STATE)
-            Log.d(TAG, "✅ Phone state listener registered")
+            // Tidak perlu READ_PHONE_STATE jika kita tidak memantau state panggilan
 
             Handler(Looper.getMainLooper()).postDelayed({
                 try {
@@ -345,12 +335,16 @@ class EmergencyActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                         isEmergencyCallStarted = true
 
                         runOnUiThread {
-                            binding.tvStatus.text = "DIALING: $emergencyNumber"
-                            binding.tvHint.text = "Calling emergency number... Message will play automatically when answered"
-                            Toast.makeText(this, "Emergency call started", Toast.LENGTH_SHORT).show()
+                            binding.tvStatus.text = "PANGGILAN DIMULAI: $emergencyNumber"
+                            binding.tvHint.text = "Berikan Ponsel ini ke orang yang mengangkat telepon dan laporkan informasi korban yang tertulis di layar!"
+                            Toast.makeText(this, "Panggilan darurat dimulai", Toast.LENGTH_SHORT).show()
                         }
 
-                        Log.d(TAG, "✅ Emergency call intent started successfully")
+                        // ✅ Selesaikan aktivitas setelah panggilan dimulai (karena panggilan akan berlanjut di luar app)
+                        Handler(mainLooper).postDelayed({
+                            finishEmergency()
+                        }, 5000) // Beri waktu 5 detik sebelum finishActivity
+
                     } else {
                         Log.e(TAG, "❌ No activity found to handle call intent")
                         Toast.makeText(this, "Tidak dapat melakukan panggilan", Toast.LENGTH_LONG).show()
@@ -373,33 +367,17 @@ class EmergencyActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
-    private fun startEmergencyVoiceMessage() {
-        if (isVoiceMessagePlaying) {
-            Log.w(TAG, "⚠️ Voice message already playing")
-            return
-        }
-
-        isVoiceMessagePlaying = true
-
-        // Tunggu 3 detik setelah panggilan diangkat sebelum mulai bicara
-        Handler(mainLooper).postDelayed({
-            Log.d(TAG, "🔊 Now playing emergency voice message...")
-            speakEmergencyInformation()
-        }, 3000)
-    }
-
-    private fun getEmergencyNumber(): String {
-        return getString(R.string.emergency_number)
-    }
+    // ✅ startEmergencyVoiceMessage dihapus
 
     private fun getLocationInfo(): String {
         return if (currentUserLocation != null) {
             val lat = currentUserLocation!!.latitude
             val lng = currentUserLocation!!.longitude
-            "GPS Coordinates: ${String.format("%.6f", lat)}, ${String.format("%.6f", lng)
-            }. Open Google Maps for navigation."
+            val mapLink = "http://maps.google.com/maps?q=${String.format("%.6f", lat)},${String.format("%.6f", lng)}"
+            // ✅ Teks lebih mudah dibaca/dilaporkan
+            "Koordinat GPS ${String.format("%.6f", lat)}, ${String.format("%.6f", lng)}. Link peta: $mapLink"
         } else {
-            "LOCATION: Not available. Please check device GPS."
+            "Lokasi GPS tidak tersedia. Mohon cek GPS perangkat."
         }
     }
 
@@ -409,393 +387,137 @@ class EmergencyActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (status == TextToSpeech.SUCCESS) {
             Log.d(TAG, "✅ TTS engine initialized successfully")
 
-            // ✅ CEK LANGUAGE AVAILABILITY
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                val availableLanguages = textToSpeech.availableLanguages
-                Log.d(TAG, "🌍 Available TTS languages: $availableLanguages")
-            }
-
-            // ✅ COBA BAHASA INDONESIA DULU
+            // Cek Bahasa Indonesia
             var result = textToSpeech.setLanguage(Locale("id", "ID"))
-
             if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                Log.w(TAG, "❌ Indonesian TTS not available, trying English...")
-
-                // Fallback ke English
-                result = textToSpeech.setLanguage(Locale.US)
-
-                if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                    Log.e(TAG, "❌ English TTS also not available")
-                    ttsLanguageAvailable = false
-                    // ✅ TAMPILKAN WARNING KE USER
-                    runOnUiThread {
-                        Toast.makeText(this, "TTS language not available", Toast.LENGTH_LONG).show()
-                    }
-                } else {
-                    Log.d(TAG, "✅ English TTS available")
-                    ttsLanguageAvailable = true
-                }
+                result = textToSpeech.setLanguage(Locale.US) // Fallback English
+                ttsLanguageAvailable = result != TextToSpeech.LANG_MISSING_DATA && result != TextToSpeech.LANG_NOT_SUPPORTED
             } else {
-                Log.d(TAG, "✅ Indonesian TTS available")
                 ttsLanguageAvailable = true
             }
 
             isTtsReady = true
 
-            // ✅ OPTIMALISASI TTS - TAMBAHKAN FUNCTION INI
-            optimizeTTSForPhoneCall()
+            // ✅ OPTIMASI VOLUME untuk ALARM LOKAL
+            optimizeTTSForLocalAlarm()
 
-            // ✅ PASANG TTS LISTENER SEBELUM SPEAK
             setupTTSListener()
 
-            // ✅ SPEAK ALERT SEKARANG KARENA TTS READY
-            speakEmergencyAlert()
+            // ✅ Panggil alert/alarm di sini
+            if (ttsLanguageAvailable) {
+                speakEmergencyAlert()
+            }
 
         } else {
             Log.e(TAG, "❌ TTS initialization failed")
             isTtsReady = false
             ttsLanguageAvailable = false
-            // ✅ TAMPILKAN ERROR KE USER
             runOnUiThread {
                 Toast.makeText(this, "TTS initialization failed", Toast.LENGTH_LONG).show()
             }
         }
     }
 
-    // ✅ TAMBAHKAN FUNCTION OPTIMIZE TTS YANG HILANG
-    private fun optimizeTTSForPhoneCall() {
+    // ✅ FUNGSI BARU: OPTIMASI TTS UNTUK ALARM LOKAL (Volume Maksimal)
+    private fun optimizeTTSForLocalAlarm() {
         try {
-            // Set speech rate dan pitch untuk kejelasan di telepon
-            textToSpeech.setSpeechRate(1.2f) // Sedikit lebih lambat untuk kejelasan
-            textToSpeech.setPitch(1.1f)       // Sedikit lebih tinggi untuk kejelasan
+            val audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
+            val maxAlarmVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+            audioManager.setStreamVolume(AudioManager.STREAM_ALARM, maxAlarmVolume, 0)
 
-            Log.d(TAG, "✅ TTS optimized for phone call - Rate: 0.85, Pitch: 1.1")
+            textToSpeech.setSpeechRate(1.5f) // Bicara lebih cepat
+            textToSpeech.setPitch(1.3f)       // Nada lebih tinggi
+
+            Log.d(TAG, "✅ TTS optimized for local alarm (max volume)")
         } catch (e: Exception) {
-            Log.w(TAG, "⚠️ Could not optimize TTS, using default settings")
+            Log.w(TAG, "⚠️ Could not optimize TTS for alarm", e)
         }
     }
 
-    // ✅ PINDAHKAN setupTTSListener KE SINI (sebelum speak)
+    // ✅ FUNGSI BARU: TTS PESAN INSTRUKSI (SETELAH COUNTDOWN)
+    private fun speakInstructionMessage() {
+        if (!isTtsReady || !ttsLanguageAvailable) return
+
+        val userInfo = getUserEmergencyInfo()
+        val instructionMessage = """
+            Penting! Panggilan darurat dimulai. 
+            Mohon berikan ponsel ini kepada orang yang mengangkat telepon.
+            Laporkan informasi korban ini:
+            $userInfo
+        """.trimIndent()
+
+        // ✅ KEMBALIKAN KE SETTING BICARA NORMAL/PELAN SEBELUM INSTRUKSI
+        textToSpeech.setSpeechRate(1.0f)
+        textToSpeech.setPitch(1.0f)
+
+        val params = Bundle().apply {
+            putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f)
+            putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "instruction_info")
+        }
+
+        textToSpeech.speak(
+            instructionMessage,
+            TextToSpeech.QUEUE_FLUSH,
+            params,
+            "instruction_info"
+        )
+    }
+
+
     private fun setupTTSListener() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1) {
             textToSpeech.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                // ... (Listener sama, hanya untuk logging dan UI) ...
                 override fun onStart(utteranceId: String?) {
                     Log.d(TAG, "🎤 TTS started speaking: $utteranceId")
-                    runOnUiThread {
-                        binding.tvStatus.text = "SPEAKING EMERGENCY MESSAGE..."
-                        // ✅ TAMPILKAN TOAST SAAT TTS MULAI
-                        Toast.makeText(
-                            this@EmergencyActivity,
-                            "TTS started speaking",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                    if (utteranceId == "emergency_alert") {
+                        runOnUiThread { binding.tvStatus.text = "ALARM LOKAL BERBUNYI" }
                     }
                 }
-
                 override fun onDone(utteranceId: String?) {
                     Log.d(TAG, "✅ TTS finished speaking: $utteranceId")
-                    runOnUiThread {
-                        binding.tvStatus.text = "EMERGENCY MESSAGE DELIVERED"
-                        // ✅ TAMPILKAN TOAST SAAT TTS SELESAI
-                        Toast.makeText(
-                            this@EmergencyActivity,
-                            "TTS finished speaking",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                    if (utteranceId == "emergency_alert") {
+                        runOnUiThread { binding.tvStatus.text = "PERHATIAN: Alarm selesai, menunggu panggilan." }
                     }
                 }
 
                 override fun onError(utteranceId: String?) {
                     Log.e(TAG, "❌ TTS error with utterance: $utteranceId")
-                    runOnUiThread {
-                        binding.tvStatus.text = "MESSAGE DELIVERY FAILED"
-                        // ✅ TAMPILKAN ERROR KE USER
-                        Toast.makeText(
-                            this@EmergencyActivity,
-                            "TTS error occurred",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
                 }
             })
-            Log.d(TAG, "✅ TTS utterance listener setup complete")
-        } else {
-            Log.w(TAG, "⚠️ TTS utterance listener not supported on this API level")
         }
     }
 
+    // ✅ REVISI: TTS Berfungsi sebagai Alarm Lokal
     private fun speakEmergencyAlert() {
-        if (!isTtsReady) {
-            Log.w(TAG, "⚠️ TTS not ready, cannot speak alert")
-            return
-        }
+        if (!isTtsReady || !ttsLanguageAvailable) return
 
-        if (!ttsLanguageAvailable) {
-            Log.e(TAG, "❌ TTS language not available, cannot speak")
-            runOnUiThread {
-                Toast.makeText(this, "TTS language not available", Toast.LENGTH_LONG).show()
-            }
-            return
-        }
-
-        val alertMessage =
-            "Emergency alert! Calling ambulance in $countdownValue seconds. Slide to cancel."
-        Log.d(TAG, "🔊 Speaking alert: $alertMessage")
+        val alertMessage = "Perhatian darurat! Tolong ada yang sakit! Segera bantu korban! Panggilan telepon akan dimulai dalam $countdownValue detik."
+        Log.d(TAG, "🔊 Speaking local alarm: $alertMessage")
 
         try {
-            // ✅ GUNAKAN PARAMETERS UNTUK BETTER CONTROL
             val params = Bundle().apply {
+                // ✅ STREAM_ALARM untuk bunyi yang lebih keras dan berbeda dari media
+                putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_ALARM)
                 putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f)
                 putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "emergency_alert")
             }
 
+            // ✅ QUEUE_ADD agar bisa mengulang atau menambah instruksi
             val result = textToSpeech.speak(
                 alertMessage,
-                TextToSpeech.QUEUE_FLUSH,
+                TextToSpeech.QUEUE_ADD,
                 params,
                 "emergency_alert"
             )
-            Log.d(TAG, "🎤 TTS speak result: $result")
-
-            if (result == TextToSpeech.ERROR) {
-                Log.e(TAG, "❌ TTS speak returned ERROR")
-                runOnUiThread {
-                    Toast.makeText(this, "TTS speak error", Toast.LENGTH_SHORT).show()
-                }
-            } else {
-                Log.d(TAG, "✅ TTS speak queued successfully")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Exception during TTS speak", e)
-            runOnUiThread {
-                Toast.makeText(this, "TTS exception: ${e.message}", Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-
-    private fun speakEmergencyInformation() {
-        if (!isTtsReady || !ttsLanguageAvailable) {
-            Log.w(TAG, "⚠️ TTS not ready, skipping emergency information")
-            runOnUiThread {
-                Toast.makeText(
-                    this,
-                    "TTS not available - emergency message cannot be played",
-                    Toast.LENGTH_LONG
-                ).show()
-                binding.tvStatus.text = "TTS UNAVAILABLE - MANUAL HELP NEEDED"
-            }
-            return
-        }
-
-        Log.d(TAG, "🔊 Speaking emergency information...")
-
-        val userInfo = getUserEmergencyInfo()
-        val locationInfo = getLocationInfo()
-
-        // ✅ PESAN DARURAT LEBIH SINGKAT DAN JELAS
-        val emergencyMessage = """
-            Emergency! Automated message from Said App.
-            Stroke emergency detected!
-            Patient cannot speak!
-            $userInfo
-            Location: $locationInfo
-            Please send ambulance immediately.
-            Confirm if you hear this message.
-        """.trimIndent()
-
-        Log.d(TAG, "📝 Emergency message prepared, length: ${emergencyMessage.length} chars")
-
-        val audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
-        val originalVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-        val originalMode = audioManager.mode
-        val originalSpeakerphone = audioManager.isSpeakerphoneOn
-
-        try {
-            Log.d(TAG, "🎧 Setting up audio for emergency message...")
-
-            // ✅ GUNAKAN MODE_IN_CALL UNTUK TELEPON
-            setupAudioForPhoneCall(audioManager)
-
-            // ✅ TTS SETTINGS UNTUK KEJELASAN
-            textToSpeech.setSpeechRate(0.8f)
-            textToSpeech.setPitch(1.0f)
-
-            val params = Bundle().apply {
-                putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f)
-                putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_VOICE_CALL)
-                putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "emergency_info")
-            }
-
-            // ✅ TUNGGU SEBENTAR SEBELUM BERBICARA
-            Handler(Looper.getMainLooper()).postDelayed({
-                Log.d(TAG, "🎤 Starting emergency TTS speech...")
-
-                val result = textToSpeech.speak(
-                    emergencyMessage,
-                    TextToSpeech.QUEUE_FLUSH,
-                    params,
-                    "emergency_info"
-                )
-                Log.d(TAG, "🎤 Emergency TTS speak result: $result")
-
-
-                if (result == TextToSpeech.SUCCESS) {
-                    Log.d(TAG, "✅ TTS speech queued successfully")
-                    runOnUiThread {
-                        binding.tvStatus.text = "SPEAKING TO OPERATOR..."
-                        Toast.makeText(this, "Playing emergency message to operator", Toast.LENGTH_LONG).show()
-                    }
-
-                    // ✅ MONITOR DURASI TTS
-                    monitorTTSDuration()
-                } else {
-                    Log.e(TAG, "❌ TTS speak failed: $result")
-                    // ✅ COBA FALLBACK STRATEGY
-                    tryFallbackAudioStrategy(emergencyMessage)
-                }
-
-            }, 5000)
-
-            Handler(Looper.getMainLooper()).postDelayed({
-                restoreAudioSettings(audioManager, originalMode, originalSpeakerphone)
-            }, 45000) // 45 detik
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error setting up audio for emergency message", e)
-            // Fallback tanpa audio modifications
-            val result = textToSpeech.speak(
-                emergencyMessage,
-                TextToSpeech.QUEUE_FLUSH,
-                null,
-                "emergency_info_fallback"
-            )
-            Log.d(TAG, "🔧 Fallback TTS speak result: $result")
-        }
-    }
-
-    @Suppress("DEPRECATION")
-    @SuppressLint("NewApi")
-    private fun setupAudioForPhoneCall(audioManager: AudioManager) {
-        try {
-            Log.d(TAG, "🎧 Setting up audio for phone call...")
-
-            // ✅ STRATEGI 1: MODE_IN_COMMUNICATION (untuk VoIP/telepon)
-            audioManager.mode = AudioManager.MODE_IN_CALL
-            Log.d(TAG, "✅ Audio mode set to MODE_IN_CALL")
-
-            // ✅ STRATEGI 2: SPEAKERPHONE ON (agar suara keras)
-            audioManager.isSpeakerphoneOn = true
-            Log.d(TAG, "✅ Speakerphone turned ON")
-
-            // ✅ STRATEGI 3: SET VOLUME MAKSIMAL UNTUK VOICE CALL
-            val maxCallVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)
-            audioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL, maxCallVolume, 0)
-            Log.d(TAG, "✅ Voice call volume set to maximum: $maxCallVolume")
-
-            // ✅ STRATEGI 4: SET VOLUME MAKSIMAL UNTUK MUSIC JUGA (fallback)
-            val maxMusicVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, maxMusicVolume, 0)
-            Log.d(TAG, "✅ Music volume set to maximum: $maxMusicVolume")
-
-            // ✅ STRATEGI 5: FORCE AUDIO FOCUS
-            val audioFocusResult = audioManager.requestAudioFocus(
-                null,
-                AudioManager.STREAM_VOICE_CALL,
-                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
-            )
-            Log.d(TAG, "✅ Audio focus request result: $audioFocusResult")
-
-            // ✅ STRATEGI 6: BLUETOOTH SCO (jika tersedia)
-            try {
-                audioManager.startBluetoothSco()
-                audioManager.isBluetoothScoOn = true
-                Log.d(TAG, "✅ Bluetooth SCO started")
-            } catch (e: Exception) {
-                Log.w(TAG, "⚠️ Bluetooth SCO not available")
-            }
-
-            Log.d(TAG, "🎧 Audio setup completed successfully")
 
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Error setting up audio", e)
+            Log.e(TAG, "❌ Exception during TTS speak (Alarm)", e)
+            Toast.makeText(this, "Alarm TTS error", Toast.LENGTH_LONG).show()
         }
     }
 
-    // ✅ FALLBACK AUDIO STRATEGY JIKA YANG PERTAMA GAGAL
-    @Suppress("DEPRECATION")
-    private fun tryFallbackAudioStrategy(message: String) {
-        Log.d(TAG, "🔄 Trying fallback audio strategy...")
-
-        try {
-            val audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
-
-            // ✅ FALLBACK 1: COBA MODE_IN_CALL
-            audioManager.mode = AudioManager.MODE_IN_CALL
-            audioManager.isSpeakerphoneOn = true
-            Log.d(TAG, "🔄 Fallback 1: MODE_IN_CALL")
-
-            Handler(Looper.getMainLooper()).postDelayed({
-                val result = textToSpeech.speak(message, TextToSpeech.QUEUE_FLUSH, null, "fallback_1")
-                Log.d(TAG, "🔄 Fallback 1 TTS result: $result")
-            }, 1000)
-
-            // ✅ FALLBACK 2: COBA MODE_NORMAL DENGAN SPEAKER
-            Handler(Looper.getMainLooper()).postDelayed({
-                audioManager.mode = AudioManager.MODE_NORMAL
-                audioManager.isSpeakerphoneOn = true
-                Log.d(TAG, "🔄 Fallback 2: MODE_NORMAL")
-
-                val result = textToSpeech.speak(message, TextToSpeech.QUEUE_ADD, null, "fallback_2")
-                Log.d(TAG, "🔄 Fallback 2 TTS result: $result")
-            }, 3000)
-
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Fallback audio strategy failed", e)
-        }
-    }
-
-    // ✅ RESTORE AUDIO SETTINGS
-    @Suppress("DEPRECATION")
-    private fun restoreAudioSettings(audioManager: AudioManager, originalMode: Int, originalSpeakerphone: Boolean) {
-        try {
-            audioManager.isSpeakerphoneOn = originalSpeakerphone
-            audioManager.mode = originalMode
-            audioManager.abandonAudioFocus(null)
-
-            // ✅ STOP BLUETOOTH SCO
-            try {
-                audioManager.stopBluetoothSco()
-                audioManager.isBluetoothScoOn = false
-            } catch (e: Exception) {
-                // Ignore
-            }
-
-            Log.d(TAG, "✅ Audio settings restored")
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error restoring audio settings", e)
-        }
-    }
-
-    // ✅ MONITOR TTS DURATION DAN STATUS
-    private fun monitorTTSDuration() {
-        Handler(Looper.getMainLooper()).postDelayed({
-            if (textToSpeech.isSpeaking) {
-                Log.d(TAG, "🔊 TTS still speaking...")
-                // TTS masih berbicara, biarkan lanjut
-            } else {
-                Log.d(TAG, "🔊 TTS finished speaking")
-                runOnUiThread {
-                    binding.tvStatus.text = "EMERGENCY MESSAGE DELIVERED"
-                }
-            }
-        }, 10000) // Check setelah 10 detik
-
-        Handler(Looper.getMainLooper()).postDelayed({
-            if (textToSpeech.isSpeaking) {
-                Log.w(TAG, "⚠️ TTS still speaking after 30 seconds, forcing stop")
-                textToSpeech.stop()
-            }
-        }, 30000) // Force stop setelah 30 detik
-    }
+    // ✅ speakEmergencyInformation dihapus
 
     private fun cancelEmergency() {
         Log.d(TAG, "🛑 CANCEL EMERGENCY REQUESTED")
@@ -805,7 +527,7 @@ class EmergencyActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 countDownTimer.cancel()
                 Log.d(TAG, "⏰ Countdown timer cancelled")
             } catch (e: Exception) {
-                Log.d(TAG, "⏰ Timer already cancelled or not started")
+                // Ignore
             }
 
             if (isTtsReady) {
@@ -830,12 +552,13 @@ class EmergencyActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 binding.tvStatus.text = "PANGILAN DARURAT SELESAI"
                 binding.tvCountdown.text = "✓"
                 binding.tvHint.text =
-                    "Bantuan sedang dalam perjalanan. Tetap tenang dan tunggu pertolongan."
+                    "Ponsel dialihkan. Pastikan orang yang mengangkat telepon sudah melaporkan info korban di layar."
             }
 
+            // ✅ JANGAN LANGSUNG FINISH, TUNGGU BEBERAPA DETIK
             Handler(mainLooper).postDelayed({
                 finish()
-            }, 3000)
+            }, 5000)
         }
     }
 
@@ -843,40 +566,21 @@ class EmergencyActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     override fun onDestroy() {
         super.onDestroy()
         Log.d(TAG, "🔴 ===== EMERGENCY ACTIVITY DESTROYED =====")
-        Log.d(TAG, "🔴 TTS ready: $isTtsReady, Activity finished: $isActivityFinished")
 
         try {
             if (::countDownTimer.isInitialized) {
                 countDownTimer.cancel()
-                Log.d(TAG, "⏰ Countdown timer cancelled in onDestroy")
             }
         } catch (e: Exception) {
-            Log.d(TAG, "⏰ Timer already cancelled")
-        }
-
-        try {
-            if (::telephonyManager.isInitialized && ::phoneStateListener.isInitialized) {
-                telephonyManager.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE)
-                Log.d(TAG, "📞 Phone state listener unregistered")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error unregistering phone state listener", e)
+            // Ignore
         }
 
         if (isTtsReady) {
             textToSpeech.stop()
             textToSpeech.shutdown()
-            Log.d(TAG, "🔇 TTS stopped and shutdown")
         }
 
-        try {
-            if (::telephonyManager.isInitialized) {
-                telephonyManager.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE)
-                Log.d(TAG, "📞 Phone state listener stopped")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error stopping phone state listener", e)
-        }
+        // HAPUS UNREGISTER TELEPHONY MANAGER
 
         isActivityFinished = true
         Log.d(TAG, "🔴 ===== EMERGENCY ACTIVITY CLEANUP COMPLETE =====")

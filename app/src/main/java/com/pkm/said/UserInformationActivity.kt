@@ -45,6 +45,7 @@ class UserInformationActivity : AppCompatActivity() {
         prefillFields()
         setupListeners()
         setupPhoneNumberInput()
+        setupEmergencyNumberInput()
         setupSaveButton() // ✅ DIPANGGIL DI SINI
     }
 
@@ -78,10 +79,12 @@ class UserInformationActivity : AppCompatActivity() {
 
                     // Format ulang nomor telepon jika sudah ada
                     val existingPhone = doc.getString("phone") ?: ""
+                    val existingEmergency = doc.getString("emergencyPhone") ?: ""
 
                     binding.etBirthdate.setText(doc.getString("birthdate") ?: "")
                     binding.etPhone.setText(formatPhoneForDisplay(existingPhone))
                     binding.etAddress.setText(doc.getString("address") ?: "")
+                    binding.etEmergency.setText(doc.getString("emergencyPhone") ?: "")
                 } else {
                     Log.d(TAG, "Dokumen belum ada, gunakan field kosong / intent")
                 }
@@ -103,60 +106,65 @@ class UserInformationActivity : AppCompatActivity() {
         }
     }
 
+    private inner class PhoneNumberTextWatcher(
+        private val editText: TextInputEditText
+    ) : TextWatcher {
+        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+
+        override fun afterTextChanged(s: Editable?) {
+            if (isFormattingPhone) return
+
+            isFormattingPhone = true
+
+            val originalString = s.toString()
+            val digitsOnly = originalString.replace("\\D".toRegex(), "")
+
+            // Logika validasi dan batasan angka 8-9 di awal
+            val validatedDigits = if (digitsOnly.isNotEmpty()) {
+                val firstChar = digitsOnly[0]
+                if (firstChar == '8' || firstChar == '9') {
+                    if (digitsOnly.length > 12) digitsOnly.substring(0, 12) else digitsOnly
+                } else {
+                    if (digitsOnly.length > 1) digitsOnly.substring(1) else ""
+                }
+            } else {
+                ""
+            }
+
+            // Format: 8123-4567-89
+            val formatted = StringBuilder()
+            for (i in validatedDigits.indices) {
+                if (i == 4 || i == 8) {
+                    formatted.append("-")
+                }
+                formatted.append(validatedDigits[i])
+            }
+
+            val finalString = formatted.toString()
+
+            if (originalString != finalString) {
+                s?.replace(0, s.length, finalString)
+                editText.setSelection(finalString.length)
+            }
+
+            isFormattingPhone = false
+
+            // Clear error saat mengetik
+            editText.error = null
+        }
+    }
+
+
     private fun setupPhoneNumberInput() {
+        // Nonaktifkan kode negara utama
         binding.etCountryCode?.let { etCountryCode ->
             etCountryCode.isEnabled = false
             etCountryCode.isFocusable = false
             etCountryCode.isClickable = false
         }
 
-        binding.etPhone.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-
-            override fun afterTextChanged(s: Editable?) {
-                if (isFormattingPhone) return
-
-                isFormattingPhone = true
-
-                val originalString = s.toString()
-                val digitsOnly = originalString.replace("\\D".toRegex(), "")
-
-                // Validasi: hanya angka 8-9 di awal
-                val validatedDigits = if (digitsOnly.isNotEmpty()) {
-                    val firstChar = digitsOnly[0]
-                    if (firstChar == '8' || firstChar == '9') {
-                        // Batasi maksimal 12 digit
-                        if (digitsOnly.length > 12) digitsOnly.substring(0, 12) else digitsOnly
-                    } else {
-                        // Jika bukan 8 atau 9, hapus karakter pertama
-                        if (digitsOnly.length > 1) digitsOnly.substring(1) else ""
-                    }
-                } else {
-                    ""
-                }
-
-                // Format: 8123-4567-89
-                val formatted = StringBuilder()
-                for (i in validatedDigits.indices) {
-                    if (i == 4 || i == 8) {
-                        formatted.append("-")
-                    }
-                    formatted.append(validatedDigits[i])
-                }
-
-                val finalString = formatted.toString()
-
-                // Set teks yang sudah diformat
-                if (originalString != finalString) {
-                    s?.replace(0, s.length, finalString)
-                    binding.etPhone.setSelection(finalString.length)
-                }
-
-                isFormattingPhone = false
-            }
-        })
+        binding.etPhone.addTextChangedListener(PhoneNumberTextWatcher(binding.etPhone))
 
         // Focus listener untuk validasi
         binding.etPhone.setOnFocusChangeListener { _, hasFocus ->
@@ -167,80 +175,55 @@ class UserInformationActivity : AppCompatActivity() {
     }
 
     private fun setupEmergencyNumberInput() {
-        binding.etEmergency.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+        binding.etCountryCodeEmergency?.let { etCountryCodeEmergency ->
+            etCountryCodeEmergency.isEnabled = false
+            etCountryCodeEmergency.isFocusable = false
+            etCountryCodeEmergency.isClickable = false
+        }
 
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        binding.etEmergency.addTextChangedListener(PhoneNumberTextWatcher(binding.etEmergency))
 
-            override fun afterTextChanged(s: Editable?) {
-                if (isFormattingPhone) return
-
-                isFormattingPhone = true
-
-                val originalString = s.toString()
-                val digitsOnly = originalString.replace("\\D".toRegex(), "")
-
-                // Validasi: hanya angka 8-9 di awal
-                val validatedDigits = if (digitsOnly.isNotEmpty()) {
-                    val firstChar = digitsOnly[0]
-                    if (firstChar == '8' || firstChar == '9') {
-                        // Batasi maksimal 12 digit
-                        if (digitsOnly.length > 12) digitsOnly.substring(0, 12) else digitsOnly
-                    } else {
-                        // Jika bukan 8 atau 9, hapus karakter pertama
-                        if (digitsOnly.length > 1) digitsOnly.substring(1) else ""
-                    }
-                } else {
-                    ""
-                }
-
-                // Format: 8123-4567-89
-                val formatted = StringBuilder()
-                for (i in validatedDigits.indices) {
-                    if (i == 4 || i == 8) {
-                        formatted.append("-")
-                    }
-                    formatted.append(validatedDigits[i])
-                }
-
-                val finalString = formatted.toString()
-
-                // Set teks yang sudah diformat
-                if (originalString != finalString) {
-                    s?.replace(0, s.length, finalString)
-                    binding.etEmergency.setSelection(finalString.length)
-                }
-
-                isFormattingPhone = false
+        // Focus listener untuk validasi darurat
+        binding.etEmergency.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus) {
+                validateEmergencyNumber()
             }
-        })
+        }
     }
 
-    private fun validatePhoneNumber(): Boolean {
-        val phoneText = binding.etPhone.textValue().replace("\\D".toRegex(), "")
+    private fun validatePhoneInput(editText: TextInputEditText, fieldName: String): Boolean {
+        val phoneText = editText.textValue().replace("\\D".toRegex(), "")
 
         return when {
             phoneText.isEmpty() -> {
-                binding.etPhone.error = "Nomor telepon tidak boleh kosong"
+                editText.error = "$fieldName tidak boleh kosong"
                 false
             }
             phoneText.length < 10 -> {
-                binding.etPhone.error = "Nomor telepon minimal 10 digit"
+                editText.error = "$fieldName minimal 10 digit"
                 false
             }
             phoneText.length > 12 -> {
-                binding.etPhone.error = "Nomor telepon maksimal 12 digit"
+                editText.error = "$fieldName maksimal 12 digit"
                 false
             }
-            phoneText[0] != '8' && phoneText[0] != '9' -> {
-                binding.etPhone.error = "Nomor telepon harus dimulai dengan 8 atau 9"
+            phoneText.firstOrNull() != '8' && phoneText.firstOrNull() != '9' -> { // Menggunakan firstOrNull() untuk menghindari crash jika empty
+                editText.error = "$fieldName harus dimulai dengan 8 atau 9"
                 false
             }
             else -> {
-                binding.etPhone.error = null
+                editText.error = null
                 true
             }
         }
+    }
+
+    private fun validatePhoneNumber(): Boolean {
+        return validatePhoneInput(binding.etPhone, "Nomor telepon")
+    }
+
+    private fun validateEmergencyNumber(): Boolean {
+        return validatePhoneInput(binding.etEmergency, "Nomor darurat")
     }
 
     private fun showDatePicker() {
@@ -275,6 +258,7 @@ class UserInformationActivity : AppCompatActivity() {
         val name = binding.etName.textValue()
         val birthdate = binding.etBirthdate.textValue()
         val phone = binding.etPhone.textValue()
+        val emergency = binding.etEmergency.textValue()
         val address = binding.etAddress.textValue()
 
         // Validasi semua field
@@ -291,9 +275,8 @@ class UserInformationActivity : AppCompatActivity() {
 
         setLoading(true)
 
-        // Format nomor telepon untuk Firebase (+62)
         val formattedPhone = formatPhoneForFirebase(phone)
-//        val formattedEmergency = formatPhoneForFirebase(emergency)
+        val formattedEmergency = formatPhoneForFirebase(emergency)
 
         Log.d(TAG, "Phone formatted: $phone -> $formattedPhone")
 //        Log.d(TAG, "Emergency formatted: $emergency -> $formattedEmergency")
@@ -320,6 +303,7 @@ class UserInformationActivity : AppCompatActivity() {
                 "birthdate" to birthdate,
                 "phone" to formattedPhone,
                 "address" to address,
+                "emergencyPhone" to formattedEmergency,
                 "updatedAt" to FieldValue.serverTimestamp()
             )
 
@@ -343,6 +327,7 @@ class UserInformationActivity : AppCompatActivity() {
                                 birthdate,
                                 formattedPhone,
                                 address,
+                                formattedEmergency,
                                 intentLoginMethod,
                                 intentEmailVerified
                             )

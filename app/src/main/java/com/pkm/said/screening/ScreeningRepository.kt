@@ -57,8 +57,8 @@ object ScreeningRepository {
                     "balance" to session.balanceResult?.toFirestoreMap(),
                     "eyes" to session.eyesResult?.toFirestoreMap(),
                     "face" to session.faceResult?.toFirestoreMap(),
-                    "arms" to session.armsResult?.toFirestoreMap(),
-                    "speech" to session.speechResult?.toFirestoreMap()
+                    "arms" to session.armsResult?.toFirestoreMap()
+//                    "speech" to session.speechResult?.toFirestoreMap()
                 ),
 
                 "metadata" to mapOf(
@@ -122,7 +122,7 @@ object ScreeningRepository {
                         eyesResult = tests["eyes"]?.toTestResult("eyes"),
                         faceResult = tests["face"]?.toTestResult("face"),
                         armsResult = tests["arms"]?.toTestResult("arms"),
-                        speechResult = tests["speech"]?.toTestResult("speech"),
+//                        speechResult = tests["speech"]?.toTestResult("speech"),
                         overallRisk = RiskLevel.valueOf(data["overallRisk"] as? String ?: "UNKNOWN"),
                         isCompleted = true,
                         completedAt = data["completedAt"] as? com.google.firebase.Timestamp,
@@ -185,7 +185,7 @@ object ScreeningRepository {
                     eyesResult = tests["eyes"]?.toTestResult("eyes"),
                     faceResult = tests["face"]?.toTestResult("face"),
                     armsResult = tests["arms"]?.toTestResult("arms"),
-                    speechResult = tests["speech"]?.toTestResult("speech"),
+//                    speechResult = tests["speech"]?.toTestResult("speech"),
                     overallRisk = RiskLevel.valueOf(data["overallRisk"] as? String ?: "UNKNOWN"),
                     isCompleted = true,
                     completedAt = data["completedAt"] as? com.google.firebase.Timestamp,

@@ -116,7 +116,7 @@ class ScreeningResultFragment : Fragment() {
         Log.d("ScreeningResult", "   - Eyes: ${session.eyesResult?.isCompleted} | ${session.eyesResult?.score}")
         Log.d("ScreeningResult", "   - Face: ${session.faceResult?.isCompleted} | ${session.faceResult?.score}")
         Log.d("ScreeningResult", "   - Arms: ${session.armsResult?.isCompleted} | ${session.armsResult?.score}")
-        Log.d("ScreeningResult", "   - Speech: ${session.speechResult?.isCompleted} | ${session.speechResult?.score}")
+//        Log.d("ScreeningResult", "   - Speech: ${session.speechResult?.isCompleted} | ${session.speechResult?.score}")
 
         setupRiskAssessment(session.overallRisk)
         setupBEFASTestResults(session)
@@ -242,17 +242,17 @@ class ScreeningResultFragment : Fragment() {
         )
 
         // 5) SPEECH
-        setupTestResultItemByNames(
-            slot = SlotNames(
-                layout = "layout_speech_result",
-                name = "tv_speech_test_name",
-                result = "tv_speech_test_result",
-                icon = "iv_speech_test_icon"
-            ),
-            label = "S - Speech Test",
-            testResult = session.speechResult,
-            fallbackIfMissing = null
-        )
+//        setupTestResultItemByNames(
+//            slot = SlotNames(
+//                layout = "layout_speech_result",
+//                name = "tv_speech_test_name",
+//                result = "tv_speech_test_result",
+//                icon = "iv_speech_test_icon"
+//            ),
+//            label = "S - Speech Test",
+//            testResult = session.speechResult,
+//            fallbackIfMissing = null
+//        )
     }
 
     // Utility: representasi id view per slot
@@ -491,7 +491,7 @@ class ScreeningResultFragment : Fragment() {
             "eyes", "e" -> findNavController().navigate(R.id.action_screeningResult_to_eyesPreview)
             "face", "f" -> findNavController().navigate(R.id.action_screeningResult_to_facePreview)
             "arms", "a" -> findNavController().navigate(R.id.action_screeningResult_to_armPreview)
-            "speech", "s" -> findNavController().navigate(R.id.action_screeningResult_to_speechPreview)
+//            "speech", "s" -> findNavController().navigate(R.id.action_screeningResult_to_speechPreview)
             else -> findNavController().navigate(R.id.action_screeningResult_to_balancePreview)
         }
     }
@@ -527,8 +527,8 @@ class ScreeningResultFragment : Fragment() {
             active.balanceResult,
             active.eyesResult,
             active.faceResult,
-            active.armsResult,
-            active.speechResult
+            active.armsResult
+//            active.speechResult
         ).any { it.isCompleted }
 
         if (!anyCompleted) {
@@ -617,7 +617,7 @@ class ScreeningResultFragment : Fragment() {
         "eyes", "e" -> "Eyes"
         "face", "f" -> "Face"
         "arms", "a" -> "Arms"
-        "speech", "s" -> "Speech"
+//        "speech", "s" -> "Speech"
         else -> key
     }
 }
