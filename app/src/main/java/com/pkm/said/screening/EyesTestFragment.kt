@@ -454,6 +454,10 @@ class EyesTestFragment : Fragment(), OnInitListener, FaceLandmarkerHelper.Landma
     }
 
     override fun onResults(resultBundle: FaceLandmarkerHelper.ResultBundle) {
+        if (isTestCompleted || countDownTimer == null) {
+            Log.v(TAG, "Mengabaikan hasil. Tes sudah selesai atau timer sudah berhenti.")
+            return
+        }
         activity?.runOnUiThread {
             binding.overlay.setRawResults(
                 resultBundle.result.faceLandmarks(),
@@ -531,7 +535,6 @@ class EyesTestFragment : Fragment(), OnInitListener, FaceLandmarkerHelper.Landma
 
     private fun saveResultAndNext(isSuccessful: Boolean, score: Float, notes: String) {
         Log.i(TAG, "Menyimpan hasil tes: Berhasil? $isSuccessful, Score: ${"%.2f".format(score)}")
-        stopCameraAndCleanup()
 
         val result = TestResult(
             testName = "befast_eyes", // ✅ Standardized name
@@ -554,35 +557,45 @@ class EyesTestFragment : Fragment(), OnInitListener, FaceLandmarkerHelper.Landma
         ScreeningDataManager.updateTestResult(requireContext(), result)
 
         stopCameraAndCleanup()
-        binding.root.postDelayed({
-            navigateToNextTest()
-        }, 1500)
     }
 
     private fun stopCameraAndCleanup() {
         Log.d(TAG, "🛑 Stopping camera and cleanup...")
-
-        val cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
-        cameraProviderFuture.addListener({
-            cameraProviderFuture.get().unbindAll()
-        }, ContextCompat.getMainExecutor(requireContext()))
-
-        // Stop analyzer
-        imageAnalyzer?.clearAnalyzer()
-        imageAnalyzer = null
 
         // Stop FaceLandmarker
         if (::faceLandmarkerHelper.isInitialized) {
             faceLandmarkerHelper.clearFaceLandmarker()
         }
 
-        if (::tts.isInitialized) {
-            tts.stop()
-            tts.shutdown()
-        }
+        // Stop analyzer
+        imageAnalyzer?.clearAnalyzer()
+        imageAnalyzer = null
 
-        // Shutdown executor
-        cameraExecutor.shutdown()
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
+        cameraProviderFuture.addListener({
+            cameraProviderFuture.get().unbindAll()
+            Log.d(TAG, "CameraX unbindAll() dipanggil.")
+            // CATATAN: Kami tidak menunggu operasi ini selesai 100% sebelum navigasi.
+
+            // (D) Matikan TTS
+            if (::tts.isInitialized) {
+                tts.stop()
+                tts.shutdown()
+            }
+
+            // (E) Matikan Executor untuk mencegah tugas baru masuk
+            // CATATAN: Tugas yang sudah ada (analyzer lama) mungkin masih berjalan
+            if (!cameraExecutor.isShutdown) {
+                cameraExecutor.shutdown()
+                Log.d(TAG, "cameraExecutor dimatikan.")
+            }
+
+            binding.root.postDelayed({
+                navigateToNextTest()
+            }, 1000)
+
+            Log.d(TAG, "✅ Camera cleanup ASYNC tasks STARTED.")
+        }, ContextCompat.getMainExecutor(requireContext()))
 
         Log.d(TAG, "✅ Camera stopped and cleanup completed")
     }

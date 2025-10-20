@@ -16,7 +16,7 @@ object SessionManager {
     private const val KEY_EMAIL_VERIFIED = "email_verified"
     private const val KEY_PHONE = "phone"
     private const val KEY_ADDRESS = "address"
-    private const val KEY_EMERGENCY_PHONE = "key_emergency_phone"
+    private const val KEY_EMERGENCY_PHONE = "emergencyPhone"
     private const val KEY_BIRTHDATE = "birthdate"
 
     /** Simpan user yang login dari Firebase */
@@ -33,12 +33,14 @@ object SessionManager {
     }
 
     fun saveEmergencyPhone(context: Context, emergencyPhone: String) {
-        val prefs = context.getSharedPreferences("user_session", Context.MODE_PRIVATE)
+        // PERBAIKAN: Gunakan PREF_NAME ("user_prefs")
+        val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
         prefs.edit().putString(KEY_EMERGENCY_PHONE, emergencyPhone).apply()
     }
 
     fun getEmergencyPhone(context: Context): String? {
-        val prefs = context.getSharedPreferences("user_session", Context.MODE_PRIVATE)
+        // PERBAIKAN: Gunakan PREF_NAME ("user_prefs")
+        val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
         return prefs.getString(KEY_EMERGENCY_PHONE, null)
     }
 

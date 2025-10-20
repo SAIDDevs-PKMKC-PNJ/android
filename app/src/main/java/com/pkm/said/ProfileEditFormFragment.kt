@@ -38,7 +38,7 @@ class ProfileFormFragment : Fragment() {
     companion object {
         private const val TAG = "ProfileFormFragment"
         private const val PICK_IMAGE_REQUEST = 1001
-        private val PHONE_REGEX = Regex("^[89]\\d{9,11}$")
+        private val PHONE_REGEX_LOCAL = Regex("^[89]\\d{9,11}$")
     }
 
     private var _binding: FragmentProfileFormBinding? = null
@@ -104,10 +104,18 @@ class ProfileFormFragment : Fragment() {
                     binding.etName.setText(nameFromDb)
                 }
 
+                val dbPhone = doc.getString("phone").orEmpty()
+                val dbEmergency = doc.getString("emergencyPhone").orEmpty()
+
                 binding.etBirthdate.setText(doc.getString("birthdate").orEmpty())
                 binding.etAddress.setText(doc.getString("address").orEmpty())
-                binding.etPhone.setText(doc.getString("phone").orEmpty())
-                binding.etEmergency.setText(doc.getString("emergencyPhone").orEmpty())
+                binding.etPhone.setText(removePlus62ForEdit(dbPhone))
+                binding.etEmergency.setText(removePlus62ForEdit(dbEmergency))
+
+                if (!isEditing) {
+                    binding.etPhone.setText(formatPhoneForDisplay(dbPhone))
+                    binding.etEmergency.setText(formatPhoneForDisplay(dbEmergency))
+                }
 
                 Log.d(TAG, "Firestore loaded: birthdate=${doc.getString("birthdate")}, address=${doc.getString("address")}, phone=${doc.getString("phone")}")
             }
@@ -229,7 +237,19 @@ class ProfileFormFragment : Fragment() {
         binding.etPhone.isEnabled = editable
         binding.etEmergency.isEnabled = editable
 
-        // ✅ VISUAL FEEDBACK - BEDA WARNA/TAMPILAN
+        val currentPhone = binding.etPhone.text.toString()
+        val currentEmergency = binding.etEmergency.text.toString()
+
+        if (editable) {
+            binding.etPhone.setText(removePlus62ForEdit(currentPhone))
+            binding.etEmergency.setText(removePlus62ForEdit(currentEmergency))
+
+        } else {
+            binding.etPhone.setText(formatPhoneForDisplay(currentPhone))
+            binding.etEmergency.setText(formatPhoneForDisplay(currentEmergency))
+        }
+
+        // ✅ VISUAL FEEDBACK (Kode sama)
         val alpha = if (editable) 1.0f else 0.7f
         binding.etName.alpha = alpha
         binding.etBirthdate.alpha = alpha
@@ -238,6 +258,15 @@ class ProfileFormFragment : Fragment() {
         binding.etEmergency.alpha = alpha
 
         if (editable) binding.etName.requestFocus()
+    }
+
+    private fun removePlus62ForEdit(phone: String): String {
+        val digitsOnly = phone.replace("\\D".toRegex(), "")
+        return when {
+            // Jika diawali 62, ambil sisanya (misal: +62812 -> 812)
+            digitsOnly.startsWith("62") -> digitsOnly.substring(2)
+            else -> digitsOnly
+        }
     }
 
     // ✅ VALIDASI INPUT SEBELUM SIMPAN
@@ -272,14 +301,15 @@ class ProfileFormFragment : Fragment() {
             return false
         }
 
-        if (phone.isEmpty()) {
-            binding.etEmergency.error = "Nomor telepon harus diisi"
+        if (emergency.isEmpty()) {
+            binding.etEmergency.error = "Nomor telepon darurat harus diisi"
             binding.etEmergency.requestFocus()
             return false
         }
 
-        if (!validatePhoneFormat(phone)) return showValidationError(binding.etPhone, "Nomor telepon tidak valid (10-12 digit, mulai 8/9)")
-        if (!validatePhoneFormat(emergency)) return showValidationError(binding.etEmergency, "Nomor darurat tidak valid (10-12 digit, mulai 8/9)")
+        val validationMessage = "Nomor telepon tidak valid (9-11 digit lokal, tanpa 0 di depan)"
+        if (!validatePhoneFormat(phone)) return showValidationError(binding.etPhone, validationMessage)
+        if (!validatePhoneFormat(emergency)) return showValidationError(binding.etEmergency, validationMessage)
 
         // 3. Cek Duplikasi
         if (phone == emergency) {
@@ -310,12 +340,28 @@ class ProfileFormFragment : Fragment() {
     }
 
     private fun validatePhoneFormat(cleanedPhone: String): Boolean {
-        // Cek panjang dan format (menggunakan regex yang sama dengan di UserInformationActivity)
-        return cleanedPhone.length in 10..12 && PHONE_REGEX.matches(cleanedPhone)
+        val isLengthValid = cleanedPhone.length in 9..11
+
+        // Cek format: harus dimulai dengan 8 atau 9 (karena '0' sudah dihapus di cleanPhoneNumber)
+        val isFormatValid = cleanedPhone.startsWith("8") || cleanedPhone.startsWith("9")
+
+        // ✅ Perbaikan logika: Pastikan kedua kondisi terpenuhi
+        return isLengthValid && isFormatValid
     }
 
     private fun cleanPhoneNumber(input: String): String {
-        return input.replace("\\D".toRegex(), "")
+        val digitsOnly = input.replace("\\D".toRegex(), "")
+
+        val withoutCountryCode = if (digitsOnly.startsWith("62")) {
+            digitsOnly.substring(2)
+        } else {
+            digitsOnly
+        }
+
+        return when {
+            withoutCountryCode.startsWith("0") -> withoutCountryCode.substring(1)
+            else -> withoutCountryCode
+        }
     }
 
     // ✅ DIALOG KONFIRMASI BATAL EDIT
@@ -393,7 +439,7 @@ class ProfileFormFragment : Fragment() {
         val newName = binding.etName.text.toString().trim()
         val birthdate = binding.etBirthdate.text.toString().trim()
         val address = binding.etAddress.text.toString().trim()
-        val phone = binding.etPhone.text.toString().trim()
+        val phone = cleanPhoneNumber(binding.etPhone.text.toString().trim())
         val emergency = cleanPhoneNumber(binding.etEmergency.text.toString())
 
         if (selectedPhotoUri != null) {
@@ -463,7 +509,7 @@ class ProfileFormFragment : Fragment() {
             "birthdate" to birthdate,
             "phone" to formattedPhone,
             "address" to address,
-            "emergencyPhone" to formattedPhone,
+            "emergencyPhone" to formattedEmergency,
             "updatedAt" to System.currentTimeMillis()
         )
 
@@ -490,25 +536,27 @@ class ProfileFormFragment : Fragment() {
 
     private fun formatPhoneForFirebase(phone: String): String {
         val digitsOnly = phone.replace("\\D".toRegex(), "")
-        return if (digitsOnly.isEmpty()) "" else "+62$digitsOnly"
+        if (digitsOnly.isEmpty()) return ""
+
+        // Hapus '0' di depan jika ada, karena +62 sudah menggantikan '0'.
+        val normalizedDigits = if (digitsOnly.startsWith("0")) digitsOnly.substring(1) else digitsOnly
+
+        // Pastikan nomor yang sudah bersih tidak dimulai dengan 62 (sudah dihilangkan di cleanPhoneNumber)
+        val finalDigits = if (normalizedDigits.startsWith("62")) normalizedDigits.substring(2) else normalizedDigits
+
+        return "+62$finalDigits"
     }
 
-    // ✅ Fungsi format telepon untuk ditampilkan (menghapus +62 dan format display)
     private fun formatPhoneForDisplay(phone: String): String {
-        if (phone.startsWith("+62")) {
-            val digitsOnly = phone.substring(3).replace("\\D".toRegex(), "")
-
-            val formatted = StringBuilder()
-            for (i in digitsOnly.indices) {
-                if (i == 4 || i == 8) {
-                    formatted.append("-")
-                }
-                formatted.append(digitsOnly[i])
-            }
-            return formatted.toString()
+        val digitsOnly = phone.replace("\\D".toRegex(), "")
+        if (digitsOnly.startsWith("62")) {
+            // Jika sudah ada 62 (dari Firestore), tambahkan '+'
+            return "+$digitsOnly"
         }
-        return phone
+        // Jika hanya digit lokal, tambahkan +62
+        return "+62$digitsOnly"
     }
+
 
     // ✅ SET LOADING STATE
     private fun setLoadingState(loading: Boolean) {

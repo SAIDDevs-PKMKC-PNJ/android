@@ -84,7 +84,7 @@ class UserInformationActivity : AppCompatActivity() {
                     binding.etBirthdate.setText(doc.getString("birthdate") ?: "")
                     binding.etPhone.setText(formatPhoneForDisplay(existingPhone))
                     binding.etAddress.setText(doc.getString("address") ?: "")
-                    binding.etEmergency.setText(doc.getString("emergencyPhone") ?: "")
+                    binding.etEmergency.setText(formatPhoneForDisplay(existingEmergency))
                 } else {
                     Log.d(TAG, "Dokumen belum ada, gunakan field kosong / intent")
                 }
@@ -199,11 +199,11 @@ class UserInformationActivity : AppCompatActivity() {
                 editText.error = "$fieldName tidak boleh kosong"
                 false
             }
-            phoneText.length < 10 -> {
+            phoneText.length < 9 -> {
                 editText.error = "$fieldName minimal 10 digit"
                 false
             }
-            phoneText.length > 12 -> {
+            phoneText.length > 11 -> {
                 editText.error = "$fieldName maksimal 12 digit"
                 false
             }
@@ -302,12 +302,12 @@ class UserInformationActivity : AppCompatActivity() {
                 "emailVerified" to intentEmailVerified,
                 "birthdate" to birthdate,
                 "phone" to formattedPhone,
-                "address" to address,
-                "emergencyPhone" to formattedEmergency,
+                "address" to address, // Kunci Firestore "address"
+                "emergencyPhone" to formattedEmergency, // Kunci Firestore "emergencyPhone"
                 "updatedAt" to FieldValue.serverTimestamp()
             )
 
-            // Jika dokumen baru: tambahkan createdAt via merge set
+// Jika dokumen baru: tambahkan createdAt via merge set
             val docRef = firestore.collection("users").document(user.uid)
             docRef.get()
                 .addOnSuccessListener { snapshot ->
@@ -318,16 +318,19 @@ class UserInformationActivity : AppCompatActivity() {
                         .addOnSuccessListener {
                             Log.d(TAG, "Data user tersimpan/termerge")
                             Toast.makeText(this, "Data berhasil disimpan", Toast.LENGTH_SHORT).show()
+
+                            // ✅ PERBAIKAN: URUTAN ARGUMEN SUDAH SESUAI DEFINISI saveFullProfile
+                            // (birthdate, phone, emergencyPhone, address, loginMethod, emailVerified)
                             SessionManager.saveFullProfile(
                                 this,
                                 user.uid,
                                 name,
                                 intentEmail ?: user.email,
                                 intentPhotoUrl ?: user.photoUrl?.toString(),
-                                birthdate,
-                                formattedPhone,
-                                address,
-                                formattedEmergency,
+                                birthdate,        // 6. birthdate
+                                formattedPhone,   // 7. phone
+                                formattedEmergency, // 8. emergencyPhone (BENAR)
+                                address,          // 9. address (BENAR)
                                 intentLoginMethod,
                                 intentEmailVerified
                             )

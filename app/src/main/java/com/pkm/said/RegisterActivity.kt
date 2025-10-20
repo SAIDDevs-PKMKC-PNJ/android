@@ -17,6 +17,7 @@ import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
 import kotlinx.coroutines.launch
@@ -118,12 +119,22 @@ class RegisterActivity : AppCompatActivity() {
                                 redirectToMainActivity()
                             }
                     } else {
-                        Log.e(TAG, "❌ Registration failed", task.exception)
-                        Toast.makeText(
-                            this,
-                            "Registrasi gagal: ${task.exception?.message}",
-                            Toast.LENGTH_LONG
-                        ).show()
+                        val exception = task.exception
+                        if (exception is FirebaseAuthUserCollisionException) {
+                            Log.d(TAG, "⚠️ Akun sudah ada: ${exception.message}")
+                            Toast.makeText(
+                                this,
+                                "Akun dengan email ini sudah terdaftar. Silahkan login.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        } else {
+                            Log.e(TAG, "❌ Registration failed", exception)
+                            Toast.makeText(
+                                this,
+                                "Registrasi gagal: ${exception?.message}",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
                     }
                 }
         }

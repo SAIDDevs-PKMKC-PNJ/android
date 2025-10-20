@@ -548,6 +548,45 @@ class BalanceTestFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener 
         return finalScore
     }
 
+    // Tambahkan fungsi baru ini di BalanceTestFragment
+    private fun stopCameraAndCleanup() {
+        Log.d(TAG, "🛑 Stopping camera and cleanup...")
+
+        // 1. Hentikan Landmarker dan Analyzer terlebih dahulu (Sinkron)
+        cleanupPoseLandmarker() // <-- Tetap gunakan fungsi ini (hanya untuk ML helper)
+
+        // 2. Hentikan Image Analysis (Sinkron)
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
+        cameraProviderFuture.addListener({
+            // Operasi ini dijalankan di Main Executor
+            try {
+                val cameraProvider = cameraProviderFuture.get()
+                cameraProvider.unbindAll() // <-- UNBIND CameraX
+                Log.d(TAG, "✅ CameraX unbindAll successful")
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Failed to unbind CameraX", e)
+            }
+
+            // 3. Matikan Executor setelah CameraX di-unbind
+            if (!cameraExecutor.isShutdown) {
+                // Gunakan shutdownNow() untuk membatalkan semua tugas yang tertunda
+                cameraExecutor.shutdownNow()
+                Log.d(TAG, "✅ cameraExecutor shutdownNow called.")
+            }
+
+            // 4. Lanjutkan Navigasi dengan sedikit penundaan (e.g., 500ms)
+            // Penundaan 500ms memberikan waktu bagi Fragment untuk mulai transisi.
+            binding.root.postDelayed({
+                if (isAdded && !requireActivity().isFinishing) {
+                    navigateToNextTest()
+                } else {
+                    Log.w(TAG, "Cleanup completed, but Fragment not attached for navigation.")
+                }
+            }, 1000) // ✅ Ganti 1500ms dengan 500ms
+
+        }, ContextCompat.getMainExecutor(requireContext()))
+    }
+
     private fun saveResultAndNext(isSuccessful: Boolean, score: Float, notes: String) {
         Log.d(TAG, "saveResultAndNext: Saving results and navigating")
 
@@ -584,27 +623,7 @@ class BalanceTestFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener 
         ScreeningDataManager.updateTestResult(requireContext(), result)
         Log.d(TAG, "saveResultAndNext: Results saved to ScreeningDataManager")
 
-        cleanupPoseLandmarker()
-
-        val cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
-        cameraProviderFuture.addListener({
-            try {
-                val cameraProvider = cameraProviderFuture.get()
-                cameraProvider.unbindAll() // <-- UNBIND SEMUA DARI LIFECYCLE FRAGMENT
-                Log.d(TAG, "✅ CameraX unbindAll successful")
-            } catch (e: Exception) {
-                Log.e(TAG, "❌ Failed to unbind CameraX", e)
-            }
-        }, ContextCompat.getMainExecutor(requireContext()))
-
-
-        binding.root.postDelayed({
-            if (isAdded && !requireActivity().isFinishing) {
-                navigateToNextTest()
-            } else {
-                Log.w(TAG, "saveResultAndNext: Fragment not attached, skipping navigation")
-            }
-        }, 1500)
+        stopCameraAndCleanup()
     }
 
     private fun cleanupPoseLandmarker() {

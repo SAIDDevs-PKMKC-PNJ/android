@@ -84,14 +84,14 @@ class ScreeningHistoryAdapter(
         }
 
         private fun completedCount(item: ScreeningResult): Int {
-            val tests = listOfNotNull(item.balanceResult, item.eyesResult, item.faceResult, item.armsResult, item.speechResult)
+            val tests = listOfNotNull(item.balanceResult, item.eyesResult, item.faceResult, item.armsResult) //, item.speechResult
             return tests.count { it.isCompleted }
         }
 
         // (TETAPKAN kalau kamu masih butuh, tapi tidak dipakai untuk FAST overall)
         @Suppress("unused")
         private fun computePercentLegacy(item: ScreeningResult): Int {
-            val tests: List<TestResult> = listOfNotNull(item.balanceResult, item.eyesResult, item.faceResult, item.armsResult, item.speechResult)
+            val tests: List<TestResult> = listOfNotNull(item.balanceResult, item.eyesResult, item.faceResult, item.armsResult) //, item.speechResult`````````````````````````````````````````
             if (tests.isEmpty()) return 0
             val avg = tests.map { it.score }.average()
             return (avg * 100).roundToInt().coerceIn(0, 100)
