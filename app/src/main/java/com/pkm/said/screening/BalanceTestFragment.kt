@@ -1,7 +1,6 @@
 package com.pkm.said.screening
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.util.Log
@@ -13,8 +12,8 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
-import androidx.camera.core.Preview
 import androidx.camera.core.ImageProxy
+import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import androidx.core.content.PermissionChecker
@@ -36,16 +35,21 @@ class BalanceTestFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener 
     private lateinit var cameraExecutor: ExecutorService
     private lateinit var poseLandmarkerHelper: PoseLandmarkerHelper
 
-    // State Management - HAPUS timer lama
+    // State Management
     private var currentState = TestState.DETECTING_POSE
     private var validPoseStartTime = 0L
-    private val REQUIRED_VALID_POSE_MS = 3000L // 3 detik pose valid
-    private val TEST_DURATION_MS = 5000L       // 5 detik tes
+    private val REQUIRED_VALID_POSE_MS = 2000L      // 2 detik pose berdiri valid sebelum instruksi
+    private val MAX_POSE_WAIT_MS = 10000L          // 10 detik batas waktu deteksi pose awal
+    private val MAX_TEST_DURATION_MS = 10000L      // 10 detik batas waktu untuk menyelesaikan tes
 
-    private val MAX_POSE_WAIT_MS = 10000L
     private var poseWaitTimer: CountDownTimer? = null
+    private var testTimer: CountDownTimer? = null
 
-    // Data collection untuk analisis
+    // State Progresif Tes Mengangkat Lutut
+    private var isLeftKneeLiftedEver = false
+    private var isRightKneeLiftedEver = false
+
+    // Data collection
     private val balanceMetricsList = mutableListOf<PoseLandmarkerHelper.BalanceMetrics>()
 
     // Atomic flags untuk prevent race condition
@@ -57,7 +61,7 @@ class BalanceTestFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener 
     ) { isGranted ->
         if (isGranted) {
             startCamera()
-            startAdaptiveTest() // GUNAKAN YANG BARU
+            startAdaptiveTest()
         } else {
             showPermissionDenied()
         }
@@ -86,41 +90,36 @@ class BalanceTestFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener 
 
         if (hasCameraPermission()) {
             startCamera()
-            startAdaptiveTest() // GUNAKAN YANG BARU
+            startAdaptiveTest()
         } else {
             requestCameraPermission()
         }
     }
 
+    // ==================== SETUP & INIT ====================
+
     private fun setupUI() {
-        binding.tvInstruction.text = "Berdiri tegap, pastikan pinggul & lutut terlihat"
+        // UBAH INTRUKSI SESUAI TES BARU
+        binding.tvInstruction.text = "Berdiri tegap, pastikan pinggul & lutut terlihat."
         binding.tvStatus.text = "Mencari pose..."
         binding.tvTimer.text = "-"
         binding.btnSkip.visibility = View.GONE
-
-        // Tampilkan overlay
         binding.overlay.visibility = View.VISIBLE
     }
 
     private fun setupPoseLandmarker() {
-        if (!isAdded || context == null) {
-            Log.w(TAG, "setupPoseLandmarker: Fragment not attached, skipping")
-            return
-        }
+        if (!isAdded || context == null) return
 
         Log.d(TAG, "setupPoseLandmarker: Initializing pose landmarker")
         cameraExecutor.execute {
             try {
                 val context = this@BalanceTestFragment.context
-                if (context == null) {
-                    Log.e(TAG, "setupPoseLandmarker: Context is null")
-                    return@execute
-                }
+                if (context == null) return@execute
 
                 poseLandmarkerHelper = PoseLandmarkerHelper(
                     context = context,
                     runningMode = RunningMode.LIVE_STREAM,
-                    minPoseDetectionConfidence = 0.4f, // Lower threshold untuk deteksi lebih mudah
+                    minPoseDetectionConfidence = 0.4f,
                     minPoseTrackingConfidence = 0.4f,
                     minPosePresenceConfidence = 0.4f,
                     currentDelegate = PoseLandmarkerHelper.DELEGATE_CPU,
@@ -143,6 +142,8 @@ class BalanceTestFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener 
             }
         }
     }
+
+    // ... (hasCameraPermission, requestCameraPermission, showPermissionDenied) ...
 
     private fun hasCameraPermission(): Boolean {
         return ContextCompat.checkSelfPermission(
@@ -217,19 +218,16 @@ class BalanceTestFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener 
 
     private fun detectPose(imageProxy: ImageProxy) {
         try {
-            // ✅ PERBAIKAN: Izinkan detection selama belum completed
             if (!this::poseLandmarkerHelper.isInitialized || isTestCompleted.get()) {
                 imageProxy.close()
                 return
             }
 
-            // Validasi image proxy
             if (imageProxy.planes.isEmpty() || imageProxy.width <= 0 || imageProxy.height <= 0) {
                 imageProxy.close()
                 return
             }
 
-            // ✅ PERBAIKAN: Selalu proses selama test belum selesai
             poseLandmarkerHelper.detectLiveStream(
                 imageProxy = imageProxy,
                 isFrontCamera = true
@@ -255,59 +253,57 @@ class BalanceTestFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener 
         )
     }
 
-    // ==================== STATE MANAGEMENT YANG BARU ====================
+    // ==================== STATE TRANSITION ====================
 
     private fun startAdaptiveTest() {
         currentState = TestState.DETECTING_POSE
         validPoseStartTime = 0L
-        binding.tvStatus.text = "Pastikan pinggul & lutut terlihat"
-        binding.tvTimer.text = "-"
+        isLeftKneeLiftedEver = false
+        isRightKneeLiftedEver = false
+        balanceMetricsList.clear() // Bersihkan data lama
         isTestCompleted.set(false)
+        testTimer?.cancel() // Pastikan timer tes dihentikan
 
         startPoseWaitTimer()
+        binding.tvInstruction.text = "Berdiri tegap, pastikan pinggul & lutut terlihat."
         Log.d(TAG, "startAdaptiveTest: Adaptive test started, waiting for pose detection")
     }
 
     private fun startPoseWaitTimer() {
-        poseWaitTimer?.cancel() // Batalkan yang lama jika ada
+        poseWaitTimer?.cancel()
 
         poseWaitTimer = object : CountDownTimer(MAX_POSE_WAIT_MS, 1000) {
             override fun onTick(millisUntilFinished: Long) {
+                if (currentState != TestState.DETECTING_POSE) {
+                    this.cancel()
+                    return
+                }
                 val secondsLeft = (millisUntilFinished / 1000).toInt()
                 binding.tvTimer.text = secondsLeft.toString()
             }
 
             override fun onFinish() {
                 Log.w(TAG, "❌ POSE DETECTION TIMEOUT")
-                if (isAdded) {
+                if (isAdded && currentState == TestState.DETECTING_POSE) {
                     saveResultAndNext(
                         isSuccessful = false,
-                        score = 1.0f, // Skor terburuk
+                        score = 1.0f,
                         notes = "Tes dilewati (Timeout): Orang tidak terdeteksi dalam ${MAX_POSE_WAIT_MS / 1000} detik."
                     )
                 }
             }
         }.start()
 
-        // Pastikan UI menampilkan timer
         binding.tvStatus.text = "Mencari pose..."
     }
 
-    // Implementasi LandmarkerListener
-    // Di BalanceTestFragment
-    override fun onResults(resultBundle: PoseLandmarkerHelper.ResultBundle) {
-        Log.d(TAG, "🎯 onResults: RECEIVED - Landmarks: ${resultBundle.pixelLandmarks.size}, " +
-                "State: $currentState, Completed: ${isTestCompleted.get()}")
+    // ==================== LANDMARKER LISTENER ====================
 
-        if (isTestCompleted.get()) {
-            Log.d(TAG, "onResults: Test completed, ignoring results")
-            return
-        }
+    override fun onResults(resultBundle: PoseLandmarkerHelper.ResultBundle) {
+        if (isTestCompleted.get()) return
 
         activity?.runOnUiThread {
-            Log.d(TAG, "🎯 onResults UI Thread - Landmarks: ${resultBundle.pixelLandmarks.size}")
-
-            // Update overlay dengan landmark terbaru
+            // Update overlay
             try {
                 binding.overlay.setResults(
                     resultBundle.pixelLandmarks,
@@ -315,27 +311,15 @@ class BalanceTestFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener 
                     resultBundle.inputImageWidth,
                     RunningMode.LIVE_STREAM
                 )
-                Log.d(TAG, "🎯 Overlay updated successfully")
             } catch (e: Exception) {
                 Log.e(TAG, "🎯 Error updating overlay", e)
             }
 
             when (currentState) {
-                TestState.DETECTING_POSE -> {
-                    Log.d(TAG, "🎯 Handling DETECTING_POSE state")
-                    handleDetectingPose(resultBundle)
-                }
-                TestState.COUNTDOWN -> {
-                    Log.d(TAG, "🎯 Handling COUNTDOWN state")
-                    handleCountdown(resultBundle)
-                }
-                TestState.TESTING -> {
-                    Log.d(TAG, "🎯 Handling TESTING state")
-                    handleTesting(resultBundle)
-                }
-                TestState.COMPLETED -> {
-                    Log.d(TAG, "🎯 State COMPLETED, ignoring")
-                }
+                TestState.DETECTING_POSE -> handleDetectingPose(resultBundle)
+                TestState.COUNTDOWN -> handleCountdown(resultBundle)
+                TestState.TESTING -> handleTesting(resultBundle)
+                TestState.COMPLETED -> Unit
             }
         }
     }
@@ -344,279 +328,219 @@ class BalanceTestFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener 
         Log.e(TAG, "onError: Pose detection error: $error, code: $errorCode")
     }
 
+    // ==================== STATE HANDLERS ====================
+
     private fun handleDetectingPose(resultBundle: PoseLandmarkerHelper.ResultBundle) {
         val metrics = resultBundle.balanceMetrics
-        val hasRequiredLandmarks = resultBundle.pixelLandmarks.size > 26 // Minimal sampai lutut
+        // Minimal sampai lutut (26)
+        val hasRequiredLandmarks = resultBundle.pixelLandmarks.size > PoseLandmarkerHelper.RIGHT_KNEE
 
-        Log.d(TAG, "🔍 handleDetectingPose - " +
-                "Landmarks: ${resultBundle.pixelLandmarks.size}, " +
-                "HasRequired: $hasRequiredLandmarks, " +
-                "Metrics: ${metrics != null}")
-
-        // ✅ PERBAIKAN: Handle case ketika metrics null (karena landmarks tidak cukup)
         if (hasRequiredLandmarks && metrics != null) {
-            // Pose valid terdeteksi
             if (validPoseStartTime == 0L) {
                 validPoseStartTime = System.currentTimeMillis()
-                binding.tvStatus.text = "✅ Pose terdeteksi! Tahan..."
                 Log.d(TAG, "🟢 VALID POSE DETECTED - Starting timer: $validPoseStartTime")
             }
 
             poseWaitTimer?.cancel()
-            poseWaitTimer = null
 
             val elapsed = System.currentTimeMillis() - validPoseStartTime
             val timeLeft = (REQUIRED_VALID_POSE_MS - elapsed) / 1000
 
-            Log.d(TAG, "⏱️ Pose Timer - Elapsed: ${elapsed}ms, TimeLeft: ${timeLeft}s")
-
             if (timeLeft > 0) {
                 binding.tvTimer.text = timeLeft.toString()
-                binding.tvStatus.text = "Pose baik! Tes dimulai dalam $timeLeft detik..."
+                binding.tvStatus.text = "Pose baik! Tes mulai dalam $timeLeft detik..."
             } else {
-                // Pindah ke state COUNTDOWN
                 currentState = TestState.COUNTDOWN
-                binding.tvStatus.text = "🎯 Pose terkunci! Tes mulai..."
                 Log.d(TAG, "🟢 MOVING TO COUNTDOWN STATE")
                 startShortCountdown()
             }
         } else {
-            // Reset jika pose tidak valid
             if (validPoseStartTime != 0L) {
                 Log.d(TAG, "🔴 POSE LOST - Resetting timer")
                 validPoseStartTime = 0L
             }
-
-            val reason = when {
-                !hasRequiredLandmarks -> "Landmarks tidak lengkap (${resultBundle.pixelLandmarks.size}/33)"
-                metrics == null -> "Tidak bisa analisis balance"
-                else -> "Stabilitas rendah: ${metrics.overallStability}"
-            }
-
-            binding.tvStatus.text = "📏 Cari posisi... $reason"
+            binding.tvStatus.text = "📏 Cari posisi... Pastikan pinggul & lutut terlihat."
             binding.tvTimer.text = "-"
-            Log.d(TAG, "🔴 Invalid pose: $reason")
         }
     }
 
     private fun handleCountdown(resultBundle: PoseLandmarkerHelper.ResultBundle) {
-        // Selama countdown, tetap kumpulkan data untuk analisis
-        resultBundle.balanceMetrics?.let { metrics ->
-            balanceMetricsList.add(metrics)
-        }
+        // Tetap kumpulkan data meskipun tidak digunakan untuk hasil akhir
+        resultBundle.balanceMetrics?.let { balanceMetricsList.add(it) }
     }
 
     private fun handleTesting(resultBundle: PoseLandmarkerHelper.ResultBundle) {
-        // Selama tes, kumpulkan data untuk analisis akhir
-        resultBundle.balanceMetrics?.let { metrics ->
-            balanceMetricsList.add(metrics)
-            updateRealTimeStatus(metrics)
+        testTimer?.let {
+            val metrics = resultBundle.balanceMetrics
+
+            if (metrics != null) {
+                balanceMetricsList.add(metrics)
+
+                // 1. Update status progresif
+                if (metrics.isLeftKneeLifted) isLeftKneeLiftedEver = true
+                if (metrics.isRightKneeLifted) isRightKneeLiftedEver = true
+
+                // 2. Cek syarat keberhasilan
+                if (isLeftKneeLiftedEver && isRightKneeLiftedEver) {
+                    testTimer?.cancel()
+                    Log.i(TAG, "🎉 KEDUA LUTUT TERANGKAT! Tes Selesai (BERHASIL)!")
+                    completeTest(isSuccessful = true)
+                    return
+                }
+
+                // 3. Update feedback real-time
+                updateTestFeedback()
+            }
         }
     }
 
+    // ==================== TIMER & FEEDBACK ====================
+
     private fun startShortCountdown() {
-        // Hitung mundur 3 detik sebelum tes benar-benar mulai
         object : CountDownTimer(3000, 1000) {
             override fun onTick(millisUntilFinished: Long) {
                 val seconds = (millisUntilFinished / 1000).toInt()
                 binding.tvTimer.text = seconds.toString()
-                binding.tvStatus.text = "🔜 Bersiap... $seconds"
+                binding.tvStatus.text = "🔜 Bersiap, Angkat Lutut Anda... $seconds"
             }
 
             override fun onFinish() {
                 currentState = TestState.TESTING
-                binding.tvStatus.text = "🎬 TES BERJALAN! Tetap diam..."
+                binding.tvInstruction.text = "Angkat lutut Kiri dan Kanan secara bergantian!"
+                binding.tvStatus.text = "🎬 TES MULAI! Angkat lutut..."
                 startTestTimer()
             }
         }.start()
     }
 
     private fun startTestTimer() {
-        // Timer 5 detik untuk tes aktual
-        object : CountDownTimer(TEST_DURATION_MS, 1000) {
+        testTimer?.cancel()
+
+        // Timer MAX_TEST_DURATION_MS untuk batas waktu
+        testTimer = object : CountDownTimer(MAX_TEST_DURATION_MS, 100) {
             override fun onTick(millisUntilFinished: Long) {
-                val seconds = (millisUntilFinished / 1000).toInt()
-                binding.tvTimer.text = seconds.toString()
-                updateTestFeedback(seconds)
+                val seconds = (millisUntilFinished / 1000)
+                // Hanya update timer setiap 1 detik
+                if (millisUntilFinished % 1000 < 100) {
+                    binding.tvTimer.text = seconds.toString()
+                }
             }
 
             override fun onFinish() {
-                currentState = TestState.COMPLETED
-                completeTest()
+                // Jika timer habis dan tes belum selesai (kedua lutut belum terangkat)
+                Log.w(TAG, "❌ WAKTU HABIS. Tes Selesai (GAGAL).")
+                completeTest(isSuccessful = false)
             }
         }.start()
     }
 
-    private fun updateTestFeedback(secondsLeft: Int) {
-        when (secondsLeft) {
-            5 -> binding.tvStatus.text = "✅ Pertahankan!"
-            4, 3 -> binding.tvStatus.text = "💪 Stabil!"
-            2, 1 -> binding.tvStatus.text = "⏳ Hampir selesai..."
+    private fun updateTestFeedback() {
+        val leftStatus = if (isLeftKneeLiftedEver) "✅ Kiri" else "❌ Kiri"
+        val rightStatus = if (isRightKneeLiftedEver) "✅ Kanan" else "❌ Kanan"
+
+        binding.tvStatus.text = "Progress: $leftStatus | $rightStatus"
+
+        // Update instruksi agar lebih jelas
+        binding.tvInstruction.text = when {
+            isLeftKneeLiftedEver && !isRightKneeLiftedEver -> "Lutut Kiri OK! Sekarang angkat lutut KANAN."
+            !isLeftKneeLiftedEver && isRightKneeLiftedEver -> "Lutut Kanan OK! Sekarang angkat lutut KIRI."
+            else -> "Angkat lutut Kiri dan Kanan secara bergantian!"
         }
     }
 
-    private fun updateRealTimeStatus(metrics: PoseLandmarkerHelper.BalanceMetrics) {
-        val stabilityPercent = (metrics.overallStability * 100).toInt()
-        val status = when {
-            metrics.overallStability > 0.8f -> "Stabil ($stabilityPercent%) ✓"
-            metrics.overallStability > 0.6f -> "Agak goyah ($stabilityPercent%)"
-            else -> "Tidak stabil ($stabilityPercent%)!"
-        }
-        // Hanya update status jika tidak sedang menampilkan feedback timer
-        if (!binding.tvStatus.text.contains("✅") &&
-            !binding.tvStatus.text.contains("💪") &&
-            !binding.tvStatus.text.contains("⏳")) {
-            binding.tvStatus.text = status
-        }
-    }
+    // ==================== TEST COMPLETION & ANALISIS ====================
 
-    // ==================== TEST COMPLETION ====================
+    private fun completeTest(isSuccessful: Boolean) {
+        if (isTestCompleted.getAndSet(true)) return
 
-    private fun completeTest() {
-        Log.d(TAG, "completeTest: Completing test")
-        isTestCompleted.set(true)
+        testTimer?.cancel()
+        currentState = TestState.COMPLETED
 
         binding.tvTimer.text = "0"
-        binding.tvStatus.text = "✅ Test selesai!"
+        binding.tvInstruction.text = "Tes Selesai"
 
-        // Analisis hasil balance
-        val (isSuccessful, score, notes) = analyzeBalanceResults()
-        Log.d(TAG, "completeTest: Analysis result - Successful: $isSuccessful, Score: $score")
+        // Cek status keberhasilan berdasarkan pencapaian progresif
+        val finalIsSuccessful = isLeftKneeLiftedEver && isRightKneeLiftedEver
 
-        saveResultAndNext(isSuccessful, score, notes)
+        binding.tvStatus.text = if (finalIsSuccessful) {
+            "🎉 BERHASIL! Kedua lutut terangkat."
+        } else {
+            "❌ GAGAL! Waktu habis."
+        }
+
+        // Analisis hasil
+        // Kirim status pencapaian lutut ke fungsi analisis skor
+        val (score, notes) = analyzeBalanceResults(finalIsSuccessful)
+        Log.d(TAG, "completeTest: Analysis result - Successful: $finalIsSuccessful, Score: $score")
+
+        saveResultAndNext(finalIsSuccessful, score, notes)
     }
 
-    private fun analyzeBalanceResults(): BalanceDetectionResult {
-        Log.d(TAG, "analyzeBalanceResults: Analyzing ${balanceMetricsList.size} frames")
+    private fun analyzeBalanceResults(isTestSuccessful: Boolean): Pair<Float, String> {
+        val totalFrames = balanceMetricsList.size
 
-        if (balanceMetricsList.isEmpty()) {
-            Log.w(TAG, "analyzeBalanceResults: No data collected")
-            return BalanceDetectionResult(
-                isSuccessful = false,
-                score = 1.0f,
-                notes = "Tidak ada data pose yang terdeteksi selama test"
+        // 1. Kriteria Keberhasilan
+        if (isTestSuccessful) {
+            // Jika berhasil (kedua lutut terangkat), skor sempurna 0.0.
+            return Pair(
+                0.0f,
+                "Berhasil: Kedua lutut terangkat dalam batas waktu. Frame dianalisis: $totalFrames."
             )
         }
 
-        // Hitung average stability (hanya dari data TESTING phase)
-        val testingMetrics = balanceMetricsList.takeLast(
-            (TEST_DURATION_MS / 1000 * 10).coerceAtMost(balanceMetricsList.size.toLong()).toInt()
-        )
+        var score = 1.0f // Skor default terburuk (Gagal total)
+        val progressNote: String
 
-        val avgStability = testingMetrics.map { it.overallStability }.average().toFloat()
-        val balancedFrames = testingMetrics.count { it.isBalanced }
-        val balancePercentage = balancedFrames.toFloat() / testingMetrics.size
-        val imbalanceEvents = testingMetrics.count { it.leftKneeHigher || it.rightKneeHigher }
+        val avgStability = balanceMetricsList.map { it.overallStability }.average().toFloat()
 
-        val score = calculateBalanceScore(avgStability, balancePercentage, imbalanceEvents)
-        val isSuccessful = score < 0.5f
+        when {
+            isLeftKneeLiftedEver != isRightKneeLiftedEver -> {
+                score = 0.5f
 
-        val notes = buildString {
-            append("Stabilitas rata-rata: ${String.format("%.1f", avgStability * 100)}%. ")
-            append("Waktu seimbang: ${String.format("%.1f", balancePercentage * 100)}%. ")
-            if (imbalanceEvents > 0) {
-                append("Deteksi ketidakseimbangan: $imbalanceEvents kali. ")
+                val stabilityAdjustment = (1.0f - avgStability) * 0.5f
+
+                score = (score - stabilityAdjustment).coerceIn(0.2f, 0.8f)
+
+                val liftedSide = if (isLeftKneeLiftedEver) "Kiri" else "Kanan"
+                progressNote = "Gagal: Waktu habis. Hanya lutut $liftedSide yang terangkat (Progres 50%)."
             }
-            append(if (isSuccessful) "Keseimbangan normal." else "Keseimbangan perlu perhatian.")
+
+            else -> {
+                score = 1.0f
+                progressNote = "Gagal total: Tidak ada lutut yang terdeteksi terangkat."
+            }
         }
 
-        Log.i(TAG, "analyzeBalanceResults: Final result - " +
-                "Avg Stability: ${String.format("%.1f", avgStability * 100)}%, " +
-                "Balance %: ${String.format("%.1f", balancePercentage * 100)}%, " +
-                "Imbalance Events: $imbalanceEvents, " +
-                "Score: $score, " +
-                "Successful: $isSuccessful")
+        val notes = buildString {
+            append(progressNote)
+            append(" Stabilitas rata-rata: ${String.format("%.1f", avgStability * 100)}%. ")
+            append("Frame dianalisis: $totalFrames. ")
+            append("Skor akhir: ${String.format("%.2f", score)}")
+        }
 
-        return BalanceDetectionResult(
-            isSuccessful = isSuccessful,
-            score = score,
-            notes = notes
-        )
-    }
-
-    private fun calculateBalanceScore(
-        avgStability: Float,
-        balancePercentage: Float,
-        imbalanceEvents: Int
-    ): Float {
-        val stabilityScore = 1.0f - avgStability
-        val balanceTimeScore = 1.0f - balancePercentage
-        val eventScore = (imbalanceEvents.toFloat() / balanceMetricsList.size).coerceAtMost(1.0f)
-
-        val finalScore = (stabilityScore * 0.4f + balanceTimeScore * 0.4f + eventScore * 0.2f)
-        Log.d(TAG, "calculateBalanceScore: stabilityScore=$stabilityScore, balanceTimeScore=$balanceTimeScore, eventScore=$eventScore, finalScore=$finalScore")
-        return finalScore
-    }
-
-    // Tambahkan fungsi baru ini di BalanceTestFragment
-    private fun stopCameraAndCleanup() {
-        Log.d(TAG, "🛑 Stopping camera and cleanup...")
-
-        // 1. Hentikan Landmarker dan Analyzer terlebih dahulu (Sinkron)
-        cleanupPoseLandmarker() // <-- Tetap gunakan fungsi ini (hanya untuk ML helper)
-
-        // 2. Hentikan Image Analysis (Sinkron)
-        val cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
-        cameraProviderFuture.addListener({
-            // Operasi ini dijalankan di Main Executor
-            try {
-                val cameraProvider = cameraProviderFuture.get()
-                cameraProvider.unbindAll() // <-- UNBIND CameraX
-                Log.d(TAG, "✅ CameraX unbindAll successful")
-            } catch (e: Exception) {
-                Log.e(TAG, "❌ Failed to unbind CameraX", e)
-            }
-
-            // 3. Matikan Executor setelah CameraX di-unbind
-            if (!cameraExecutor.isShutdown) {
-                // Gunakan shutdownNow() untuk membatalkan semua tugas yang tertunda
-                cameraExecutor.shutdownNow()
-                Log.d(TAG, "✅ cameraExecutor shutdownNow called.")
-            }
-
-            // 4. Lanjutkan Navigasi dengan sedikit penundaan (e.g., 500ms)
-            // Penundaan 500ms memberikan waktu bagi Fragment untuk mulai transisi.
-            binding.root.postDelayed({
-                if (isAdded && !requireActivity().isFinishing) {
-                    navigateToNextTest()
-                } else {
-                    Log.w(TAG, "Cleanup completed, but Fragment not attached for navigation.")
-                }
-            }, 1000) // ✅ Ganti 1500ms dengan 500ms
-
-        }, ContextCompat.getMainExecutor(requireContext()))
+        return Pair(score, notes)
     }
 
     private fun saveResultAndNext(isSuccessful: Boolean, score: Float, notes: String) {
         Log.d(TAG, "saveResultAndNext: Saving results and navigating")
 
-        if (isNavigating.getAndSet(true)) {
-            Log.w(TAG, "saveResultAndNext: Navigation already in progress, skipping")
-            return
-        }
-
-        if (!isAdded || context == null) {
-            Log.w(TAG, "saveResultAndNext: Fragment not attached, cannot save results")
-            return
-        }
+        if (isNavigating.getAndSet(true)) return
+        if (!isAdded || context == null) return
 
         val result = TestResult(
-            testName = "befast_balance",
+            testName = "befast_balance_knee_lift",
             isCompleted = true,
             isSuccessful = isSuccessful,
             score = score,
             notes = notes,
             timestamp = ScreeningDataManager.getCurrentTimestamp(),
-            duration = TEST_DURATION_MS,
+            duration = MAX_TEST_DURATION_MS,
             testData = mapOf(
-                "test_type" to "balance",
-                "duration_seconds" to (TEST_DURATION_MS / 1000),
-                "camera_used" to "front",
-                "total_frames_analyzed" to balanceMetricsList.size,
-                "average_stability" to balanceMetricsList.map { it.overallStability }.average(),
-                "balance_percentage" to balanceMetricsList.count { it.isBalanced }.toFloat() / balanceMetricsList.size.coerceAtLeast(1),
-                "imbalance_events" to balanceMetricsList.count { it.leftKneeHigher || it.rightKneeHigher },
-                "ml_analysis" to true
+                "test_type" to "knee_lift",
+                "duration_seconds" to (MAX_TEST_DURATION_MS / 1000),
+                "left_knee_lifted" to isLeftKneeLiftedEver,
+                "right_knee_lifted" to isRightKneeLiftedEver,
+                "total_frames_analyzed" to balanceMetricsList.size
             )
         )
 
@@ -624,6 +548,36 @@ class BalanceTestFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener 
         Log.d(TAG, "saveResultAndNext: Results saved to ScreeningDataManager")
 
         stopCameraAndCleanup()
+    }
+
+    private fun stopCameraAndCleanup() {
+        Log.d(TAG, "🛑 Stopping camera and cleanup...")
+
+        cleanupPoseLandmarker()
+        testTimer?.cancel() // Pastikan test timer di-cancel
+
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
+        cameraProviderFuture.addListener({
+            try {
+                cameraProviderFuture.get().unbindAll()
+                Log.d(TAG, "✅ CameraX unbindAll successful")
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Failed to unbind CameraX", e)
+            }
+
+            if (!cameraExecutor.isShutdown) {
+                cameraExecutor.shutdownNow()
+                Log.d(TAG, "✅ cameraExecutor shutdownNow called.")
+            }
+
+            binding.root.postDelayed({
+                if (isAdded && !requireActivity().isFinishing) {
+                    navigateToNextTest()
+                } else {
+                    Log.w(TAG, "Cleanup completed, but Fragment not attached for navigation.")
+                }
+            }, 500) // Penundaan 500ms
+        }, ContextCompat.getMainExecutor(requireContext()))
     }
 
     private fun cleanupPoseLandmarker() {
@@ -649,37 +603,29 @@ class BalanceTestFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener 
             }
         } catch (e: Exception) {
             Log.e(TAG, "navigateToNextTest: Navigation failed", e)
-            try {
-                findNavController().popBackStack()
-                Log.d(TAG, "navigateToNextTest: Fallback to popBackStack")
-            } catch (e2: Exception) {
-                Log.e(TAG, "navigateToNextTest: Fallback navigation also failed", e2)
-            }
         }
     }
 
     override fun onDestroyView() {
         Log.d(TAG, "onDestroyView: Cleaning up resources")
 
-        // Stop any running timers
         isTestCompleted.set(true)
+        testTimer?.cancel()
+        poseWaitTimer?.cancel()
 
         cameraExecutor.shutdownNow()
         cleanupPoseLandmarker()
         _binding = null
-
-        poseWaitTimer?.cancel() // 💡 Batalkan timer saat view dihancurkan
-        poseWaitTimer = null
 
         super.onDestroyView()
         Log.d(TAG, "onDestroyView: Cleanup completed")
     }
 
     private enum class TestState {
-        DETECTING_POSE,    // Mencari pose yang valid
-        COUNTDOWN,         // Hitung mundur 3 detik
-        TESTING,           // Tes aktif 5 detik
-        COMPLETED          // Tes selesai
+        DETECTING_POSE,
+        COUNTDOWN,
+        TESTING,
+        COMPLETED
     }
 
     private data class BalanceDetectionResult(

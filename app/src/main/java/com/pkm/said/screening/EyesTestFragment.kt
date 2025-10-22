@@ -49,6 +49,7 @@ class EyesTestFragment : Fragment(), OnInitListener, FaceLandmarkerHelper.Landma
 
     private lateinit var tts: TextToSpeech
     private var isTtsInitialized = false
+    private var activeTtsLocale: Locale = Locale.US
 
     private lateinit var cameraExecutor: ExecutorService
     private var countDownTimer: CountDownTimer? = null
@@ -114,15 +115,30 @@ class EyesTestFragment : Fragment(), OnInitListener, FaceLandmarkerHelper.Landma
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
-            Log.i(TTS_TAG, "Inisialisasi TTS berhasil.")
-            val result = tts.setLanguage(Locale.US)
+            val indonesianLocale = Locale("id", "ID")
+            var result = tts.setLanguage(indonesianLocale)
 
             if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                Log.e(TTS_TAG, "Bahasa (US) tidak didukung. Menggunakan mode senyap.")
-                isTtsInitialized = false
+
+                Log.w(TTS_TAG, "Bahasa (ID) tidak didukung atau data hilang. Mencoba English (US) sebagai fallback.")
+
+                // Coba Fallback ke Bahasa Inggris (US)
+                result = tts.setLanguage(Locale.US)
+
+                if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    Log.e(TTS_TAG, "Bahasa (US) juga gagal. Menggunakan mode senyap.")
+                    isTtsInitialized = false
+                } else {
+                    Log.i(TTS_TAG, "Fallback ke Bahasa Inggris (US) berhasil.")
+                    isTtsInitialized = true
+                    @Suppress("DEPRECATION")
+                    activeTtsLocale = tts.language
+                }
             } else {
-                Log.i(TTS_TAG, "Bahasa (US) berhasil diatur.")
+                Log.i(TTS_TAG, "Bahasa Indonesia berhasil diatur.")
                 isTtsInitialized = true
+                @Suppress("DEPRECATION")
+                activeTtsLocale = tts.language
             }
         } else {
             Log.e(TTS_TAG, "Inisialisasi TTS gagal (Status: $status). Menggunakan mode senyap.")
@@ -277,6 +293,37 @@ class EyesTestFragment : Fragment(), OnInitListener, FaceLandmarkerHelper.Landma
         return Pair(rotation.first, rotation.second)
     }
 
+    // EyesTestFragment.kt (Tambahkan Fungsi Baru)
+
+    private fun isIndonesianLocale(locale: Locale): Boolean {
+        // 1. Cek Kode Bahasa Standar (id)
+        val isStandardId = locale.language == "id" || locale.language == "in"
+
+        // 2. Cek Nama Tampilan (Fallback untuk anomali Android/TTS Engine)
+        val displayLanguage = locale.displayLanguage.lowercase(Locale.ROOT)
+
+        val isDisplayId = displayLanguage.contains("indonesia") || displayLanguage.contains("indonesian")
+
+        return isStandardId || isDisplayId
+    }
+
+    private fun getRotationInstruction(secondsLeft: Int, locale: Locale): String? {
+        // Tentukan apakah bahasa aktif adalah Bahasa Indonesia
+        val isIndonesian = isIndonesianLocale(locale)
+
+        return when (secondsLeft) {
+            14 -> if (isIndonesian) "Mulai dari posisi atas" else "Start from the top position"
+            12 -> if (isIndonesian) "Perlahan ke kanan atas" else "Slowly move to the top right"
+            10 -> if (isIndonesian) "Lanjutkan ke kanan" else "Continue to the right"
+            8 -> if (isIndonesian) "Turun ke kanan bawah" else "Descend to the bottom right"
+            6 -> if (isIndonesian) "Lanjutkan ke bawah" else "Continue downwards"
+            4 -> if (isIndonesian) "Pindah ke kiri bawah" else "Move to the bottom left"
+            2 -> if (isIndonesian) "Lanjutkan ke kiri" else "Continue to the left"
+            0 -> if (isIndonesian) "Kembali ke atas. Selesai" else "Return to the top, finished"
+            else -> null
+        }
+    }
+
     @SuppressLint("SetTextI18n")
     private fun updateEyeTrackingStatus(secondsLeft: Int) {
         val (instruction, gazeDirection) = getClockwiseGazeDirection(secondsLeft)
@@ -285,21 +332,17 @@ class EyesTestFragment : Fragment(), OnInitListener, FaceLandmarkerHelper.Landma
         binding.tvStatus.text = instruction
 
         // 🗣️ VOICE GUIDANCE untuk rotasi
-        val speechText = when (secondsLeft) {
-            14 -> "Start from the top position"
-            12 -> "Slowly move to the top right"
-            10 -> "Continue to the right"
-            8 -> "Descend to the bottom right"
-            6 -> "Continue downwards"
-            4 -> "Move to the bottom left"
-            2 -> "Continue to the left"
-            0 -> "Return to the top, finished"
-            else -> null
+        if (!isTtsInitialized) {
+            Log.v(TAG, "TTS not initialized, skipping voice guidance.")
+            return
         }
 
+        // 🗣️ VOICE GUIDANCE - Menggunakan fungsi dinamis
+        val speechText = getRotationInstruction(secondsLeft, activeTtsLocale) // ✅ Panggil dengan Locale aktif
+
         speechText?.let {
-            Log.d(TAG, "🗣️ Rotation guidance: $it")
-            speakInstruction(it)
+            Log.d(TAG, "🗣️ Rotation guidance: $it (Language: ${activeTtsLocale.language})")
+            speakInstruction(it) // TTS akan berbicara dalam bahasa yang berhasil diinisialisasi
         }
 
         Log.d(TAG, "🎯 Rotation direction: '$requiredGazeDirection' - $instruction")

@@ -97,7 +97,7 @@ class ChatViewModel : ViewModel() {
                 // Pastikan isLoading = false saat error
                 _messages.value = _messages.value.toMutableList().apply {
                     this[placeholderIndex] = MessageAdapter.ChatMessage(
-                        text = "Error: Terjadi kesalahan. ${e.localizedMessage}.",
+                        text = "Maaf, Said sedang tidak dapat terhubung. Terjadi kesalahan pada layanan chat. Silakan coba lagi. Silahkan periksa koneksi Internet",
                         isUser = false,
                         isLoading = false
                     )
@@ -155,7 +155,7 @@ class ChatViewModel : ViewModel() {
             } catch (e: Exception) {
                 _messages.value = _messages.value.toMutableList().apply {
                     this[placeholderIndex] = MessageAdapter.ChatMessage(
-                        text = "Error: Terjadi kesalahan. ${e.localizedMessage}.",
+                        text = "Error: Halo, saya SAID. saati ini sedang terjadi kesalahan. ${e.localizedMessage}.",
                         isUser = false,
                         isLoading = false
                     )

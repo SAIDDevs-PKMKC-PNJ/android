@@ -10,23 +10,48 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import com.google.android.gms.location.FusedLocationProviderClient
+import android.location.Geocoder
+import android.Manifest
+import android.content.pm.PackageManager
+import com.google.android.gms.location.LocationServices
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.google.gson.Gson
 import com.pkm.said.EmergencyActivity
 import com.pkm.said.MainActivity
 import com.pkm.said.R
 import com.pkm.said.databinding.FragmentScreeningResultBinding
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 class ScreeningResultFragment : Fragment() {
 
     private var _binding: FragmentScreeningResultBinding? = null
     private val binding get() = _binding!!
     private var completedSession: ScreeningResult? = null
+    private var currentCity: String? = null
+
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+
+    // ✅ Activity Result Launcher untuk meminta Izin
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            getCityFromLocation() // Izin diberikan, coba ambil lokasi
+        } else {
+            // Izin ditolak, tetapkan nilai default dan lanjutkan setup
+            currentCity = "Not Permitted"
+            setupResult()
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -47,12 +72,77 @@ class ScreeningResultFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity())
+
         savedInstanceState?.getString("completed_session_json")?.let { json ->
             completedSession = Gson().fromJson(json, ScreeningResult::class.java)
+            completedSession?.city?.let { currentCity = it }
         }
 
-        setupResult()
+        if (completedSession != null) {
+            setupResult()
+        } else {
+            checkLocationPermission() // ✅ Mulai proses pengambilan lokasi
+        }
+
         setupStaticClickListeners()
+    }
+
+    private fun checkLocationPermission() {
+        if (ContextCompat.checkSelfPermission(
+                requireContext(),
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            getCityFromLocation()
+        } else {
+            requestPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun getCityFromLocation() {
+        // Set default sementara
+        currentCity = "Getting Location..."
+
+        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+            if (location != null) {
+                viewLifecycleOwner.lifecycleScope.launch {
+                    val city = geocodeLocation(location.latitude, location.longitude)
+                    currentCity = city ?: "SAID"
+                    setupResult() // Lanjutkan proses setup dengan data kota
+                }
+            } else {
+                currentCity = "Location Null"
+                Log.w("ScreeningResult", "❌ Last known location is null.")
+                setupResult()
+            }
+        }.addOnFailureListener { e ->
+            currentCity = "Location Error"
+            Log.e("ScreeningResult", "❌ Failed to get location: ${e.message}")
+            setupResult()
+        }
+    }
+
+    // Gunakan Geocoder untuk mengubah koordinat menjadi nama kota
+    private suspend fun geocodeLocation(latitude: Double, longitude: Double): String? {
+        return withContext(Dispatchers.IO) {
+            return@withContext try {
+                @Suppress("DEPRECATION")
+                val geocoder = Geocoder(requireContext(), Locale.getDefault())
+                val addresses = geocoder.getFromLocation(latitude, longitude, 1)
+
+                if (!addresses.isNullOrEmpty()) {
+                    // Ambil nama kota (locality) atau sub-admin area sebagai fallback
+                    addresses[0].locality ?: addresses[0].subAdminArea
+                } else {
+                    null
+                }
+            } catch (e: Exception) {
+                Log.e("ScreeningResult", "Geocoding failed: ${e.message}")
+                null
+            }
+        }
     }
 
     private fun setupResult() {
@@ -74,7 +164,7 @@ class ScreeningResultFragment : Fragment() {
             }
 
             // ✅ SEMUA TES SELESAI - Complete di lokal dulu
-            val locallyCompleted = ScreeningDataManager.completeSession(requireContext())
+            val locallyCompleted = ScreeningDataManager.completeSession(requireContext(), currentCity)
             if (locallyCompleted != null) {
                 completedSession = locallyCompleted
 
@@ -541,7 +631,7 @@ class ScreeningResultFragment : Fragment() {
         }
 
         // ✅ COMPLETE DI LOKAL DULU
-        val locallyCompleted = ScreeningDataManager.completeSession(requireContext())
+        val locallyCompleted = ScreeningDataManager.completeSession(requireContext(), currentCity)
         if (locallyCompleted != null) {
             completedSession = locallyCompleted
 

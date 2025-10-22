@@ -44,6 +44,7 @@ class EmergencyActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private var isVoiceMessagePlaying = false
     private var isTtsReady = false
     private var ttsLanguageAvailable = false
+    private var activeTtsLocale: Locale = Locale.US
 
     // ✅ Durasi Countdown diubah menjadi 10 detik
     private val countdownValue = 10
@@ -270,15 +271,21 @@ class EmergencyActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     // ✅ REVISI: Hanya Nama dan Lokasi GPS
-    private fun getUserEmergencyInfo(): String {
+    private fun getUserEmergencyInfo(locale: Locale): String {
         val name = SessionManager.getUserName(this).orEmpty()
+        val locationInfo = getLocationInfo() // Asumsi getLocationInfo() mengembalikan teks netral (koordinat/link)
 
-        val locationInfo = getLocationInfo()
+        val isIndonesian = locale.language == "id"
+
+        // Tentukan frasa penting berdasarkan bahasa
+        val nameLabel = if (isIndonesian) "Nama Korban" else "Victim Name"
+        val symptomLabel = if (isIndonesian) "Gejala Stroke" else "Stroke Symptoms"
+        val locationLabel = if (isIndonesian) "Lokasi Korban Saat Ini" else "Current Victim Location"
 
         return buildString {
-            append("Nama Korban: ${name}. ")
-            append("Gejala Stroke. ")
-            append("Lokasi Korban Saat Ini: $locationInfo")
+            append("$nameLabel: ${name}. ")
+            append("$symptomLabel. ")
+            append("$locationLabel: $locationInfo")
         }
     }
 
@@ -381,33 +388,66 @@ class EmergencyActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+    private fun isIndonesianLocale(locale: Locale): Boolean {
+        // 1. Cek Kode Bahasa Standar (id)
+        val isStandardId = locale.language == "id" || locale.language == "in"
+
+        // 2. Cek Nama Tampilan (Fallback untuk anomali Android/TTS Engine)
+        val displayLanguage = locale.displayLanguage.lowercase(Locale.ROOT)
+
+        val isDisplayId = displayLanguage.contains("indonesia") || displayLanguage.contains("indonesian")
+
+        return isStandardId || isDisplayId
+    }
+
+    @Suppress("DEPRECATION")
     override fun onInit(status: Int) {
         Log.d(TAG, "🔊 TTS onInit called with status: $status")
 
         if (status == TextToSpeech.SUCCESS) {
             Log.d(TAG, "✅ TTS engine initialized successfully")
 
-            // Cek Bahasa Indonesia
-            var result = textToSpeech.setLanguage(Locale("id", "ID"))
-            if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                result = textToSpeech.setLanguage(Locale.US) // Fallback English
-                ttsLanguageAvailable = result != TextToSpeech.LANG_MISSING_DATA && result != TextToSpeech.LANG_NOT_SUPPORTED
-            } else {
-                ttsLanguageAvailable = true
+            val indonesianLocale = Locale("id", "ID")
+            var result = textToSpeech.setLanguage(indonesianLocale)
+
+            if (result == TextToSpeech.LANG_MISSING_DATA) {
+                Log.e(TAG, "❌ TTS data for Indonesian missing. Prompting user to install.")
+
+                // ✅ PROMPT INSTALASI DATA SUARA
+                val installIntent = Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
+                installIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                try {
+                    startActivity(installIntent)
+                } catch (e: Exception) {
+                    // Fallback jika intent gagal
+                    Log.e(TAG, "Gagal meluncurkan intent instalasi.", e)
+                }
+
+                // Lanjut mencoba fallback ke US karena ID gagal
+                result = textToSpeech.setLanguage(Locale.US)
             }
 
+            if (result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                // Jika ID atau US tidak didukung, coba default
+                result = textToSpeech.setLanguage(Locale.getDefault())
+            }
+
+            if (result != TextToSpeech.LANG_MISSING_DATA && result != TextToSpeech.LANG_NOT_SUPPORTED) {
+                ttsLanguageAvailable = true
+                activeTtsLocale = textToSpeech.language // 👈 SIMPAN LOCALE YANG BERHASIL
+                Log.d(TAG, "✅ TTS Language set to: ${activeTtsLocale.displayLanguage}")
+            } else {
+                ttsLanguageAvailable = false
+                Log.e(TAG, "❌ No supported TTS language found.")
+            }
             isTtsReady = true
 
-            // ✅ OPTIMASI VOLUME untuk ALARM LOKAL
             optimizeTTSForLocalAlarm()
-
             setupTTSListener()
 
-            // ✅ Panggil alert/alarm di sini
             if (ttsLanguageAvailable) {
                 speakEmergencyAlert()
             }
-
         } else {
             Log.e(TAG, "❌ TTS initialization failed")
             isTtsReady = false
@@ -434,17 +474,43 @@ class EmergencyActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
-    // ✅ FUNGSI BARU: TTS PESAN INSTRUKSI (SETELAH COUNTDOWN)
+    private fun getTranslatedAlert(locale: Locale): String {
+        val isIndonesian = isIndonesianLocale(locale)
+
+        return if (isIndonesian) {
+            "Perhatian darurat! Tolong ada yang sakit! Segera bantu korban! Panggilan telepon akan dimulai dalam $countdownValue detik."
+        } else {
+            // English fallback
+            "Emergency alert! Someone is ill! Please help the victim immediately! The phone call will start in $countdownValue seconds."
+        }
+    }
+
+    private fun getTranslatedInstruction(locale: Locale): String {
+        val isIndonesian = isIndonesianLocale(locale)
+
+        return if (isIndonesian) {
+            """
+        Penting! Panggilan darurat dimulai. 
+        Mohon berikan ponsel ini kepada orang yang mengangkat telepon.
+        Laporkan informasi korban ini:
+        """.trimIndent()
+        } else {
+            // English fallback
+            """
+        Important! The emergency call has started. 
+        Please give this phone to the person answering the call.
+        Report the following victim information:
+        """.trimIndent()
+        }
+    }
+
     private fun speakInstructionMessage() {
         if (!isTtsReady || !ttsLanguageAvailable) return
 
-        val userInfo = getUserEmergencyInfo()
-        val instructionMessage = """
-            Penting! Panggilan darurat dimulai. 
-            Mohon berikan ponsel ini kepada orang yang mengangkat telepon.
-            Laporkan informasi korban ini:
-            $userInfo
-        """.trimIndent()
+        val userInfo = getUserEmergencyInfo(activeTtsLocale)
+        val baseInstruction = getTranslatedInstruction(activeTtsLocale)
+
+        val instructionMessage = "$baseInstruction \n$userInfo"
 
         // ✅ KEMBALIKAN KE SETTING BICARA NORMAL/PELAN SEBELUM INSTRUKSI
         textToSpeech.setSpeechRate(1.0f)
@@ -492,7 +558,7 @@ class EmergencyActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun speakEmergencyAlert() {
         if (!isTtsReady || !ttsLanguageAvailable) return
 
-        val alertMessage = "Perhatian darurat! Tolong ada yang sakit! Segera bantu korban! Panggilan telepon akan dimulai dalam $countdownValue detik."
+        val alertMessage = getTranslatedAlert(activeTtsLocale)
         Log.d(TAG, "🔊 Speaking local alarm: $alertMessage")
 
         try {

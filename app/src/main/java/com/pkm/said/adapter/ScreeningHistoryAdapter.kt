@@ -51,8 +51,9 @@ class ScreeningHistoryAdapter(
             binding.tvDate.text    = formatDate(whenStr)
             binding.tvDateTime.text = formatTime(whenStr)
 
-            // Lokasi dummy (kalau nanti ada, ambil dari testData)
-            binding.tvLocation.text = "Jakarta"
+            // Ambil data city. Jika null, gunakan default "SAID".
+            val locationText = item.city ?: "SAID"
+            binding.tvLocation.text = locationText
 
             // FAST overall 0..80%
             val fastOverall = ScreeningDataManager.calculateBEFASTOverallPercent(item)

@@ -2,9 +2,11 @@ package com.pkm.said
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.IBinder
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -69,6 +71,8 @@ class ChatbotActivity : AppCompatActivity(), Said.VoiceActivityCallback {
     private var speechIntent: Intent? = null
     private var isListening = false
     private var wasVoiceServiceRunning = false
+    private var voiceService: VoiceActivationService? = null
+    private var isBound = false
 
     // Overlay wave (jika sebelumnya ada dummy animasi, sekarang dimatikan)
     private var waveJob: Job? = null
@@ -105,6 +109,7 @@ class ChatbotActivity : AppCompatActivity(), Said.VoiceActivityCallback {
             Said.getInstance().registerActivityCallback(this.localClassName, this)
 
             setupViews()
+            bindToVoiceService()
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error setting up activity", e)
             finish()
@@ -132,7 +137,37 @@ class ChatbotActivity : AppCompatActivity(), Said.VoiceActivityCallback {
         }
     }
 
-    // ✅ VOICE COMMAND HANDLER - SCREENING, EMERGENCY, DAN DASHBOARD
+    private fun bindToVoiceService() { // <-- FUNGSI BARU
+        val intent = Intent(this, VoiceActivationService::class.java)
+        // BIND_AUTO_CREATE digunakan, tetapi Service seharusnya sudah di-start oleh Said.kt
+        bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+    }
+
+    private val serviceConnection = object : android.content.ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            try {
+                val binder = service as VoiceActivationService.VoiceServiceBinder
+                voiceService = binder.getService()
+                isBound = true
+                Log.d(TAG, "✅ V.A.S Connected in ChatbotActivity")
+
+                // Langsung Pause Service saat binding sukses, jika Service memang aktif
+                if (isVoiceServiceActive()) {
+                    voiceService?.pauseListening()
+                    Log.d(TAG, "🎤 V.A.S Paused immediately upon connection to free up mic.")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Error in V.A.S service connection", e)
+            }
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            voiceService = null
+            isBound = false
+            Log.d(TAG, "❌ V.A.S Disconnected in ChatbotActivity")
+        }
+    }
+
     override fun onVoiceCommand(command: String, extras: Bundle?): Boolean {
         Log.d(TAG, "🎤 Voice command received in Chatbot: $command")
         return when (command.toLowerCase()) {
@@ -155,7 +190,7 @@ class ChatbotActivity : AppCompatActivity(), Said.VoiceActivityCallback {
         }
     }
 
-    // ✅ NAVIGATION - UPDATE UNTUK SCREENING & EMERGENCY
+    // navigate
     override fun onNavigateTo(destination: String): Boolean {
         Log.d(TAG, "🧭 Navigation command in Chatbot: $destination")
         return when (destination.toLowerCase()) {
@@ -175,7 +210,6 @@ class ChatbotActivity : AppCompatActivity(), Said.VoiceActivityCallback {
         }
     }
 
-    // ✅ SUPPORTED COMMANDS - UPDATE DENGAN SCREENING & EMERGENCY
     override fun getSupportedCommands(): List<String> {
         return listOf(
             "tes stroke", "mulai screening", "screening", "mulai tes",
@@ -184,7 +218,7 @@ class ChatbotActivity : AppCompatActivity(), Said.VoiceActivityCallback {
         )
     }
 
-    // ✅ STROKE SCREENING - SAMA SEPERTI DI MAINACTIVITY
+    // navigating to screening
     private fun startStrokeScreening() {
         try {
             Log.d(TAG, "🏥 Starting stroke screening from Chatbot...")
@@ -212,7 +246,7 @@ class ChatbotActivity : AppCompatActivity(), Said.VoiceActivityCallback {
         }
     }
 
-    // ✅ EMERGENCY HANDLER - SAMA SEPERTI DI MAINACTIVITY
+    // navigasi to emergency
     private fun handleEmergencyFromVoice() {
         try {
             Log.d(TAG, "🚨 Emergency from voice command in Chatbot - starting EmergencyActivity")
@@ -229,7 +263,7 @@ class ChatbotActivity : AppCompatActivity(), Said.VoiceActivityCallback {
         }
     }
 
-    // ✅ EMERGENCY FALLBACK DIALOG - SAMA SEPERTI DI MAINACTIVITY
+    // fallback
     private fun showEmergencyFallbackDialog() {
         Log.d(TAG, "🚨 Emergency fallback in Chatbot - showing dialog")
 
@@ -237,7 +271,7 @@ class ChatbotActivity : AppCompatActivity(), Said.VoiceActivityCallback {
             .setTitle("🚨 Emergency Detected")
             .setMessage("Voice assistant detected emergency situation. Please manually open emergency features.")
             .setPositiveButton("Open Emergency") { _, _ ->
-                // Try to start EmergencyActivity again dengan approach berbeda
+                // Try to start EmergencyActivity again
                 try {
                     val intent = Intent(this, EmergencyActivity::class.java).apply {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -253,7 +287,7 @@ class ChatbotActivity : AppCompatActivity(), Said.VoiceActivityCallback {
             .show()
     }
 
-    // ✅ GET CURRENT USERNAME - SAMA SEPERTI DI MAINACTIVITY
+    // username for screening
     private fun getCurrentUsername(): String {
         return try {
             SessionManager.getUserName(this) ?: getFallbackUsername()
@@ -290,6 +324,7 @@ class ChatbotActivity : AppCompatActivity(), Said.VoiceActivityCallback {
         }
     }
 
+    //if username not found
     private fun saveUsernameToSessionManager(username: String) {
         try {
             // Jika user sudah login di Firebase, update SessionManager
@@ -315,9 +350,6 @@ class ChatbotActivity : AppCompatActivity(), Said.VoiceActivityCallback {
 
             // Cukup finish() karena MainActivity sudah default ke dashboard
             finish()
-
-            // Optional: smooth transition animation
-            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
 
             Log.d(TAG, "✅ Navigation to dashboard completed")
         } catch (e: Exception) {
@@ -642,19 +674,33 @@ class ChatbotActivity : AppCompatActivity(), Said.VoiceActivityCallback {
     }
 
     private fun pauseVoiceService() {
-        val intent = Intent(this, VoiceActivationService::class.java).apply {
-            action = VoiceActivationService.ACTION_STOP
+        if (isBound) {
+            // ✅ Panggil fungsi langsung pada objek Service yang terikat
+            voiceService?.pauseListening()
+            Log.d(TAG, "✅ Called pauseListening() via bound Service.")
+        } else {
+            Log.w(TAG, "⚠️ Binding not complete, cannot pause V.A.S directly.")
+            // Jika binding gagal, kirim intent sebagai fallback (opsional)
+            val intent = Intent(this, VoiceActivationService::class.java).apply {
+                action = VoiceActivationService.ACTION_PAUSE
+            }
+            startService(intent)
         }
-        startService(intent)
-        Log.d(TAG, "Sent ACTION_STOP to Voice Service.")
     }
 
     private fun resumeVoiceService() {
-        val intent = Intent(this, VoiceActivationService::class.java).apply {
-            action = VoiceActivationService.ACTION_START
+        if (isBound) {
+            // ✅ Panggil fungsi langsung pada objek Service yang terikat
+            voiceService?.resumeListening()
+            Log.d(TAG, "✅ Called resumeListening() via bound Service.")
+        } else {
+            // Fallback jika binding gagal
+            Log.w(TAG, "⚠️ Binding not complete, attempting to resume via ACTION_RESUME.")
+            val intent = Intent(this, VoiceActivationService::class.java).apply {
+                action = VoiceActivationService.ACTION_RESUME
+            }
+            ContextCompat.startForegroundService(this, intent)
         }
-        ContextCompat.startForegroundService(this, intent)
-        Log.d(TAG, "Sent ACTION_START to Voice Service to resume.")
     }
 
     // ---------------------------
@@ -777,10 +823,21 @@ class ChatbotActivity : AppCompatActivity(), Said.VoiceActivityCallback {
             Said.getInstance().unregisterActivityCallback(this.localClassName)
             stopWaveAnimation()
             speechRecognizer?.destroy()
+
+            if (isBound) {
+                if (wasVoiceServiceRunning) {
+                    voiceService?.resumeListening()
+                    Log.d(TAG, "🎤 Resumed Voice Service before unbinding.")
+                }
+                unbindService(serviceConnection)
+                isBound = false
+            }
+
             binding.rvMessages.removeCallbacks(null)
             if (isFinishing){
                 clearMessagesAndShowChips()
             }
+
             Log.d(TAG, "✅ ChatbotActivity cleaned up")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error in cleanup", e)

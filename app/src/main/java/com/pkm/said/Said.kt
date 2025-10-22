@@ -161,13 +161,15 @@ class Said : Application(), Application.ActivityLifecycleCallbacks {
 
     // Service control methods tetap sama...
     private fun startVoiceService() {
-        val intent = Intent(this, VoiceActivationService::class.java)
+        val intent = Intent(this, VoiceActivationService::class.java).apply{
+            action = VoiceActivationService.ACTION_START
+        }
         ContextCompat.startForegroundService(this, intent)
     }
 
     private fun stopVoiceService() {
         val intent = Intent(this, VoiceActivationService::class.java).apply {
-            action = VoiceActivationService.ACTION_CLEANUP
+            action = VoiceActivationService.ACTION_STOP
         }
         startService(intent)
     }

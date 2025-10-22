@@ -392,12 +392,21 @@ class PoseLandmarkerHelper(
         }
     }
 
+    /**
+     * Menganalisis metrik keseimbangan untuk tes mengangkat lutut, hanya menggunakan koordinat
+     * Pinggul (Hip) dan Lutut (Knee).
+     */
     private fun analyzeBalanceMetrics(pixelLandmarks: List<PixelLandmark>): BalanceMetrics {
-        Log.d(TAG, "🔍 analyzeBalanceMetrics: Input landmarks count = ${pixelLandmarks.size}")
+        Log.d(TAG, "🔍 analyzeBalanceMetrics: Starting Simplified Knee Lift Test Analysis (Hip-Knee Only)")
 
-        if (pixelLandmarks.size < RIGHT_KNEE + 1) {
-            Log.w(TAG, "❌ analyzeBalanceMetrics: Not enough landmarks detected!")
-            return BalanceMetrics(0f, 0f, 0f, false, false, false)
+        // Cek apakah semua landmark yang dibutuhkan tersedia: Hip dan Knee (23, 24, 25, 26)
+        if (pixelLandmarks.size < RIGHT_KNEE + 1) { // RIGHT_KNEE = 26
+            Log.w(TAG, "❌ analyzeBalanceMetrics: Not enough landmarks for Knee Lift Test!")
+            return BalanceMetrics(
+                leftLegStability = 0f, rightLegStability = 0f, overallStability = 0f, isBalanced = false,
+                leftKneeHigher = false, rightKneeHigher = false, isLeftKneeLifted = false,
+                isRightKneeLifted = false, requiredTestComplete = false
+            )
         }
 
         val leftHip = pixelLandmarks[LEFT_HIP]
@@ -405,54 +414,65 @@ class PoseLandmarkerHelper(
         val leftKnee = pixelLandmarks[LEFT_KNEE]
         val rightKnee = pixelLandmarks[RIGHT_KNEE]
 
-        // ✅ DEBUG: Log koordinat aktual
-        Log.d(TAG, "🔍 Hip-Knee Coordinates:")
-        Log.d(TAG, "🔍 Left - Hip: ${leftHip.y.toInt()}, Knee: ${leftKnee.y.toInt()}")
-        Log.d(TAG, "🔍 Right - Hip: ${rightHip.y.toInt()}, Knee: ${rightKnee.y.toInt()}")
+        // 1. Kriteria Ketinggian Lutut Terangkat
 
-        // Hitung perbedaan Y-axis (dalam pixels)
-        val leftDiffY = Math.abs(leftHip.y - leftKnee.y)
-        val rightDiffY = Math.abs(rightHip.y - rightKnee.y)
+        // Jarak vertikal Hip-Knee saat ini
+        val currentDeltaLeft = Math.abs(leftKnee.y - leftHip.y)
+        val currentDeltaRight = Math.abs(rightKnee.y - rightHip.y)
 
-        Log.d(TAG, "🔍 Y Differences - Left: ${leftDiffY.toInt()}px, Right: ${rightDiffY.toInt()}px")
+        // Tentukan "Jarak Normal" Vertikal Hip-Knee
+        // Kita gunakan asumsi range (150-350px) dari fungsi lama
+        // untuk mengaproksimasi jarak lutut normal (standing_distance) jika pose tidak lurus/valid.
+        // Jika lutut berada di bawah pinggul dan jaraknya cukup besar, kita gunakan jarak saat ini sebagai patokan normal.
+        val standingDistanceLeft = if (currentDeltaLeft > 150f && leftKnee.y > leftHip.y) currentDeltaLeft else 250f
+        val standingDistanceRight = if (currentDeltaRight > 150f && rightKnee.y > rightHip.y) currentDeltaRight else 250f
 
-        // ✅ PERBAIKAN: Tolerance yang lebih realistis untuk pose berdiri
-        // Untuk gambar 1088x1088, perbedaan normal adalah 200-400 pixels
-        val maxExpectedDiff = 500f // Maximum expected difference for standing pose
-        val minExpectedDiff = 100f // Minimum expected difference for standing pose
+        // Ambang batas lutut terangkat
+        // Jarak Hip-Knee harus kurang dari 40% dari Jarak Normal untuk dianggap terangkat/ditekuk tinggi
+        val liftThresholdLeft = standingDistanceLeft * KNEE_LIFT_THRESHOLD_RATIO
+        val liftThresholdRight = standingDistanceRight * KNEE_LIFT_THRESHOLD_RATIO
 
-        // Normalisasi stabilitas: 1.0 = ideal (200-300px), 0.0 = sangat tidak stabil
-        val leftStability = calculateNormalizedStability(leftDiffY, minExpectedDiff, maxExpectedDiff)
-        val rightStability = calculateNormalizedStability(rightDiffY, minExpectedDiff, maxExpectedDiff)
-        val overallStability = (leftStability + rightStability) / 2f
+        // Deteksi Lutut Terangkat:
+        // Lutut dianggap terangkat jika jarak vertikal saat ini JAUH lebih kecil dari jarak normal,
+        // yang berarti lutut sudah mendekati pinggul.
+        val isLeftKneeLifted = currentDeltaLeft < liftThresholdLeft
+        val isRightKneeLifted = currentDeltaRight < liftThresholdRight
 
-        // ✅ PERBAIKAN: Deteksi ketidakseimbangan berdasarkan perbedaan antara kiri dan kanan
-        val legBalanceDiff = Math.abs(leftDiffY - rightDiffY)
-        val isLegBalanced = legBalanceDiff < 100f // Perbedaan antara kaki < 100px
+        Log.i(TAG, "✅ LEFT: Normal H: ${standingDistanceLeft.toInt()}px, Threshold: ${liftThresholdLeft.toInt()}px, Current Delta: ${currentDeltaLeft.toInt()}px, Lifted: $isLeftKneeLifted")
+        Log.i(TAG, "✅ RIGHT: Normal H: ${standingDistanceRight.toInt()}px, Threshold: ${liftThresholdRight.toInt()}px, Current Delta: ${currentDeltaRight.toInt()}px, Lifted: $isRightKneeLifted")
 
-        // Deteksi jika lutut lebih tinggi dari pinggul (ini abnormal)
-        val leftKneeHigher = leftKnee.y < leftHip.y - 50f // Beri buffer 50px
-        val rightKneeHigher = rightKnee.y < rightHip.y - 50f
 
-        // ✅ PERBAIKAN: Kriteria keseimbangan yang lebih realistis
-        val isBalanced = overallStability > 0.5f && isLegBalanced && !leftKneeHigher && !rightKneeHigher
+        // 2. Kriteria Stabilitas (Berdiri Satu Kaki)
+        // Stabilitas diukur dari kedekatan vertikal Hip-Knee pada kaki yang menjadi tumpuan.
 
-        Log.d(TAG, "✅ analyzeBalanceMetrics - " +
-                "Stability: ${String.format("%.2f", overallStability)}, " +
-                "Balanced: $isBalanced, " +
-                "Leg Balance Diff: ${legBalanceDiff.toInt()}px")
+        val standingLegDelta = if (isLeftKneeLifted) currentDeltaRight else currentDeltaLeft // Fokus pada kaki yang menopang
+
+        // Gunakan fungsi normalisasi stabilitas yang Anda miliki (150f, 350f) untuk kaki yang berdiri
+        val stability = calculateNormalizedStability(standingLegDelta, 150f, 350f)
+
+        // Cek anomali/validitas: Lutut lebih tinggi dari pinggul (Y-knee < Y-hip) - ini harusnya terjadi saat diangkat
+        val leftKneeHigher = leftKnee.y < leftHip.y - ALIGNMENT_TOLERANCE_PX
+        val rightKneeHigher = rightKnee.y < rightHip.y - ALIGNMENT_TOLERANCE_PX
+
+        // Keseimbangan tercapai jika kaki yang berdiri stabil (stability > 0.5f) DAN salah satu lutut terangkat
+        val isBalanced = stability > 0.5f && (isLeftKneeLifted || isRightKneeLifted)
+
+        Log.d(TAG, "📊 analyzeBalanceMetrics: Standing Stability: ${String.format("%.2f", stability)}, Is Balanced: $isBalanced")
 
         return BalanceMetrics(
-            leftLegStability = leftStability,
-            rightLegStability = rightStability,
-            overallStability = overallStability,
-            isBalanced = isBalanced,
+            leftLegStability = stability,
+            rightLegStability = stability,
+            overallStability = stability,
+            isBalanced = isBalanced, // Stabilitas pose saat ini
             leftKneeHigher = leftKneeHigher,
-            rightKneeHigher = rightKneeHigher
+            rightKneeHigher = rightKneeHigher,
+            isLeftKneeLifted = isLeftKneeLifted,
+            isRightKneeLifted = isRightKneeLifted,
+            requiredTestComplete = false // Tetap di-manage di layer Fragment/Activity
         )
     }
 
-    // ✅ FUNGSI BARU: Normalisasi stabilitas berdasarkan range yang expected
+    // ✅ FUNGSI NORMALISASI STABILITAS (DIJAGA DARI KODE ASLI)
     private fun calculateNormalizedStability(diffY: Float, minExpected: Float, maxExpected: Float): Float {
         // Ideal range: 150-350 pixels (bisa disesuaikan)
         val idealMin = 150f
@@ -796,6 +816,8 @@ class PoseLandmarkerHelper(
 
         const val DELEGATE_CPU = 0
         const val DELEGATE_GPU = 1
+        // Rasio jarak Hip-Knee saat lutut terangkat. Jika jarak Hip-Knee < 40% dari jarak normal, dianggap terangkat.
+        const val KNEE_LIFT_THRESHOLD_RATIO = 0.40f
         const val DEFAULT_POSE_DETECTION_CONFIDENCE = 0.5F
         const val DEFAULT_POSE_TRACKING_CONFIDENCE = 0.5F
         const val DEFAULT_POSE_PRESENCE_CONFIDENCE = 0.5F
@@ -814,6 +836,9 @@ class PoseLandmarkerHelper(
         val isBalanced: Boolean,
         val leftKneeHigher: Boolean,
         val rightKneeHigher: Boolean,
+        val isLeftKneeLifted: Boolean, // NEW: Indikasi lutut kiri terangkat
+        val isRightKneeLifted: Boolean, // NEW: Indikasi lutut kanan terangkat
+        val requiredTestComplete: Boolean, // Di-manage di Fragment/Activity pemanggil
         val timestamp: Long = System.currentTimeMillis()
     )
 

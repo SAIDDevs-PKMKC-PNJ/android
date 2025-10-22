@@ -174,9 +174,6 @@ class MainActivity : AppCompatActivity(), NavigationCallback, Said.VoiceActivity
             // ✅ CEK SERVICE YANG SUDAH JALAN
             checkAndConnectToExistingService()
 
-            // Handle incoming intent actions
-            handleVoiceIntent(intent)
-
             currentUsername = getCurrentUsername()
             simulateLoginSuccess()
 
@@ -257,7 +254,6 @@ class MainActivity : AppCompatActivity(), NavigationCallback, Said.VoiceActivity
         super.onNewIntent(intent)
         Log.d(TAG, "🔄 onNewIntent called!")
         setIntent(intent)
-        handleVoiceIntent(intent)
     }
 
     //legacy untuk picovoice
@@ -287,7 +283,7 @@ class MainActivity : AppCompatActivity(), NavigationCallback, Said.VoiceActivity
         Log.d(TAG, "🎤 Voice command received: $command")
         return when (command.toLowerCase()) {
             // SCREENING - gunakan fungsi existing startStrokeScreening()
-            "tes stroke", "mulai screening", "screening" -> {
+            "mulai tes", "mulai screening", "screening", "tes" -> {
                 startStrokeScreening()
                 true
             }
@@ -332,46 +328,6 @@ class MainActivity : AppCompatActivity(), NavigationCallback, Said.VoiceActivity
             Log.e(TAG, "❌ Failed to start EmergencyActivity, using fallback", e)
             // Fallback ke dialog emergency
             showEmergencyFallbackDialog()
-        }
-    }
-
-    private fun handleVoiceIntent(intent: Intent?) {
-        intent ?: return
-        Log.d(TAG, "🎤 Handling voice intent: ${intent.action}")
-
-        when (intent.action) {
-            "START_SCREENING" -> {
-                Log.d(TAG, "🏥 Voice intent - Start screening")
-                startStrokeScreening()
-            }
-            "DAILY_REMINDER_OPEN" -> {
-                Log.d(TAG, "📅 App opened from daily reminder")
-                val autoStartScreening = intent.getBooleanExtra("auto_start_screening", false)
-                if (autoStartScreening) {
-                    mainHandler.postDelayed({
-                        if (!isFinishing && !isDestroyed) {
-                            Toast.makeText(this, "⏰ Daily screening time!", Toast.LENGTH_LONG)
-                                .show()
-                            startStrokeScreening()
-                        }
-                    }, 2000)
-                }
-            }
-            "EMERGENCY_CALL" -> {
-                Log.d(TAG, "🚨 Emergency intent - using new handler")
-                handleEmergencyFromVoice()
-            }
-            else -> {
-                Log.d(TAG, "❓ Unknown voice intent action: ${intent.action}")
-                if (intent.getBooleanExtra("from_voice_service", false)) {
-                    val targetFragment = intent.getStringExtra("target_fragment")
-                    when (targetFragment) {
-                        "screening" -> startStrokeScreening()
-                        "emergency" -> handleEmergencyFromVoice()
-                        "dashboard" -> navigateToDashboard()
-                    }
-                }
-            }
         }
     }
 
@@ -582,6 +538,7 @@ class MainActivity : AppCompatActivity(), NavigationCallback, Said.VoiceActivity
                     // Jika di tab lain, coba pop backstack ke Dashboard.
                     if (!navController.popBackStack(startDestId, false)) {
                         Log.d(TAG, "Failed to pop back to Dashboard, minimizing.")
+                        stopVoiceServiceFromActivity()
                         minimizeApp()
                     } else {
                         Log.d(TAG, "Popped back to Dashboard successfully.")
@@ -667,6 +624,19 @@ class MainActivity : AppCompatActivity(), NavigationCallback, Said.VoiceActivity
             }
 
             triggerEmergencyPermissionRequest()
+        }
+    }
+
+    private fun stopVoiceServiceFromActivity() {
+        val intent = Intent(this, VoiceActivationService::class.java).apply {
+            // Gunakan ACTION_STOP yang Anda tetapkan untuk penghentian non-permanen
+            action = VoiceActivationService.ACTION_STOP
+        }
+        try {
+            stopService(intent) // Memberi tahu Service untuk mematikan dirinya
+            Log.d(TAG, "✅ Explicitly sent ACTION_STOP to Voice Service.")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error stopping service from MainActivity", e)
         }
     }
 

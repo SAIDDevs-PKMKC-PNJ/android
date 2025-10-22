@@ -1,5 +1,6 @@
 package com.pkm.said.screening
 
+import android.R
 import android.content.Context
 import android.util.Log
 import androidx.core.content.edit
@@ -22,6 +23,7 @@ data class ScreeningResult(
     val faceResult: TestResult? = null,         // F - Face
     val armsResult: TestResult? = null,         // A - Arms
 //    val speechResult: TestResult? = null,
+    val city: String? = null,
     val overallRisk: RiskLevel = RiskLevel.UNKNOWN,
     val isCompleted: Boolean = false,
     val completedAt: Timestamp? = null,
@@ -63,6 +65,7 @@ private data class ScreeningResultCache(
     val faceResult: TestResult? = null,
     val armsResult: TestResult? = null,
 //    val speechResult: TestResult? = null,
+    val city: String? = null,
     val overallRisk: RiskLevel = RiskLevel.UNKNOWN,
     val isCompleted: Boolean = false,
     val completedAtText: String? = null
@@ -77,6 +80,7 @@ private fun ScreeningResult.toCache() = ScreeningResultCache(
     faceResult = faceResult,
     armsResult = armsResult,
 //    speechResult =  speechResult,
+    city = city,
     overallRisk = overallRisk,
     isCompleted = isCompleted,
     completedAtText = completedAtText ?: completedAt?.toDate()?.let {
@@ -93,6 +97,7 @@ private fun ScreeningResultCache.toDomain() = ScreeningResult(
     faceResult = faceResult,
     armsResult = armsResult,
 //    speechResult =  speechResult,
+    city = city,
     overallRisk = overallRisk,
     isCompleted = isCompleted,
     completedAt = null,
@@ -189,7 +194,7 @@ object ScreeningDataManager {
     }
 
     /** Selesaikan sesi - HANYA LOKAL, siap untuk dikirim ke Firestore */
-    fun completeSession(context: Context): ScreeningResult? {
+    fun completeSession(context: Context, city: String? = null): ScreeningResult? {
         val session = getCurrentSession(context) ?: return null
 
         // Validasi: semua tes harus selesai
@@ -198,7 +203,17 @@ object ScreeningDataManager {
             return null
         }
 
+        val errorValues = setOf("not permitted", "location null", "location error", "getting location...")
+
+        // Tentukan nilai kota final
+        val finalCity = if (city.isNullOrBlank() || errorValues.contains(city.lowercase())) {
+            "SAID"
+        } else {
+            city
+        }
+
         val completedSession = session.copy(
+            city = finalCity,
             isCompleted = true,
             overallRisk = calculateBEFASTRisk(session),
             completedAt = getCurrentTimestampTs(),

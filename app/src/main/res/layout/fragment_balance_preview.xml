@@ -135,7 +135,6 @@
                         android:textColor="@color/BluePrimary"
                         android:layout_marginBottom="16dp" />
 
-                    <!-- Instruction 1 - YANG DIUBAH -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -154,13 +153,12 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Letakkan ponsel setinggi DADA, kamera depan menghadap Anda. Jarak 1-1.5 meter. TIDAK PERLU kaki sampai bawah terlihat."
+                            android:text="Letakkan ponsel setinggi DADA, kamera depan menghadap Anda. Jarak 1-1.5 meter. Pastikan bagian PINGGUL hingga LUTUT Anda terlihat jelas."
                             android:textSize="14sp"
                             android:textColor="@color/black"
                             android:lineSpacingExtra="2dp" />
                     </LinearLayout>
 
-                    <!-- Instruction 2 - YANG DIUBAH -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -179,13 +177,12 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Perhatikan overlay: titik BIRU (pinggul) dan HIJAU (lutut) harus terlihat. Sistem akan otomatis mulai ketika pose terdeteksi."
+                            android:text="Setelah hitung mundur, Anda harus mengangkat LUTUT KIRI dan LUTUT KANAN (secara bergantian) hingga setinggi mungkin. Sistem akan otomatis mulai ketika pose berdiri terdeteksi."
                             android:textSize="14sp"
                             android:textColor="@color/black"
                             android:lineSpacingExtra="2dp" />
                     </LinearLayout>
 
-                    <!-- Instruction 3 -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -204,13 +201,12 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Tes hanya 5 detik setelah pose terkunci. Tetap DIAM sempurna selama tes berjalan."
+                            android:text="Tes selesai **SEGERA** setelah kedua lutut Anda terdeteksi terangkat. Anda memiliki waktu maksimum 10 detik untuk menyelesaikan."
                             android:textSize="14sp"
                             android:textColor="@color/black"
                             android:lineSpacingExtra="2dp" />
                     </LinearLayout>
 
-                    <!-- Instruction 4 -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"

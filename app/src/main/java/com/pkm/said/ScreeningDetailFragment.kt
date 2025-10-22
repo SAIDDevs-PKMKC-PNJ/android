@@ -133,8 +133,8 @@ class ScreeningDetailFragment : Fragment() {
         binding.tvDate.text = dateStr
         binding.tvDateTime.text = timeStr
 
-        // Lokasi dummy (bisa diisi dari testData kalau ada)
-        binding.tvLocation.text = "Jakarta"
+        // Gunakan city dari ScreeningResult. Jika null (misal dari data lama), fallback ke "SAID"
+        binding.tvLocation.text = result.city ?: "SAID"
 
         // Body
         binding.progressBar.max = 100

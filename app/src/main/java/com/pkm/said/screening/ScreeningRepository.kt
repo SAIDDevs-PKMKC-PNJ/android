@@ -51,6 +51,7 @@ object ScreeningRepository {
                 "isCompleted" to true,
                 "overallRisk" to session.overallRisk.name,
                 "overallScore" to ScreeningDataManager.calculateBEFASTOverallPercent(session) / 100.0,
+                "city" to session.city,
 
                 // Semua hasil tes disimpan sekaligus
                 "tests" to mapOf(
@@ -128,7 +129,8 @@ object ScreeningRepository {
                         completedAt = data["completedAt"] as? com.google.firebase.Timestamp,
                         completedAtText = (data["completedAt"] as? com.google.firebase.Timestamp)?.toDate()?.let {
                             SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(it)
-                        }
+                        },
+                        city = data["city"] as? String
                     )
                 } catch (e: Exception) {
                     Log.e(TAG, "Error parsing document ${doc.id}: ${e.message}")

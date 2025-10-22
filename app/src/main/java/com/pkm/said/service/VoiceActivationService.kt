@@ -37,6 +37,7 @@ class VoiceActivationService : Service() {
     private var textToSpeech: TextToSpeech? = null
     private var isTtsReady = false
     private var isServiceRunning = false
+    private var isPaused = false
     private var isInitialized = false
 
 //    private var emergencyResponseTimer: CountDownTimer? = null
@@ -53,6 +54,8 @@ class VoiceActivationService : Service() {
         // Actions untuk control service
         const val ACTION_START = "START_VOICE_SERVICE"
         const val ACTION_STOP = "STOP_VOICE_SERVICE"
+        const val ACTION_PAUSE = "PAUSE_VOICE_SERVICE"
+        const val ACTION_RESUME = "RESUME_VOICE_SERVICE"
         const val ACTION_CLEANUP = "CLEANUP_VOICE_SERVICE"
         const val ACTION_TOGGLE = "TOGGLE_VOICE_SERVICE"
     }
@@ -105,7 +108,7 @@ class VoiceActivationService : Service() {
                     isTtsReady = true
                     Log.d(TAG, "TTS initialized successfully with final language: ${textToSpeech?.language}")
 
-                    textToSpeech?.setSpeechRate(0.9f)
+                    textToSpeech?.setSpeechRate(1.1f)
                     textToSpeech?.setPitch(1.0f)
                 } else {
                     Log.e(TAG, "TTS initialization failed: No supported language found.")
@@ -153,8 +156,8 @@ class VoiceActivationService : Service() {
         Log.d(TAG, "Service onStartCommand: ${intent?.action}")
 
         when (intent?.action) {
-            ACTION_START -> startVoiceService()
-            ACTION_STOP -> stopVoiceService()
+            ACTION_START, ACTION_RESUME -> startVoiceService() // <-- Keduanya memanggil start penuh
+            ACTION_STOP, ACTION_PAUSE -> stopVoiceService()
             ACTION_TOGGLE -> toggleVoiceService()
             ACTION_CLEANUP -> cleanupAndStopService()
             else -> {
@@ -165,7 +168,7 @@ class VoiceActivationService : Service() {
             }
         }
 
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
     //fitur legacy dengan picovoice
@@ -272,12 +275,6 @@ class VoiceActivationService : Service() {
         recognizerIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
-            // Opsi: Coba mode offline untuk mengurangi penggunaan data, tetapi akurasi bisa turun.
-            // putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
-
-            // Coba fitur continuous (tidak didukung secara resmi di semua versi/provider)
-            // putExtra(RecognizerIntent.EXTRA_ENDPOINTER_SILENCE_TIMEOUT, 500)
-            // putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1000)
         }
 
         isInitialized = true
@@ -330,6 +327,26 @@ class VoiceActivationService : Service() {
         sendBroadcast(intent)
     }
 
+    fun pauseListening() {
+        if (!isPaused) {
+            isPaused = true
+            speechRecognizer?.cancel()
+            speechRecognizer?.destroy()
+            speechRecognizer = null // Set ke null
+            Log.d(TAG, "🎤 V.A.S. Fully STOPPED/DESTROYED to release mic.")
+            updateNotification("Paused")
+        }
+    }
+
+    fun resumeListening() {
+        if (isPaused) {
+            isPaused = false
+            initializeSpeechRecognizer()
+            startListening()
+            Log.d(TAG, "🎤 V.A.S. Fully RESTARTED/RE-INITIATED to regain mic.")
+        }
+    }
+
 
     private fun startVoiceService() {
         if (isServiceRunning) {
@@ -353,6 +370,7 @@ class VoiceActivationService : Service() {
         }
     }
 
+    @Suppress("DEPRECATION")
     private fun stopVoiceService() {
         if (!isServiceRunning) {
             Log.d(TAG, "Service not running")
@@ -363,9 +381,12 @@ class VoiceActivationService : Service() {
             //legacy untuk picovoice
 //            picovoiceManager.stop()
             speechRecognizer?.cancel()
+            speechRecognizer?.destroy()
+            speechRecognizer = null
             isServiceRunning = false
 
             stopForeground(true)
+            stopSelf()
             broadcastServiceState(false)
 
             Log.d(TAG, "Voice service stopped")
@@ -382,6 +403,7 @@ class VoiceActivationService : Service() {
         }
     }
 
+    @Suppress("DEPRECATION")
     private fun cleanupAndStopService() {
         Log.d(TAG, "Performing complete cleanup before logout/account deletion")
 
@@ -438,7 +460,7 @@ class VoiceActivationService : Service() {
                     "screening"
                 }
                 command.contains("darurat") || command.contains("emergency") -> {
-                    speak("Membuka mode darurat", 300)
+//                    speak("Membuka mode darurat", 300)
                     "emergency"
                 }
                 command.contains("dashboard") || command.contains("home") -> {
@@ -455,7 +477,7 @@ class VoiceActivationService : Service() {
             showActionNotification("Perintah tidak dikenali: $command", "error")
 
             if (!command.contains("hi said") && !command.contains("halo said")) {
-                speak("Maaf, perintah tidak dikenali", 500)
+                Log.d(TAG, "Not responding to a simple greeting since no command was given.")
             }
         }
 
